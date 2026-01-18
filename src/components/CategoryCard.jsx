@@ -1,15 +1,35 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Heart, Camera, Images, Settings } from 'lucide-react';
+import CategorySettingsDropdown from './Modals/CategorySettingsDropdown';
 
 export default function CategoryCard({ 
   category, 
   onOpen, 
   onToggleFavorite, 
-  onUploadImages, 
-  onShowSettings 
+  onUploadImages,
+  onEditSettings,
+  onUploadCover,
+  onDelete
 }) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDropdown]);
+
   return (
-    <div className="bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow relative">
+    <div className="bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-shadow relative">
       {category.cover ? (
         <>
           <button
@@ -32,7 +52,7 @@ export default function CategoryCard({
             <img
               src={category.cover}
               alt={category.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-t-xl"
             />
             {category.images.length > 0 && (
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all" />
@@ -40,7 +60,7 @@ export default function CategoryCard({
           </div>
         </>
       ) : (
-        <div className="bg-gray-700 py-6 md:py-8 flex items-center justify-center gap-2 md:gap-3 aspect-[4/3]">
+        <div className="bg-gray-700 py-6 md:py-8 flex items-center justify-center gap-2 md:gap-3 aspect-[4/3] rounded-t-xl">
           <Camera size={20} className="text-gray-400 md:w-6 md:h-6" />
           <span className="text-gray-400 font-medium text-sm md:text-base">No Cover Photo</span>
         </div>
@@ -107,12 +127,42 @@ export default function CategoryCard({
             </div>
           </label>
 
-          <button
-            onClick={() => onShowSettings(category.id)}
-            className="absolute bottom-1 right-1 md:bottom-2 md:right-2 p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
-          >
-            <Settings size={16} className="text-gray-300 md:w-5 md:h-5" />
-          </button>
+          {/* Settings button with dropdown - SIMPLE RELATIVE POSITIONING */}
+          <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDropdown(!showDropdown);
+                }}
+                className="p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors relative z-10"
+              >
+                <Settings size={16} className="text-gray-300 md:w-5 md:h-5" />
+              </button>
+
+              {/* Dropdown positioned absolutely relative to this wrapper */}
+              {showDropdown && (
+                <div className="absolute top-full right-0 mt-2 z-50">
+                  <CategorySettingsDropdown
+                    category={category}
+                    onEditSettings={(catId) => {
+                      onEditSettings(catId);
+                      setShowDropdown(false);
+                    }}
+                    onUploadCover={(e, catId) => {
+                      onUploadCover(e, catId);
+                      setShowDropdown(false);
+                    }}
+                    onDelete={(catId) => {
+                      onDelete(catId);
+                      setShowDropdown(false);
+                    }}
+                    onClose={() => setShowDropdown(false)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,10 @@ export default function CategorySettingsDropdown({
   onClose
 }) {
   return (
-    <div className="absolute bottom-14 right-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden z-10 min-w-[180px]">
+    <div 
+      className="bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px]"
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         onClick={() => {
           onEditSettings(category.id);
