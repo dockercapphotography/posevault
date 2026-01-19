@@ -38,6 +38,8 @@ export default function ImageCard({
     longPressTriggeredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
       longPressTriggeredRef.current = true;
+      // Prevent context menu
+      e.preventDefault();
       // Trigger haptic feedback if available
       if (navigator.vibrate) {
         navigator.vibrate(50);
@@ -85,6 +87,8 @@ export default function ImageCard({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         className={`w-full h-full object-cover rounded-lg cursor-pointer transition-all ${
           bulkSelectMode
             ? isSelected

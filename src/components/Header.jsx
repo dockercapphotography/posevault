@@ -56,7 +56,7 @@ export default function Header({
                 className="bg-blue-600 hover:bg-blue-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
               >
                 <Upload size={16} className="md:w-5 md:h-5" />
-                <span>Add</span>
+                <span className="hidden md:inline">Add</span>
               </div>
             </label>
           )}

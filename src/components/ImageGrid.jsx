@@ -77,7 +77,7 @@ export default function ImageGrid({
         {/* Combined Filter Button */}
         <button
           onClick={onShowTagFilter}
-          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-2 md:px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer relative ${
             selectedTagFilters && selectedTagFilters.length > 0
               ? 'bg-purple-600 hover:bg-purple-700'
               : 'bg-gray-700 hover:bg-gray-600'
@@ -89,17 +89,17 @@ export default function ImageGrid({
               ? `Filter (${selectedTagFilters.length})`
               : 'Filter & Sort'}
           </span>
-          <span className="md:hidden">
-            {selectedTagFilters && selectedTagFilters.length > 0
-              ? `(${selectedTagFilters.length})`
-              : 'Filter'}
-          </span>
+          {selectedTagFilters && selectedTagFilters.length > 0 && (
+            <span className="md:hidden absolute -top-1 -right-1 bg-white text-purple-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {selectedTagFilters.length}
+            </span>
+          )}
         </button>
 
         {/* Bulk Select Button */}
         <button
           onClick={onToggleBulkSelect}
-          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-2 md:px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
             bulkSelectMode
               ? 'bg-orange-600 hover:bg-orange-700'
               : 'bg-gray-700 hover:bg-gray-600'
@@ -107,7 +107,6 @@ export default function ImageGrid({
         >
           <CheckSquare size={20} />
           <span className="hidden md:inline">{bulkSelectMode ? 'Cancel' : 'Bulk Select'}</span>
-          <span className="md:hidden">{bulkSelectMode ? 'Cancel' : 'Select'}</span>
         </button>
 
         {/* Bulk Edit Button (shown when images selected) */}
