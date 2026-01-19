@@ -159,7 +159,7 @@ export default function ImageCard({
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className="absolute right-0 mt-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20">
+              <div className="absolute left-0 md:left-auto md:right-0 mt-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20">
                 {image.tags && image.tags.length > 0 && (
                   <button
                     onClick={(e) => {
