@@ -12,7 +12,7 @@ import NewCategoryModal from './components/Modals/NewCategoryModal';
 import CategorySettingsModal from './components/Modals/CategorySettingsModal';
 import DeleteConfirmModal from './components/Modals/DeleteConfirmModal';
 import ImageEditModal from './components/Modals/ImageEditModal';
-import TagFilterModal from './components/Modals/TagFilterModal';
+import FilterModal from './components/Modals/FilterModal';
 import BulkEditModal from './components/Modals/BulkEditModal';
 
 // Hooks & Utils
@@ -265,8 +265,10 @@ export default function PhotographyPoseGuide() {
       <Header
         viewMode={viewMode}
         categoryName={category?.name}
+        categoryId={category?.id}
         onBack={handleBack}
         onAddCategory={() => setShowNewCategoryModal(true)}
+        onUploadPoses={handleImagesUpload}
         onLogout={handleLogout}
       />
 
@@ -398,13 +400,20 @@ export default function PhotographyPoseGuide() {
       })()}
 
       {showTagFilterModal && category && (
-        <TagFilterModal
+        <FilterModal
+          sortBy={sortBy}
+          showFavoritesOnly={showFavoritesOnly}
           categoryTags={categoryTags}
           selectedTagFilters={selectedTagFilters}
           tagFilterMode={tagFilterMode}
+          onSetSortBy={handleSetSortBy}
           onSetFilterMode={setTagFilterMode}
           onToggleTag={handleToggleTag}
-          onClearFilters={() => setSelectedTagFilters([])}
+          onClearFilters={() => {
+            setSelectedTagFilters([]);
+            setSortBy('dateAdded');
+            setShowFavoritesOnly(false);
+          }}
           onClose={() => setShowTagFilterModal(false)}
         />
       )}

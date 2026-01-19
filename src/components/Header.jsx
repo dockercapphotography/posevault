@@ -1,12 +1,14 @@
 import React from 'react';
-import { ChevronLeft, Plus, LogOut } from 'lucide-react';
+import { ChevronLeft, Plus, Upload, LogOut } from 'lucide-react';
 
-export default function Header({ 
-  viewMode, 
-  categoryName, 
-  onBack, 
-  onAddCategory, 
-  onLogout 
+export default function Header({
+  viewMode,
+  categoryName,
+  categoryId,
+  onBack,
+  onAddCategory,
+  onUploadPoses,
+  onLogout
 }) {
   return (
     <div className="bg-gray-800 border-b border-gray-700 p-3 md:p-4">
@@ -34,6 +36,29 @@ export default function Header({
               <span className="hidden sm:inline">Add Category</span>
               <span className="sm:hidden">Add</span>
             </button>
+          )}
+          {viewMode === 'grid' && onUploadPoses && (
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => onUploadPoses(e, categoryId)}
+                className="hidden"
+                id="header-upload-poses"
+              />
+              <div
+                onClick={(e) => {
+                  e.preventDefault();
+                  const input = document.getElementById('header-upload-poses');
+                  if (input) input.click();
+                }}
+                className="bg-blue-600 hover:bg-blue-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
+              >
+                <Upload size={16} className="md:w-5 md:h-5" />
+                <span>Add</span>
+              </div>
+            </label>
           )}
           <button
             onClick={onLogout}
