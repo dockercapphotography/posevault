@@ -18,6 +18,7 @@ export default function SingleImageView({
   const lastTouchDistanceRef = useRef(null);
   const lastTouchCenterRef = useRef(null);
   const panStartPositionRef = useRef({ x: 0, y: 0 });
+  const lastTapTimeRef = useRef(0);
 
   if (!image) return null;
 
@@ -60,16 +61,26 @@ export default function SingleImageView({
     }
   };
 
-  // Handle tap to toggle fullscreen
+  // Handle double-tap to toggle fullscreen
   const handleImageClick = (e) => {
-    // Only toggle fullscreen on single tap (not during pinch)
+    // Only toggle fullscreen on double tap (not during pinch)
     if (e.touches && e.touches.length > 1) return;
 
-    setIsFullscreen(!isFullscreen);
-    if (isFullscreen) {
-      // Reset zoom when exiting fullscreen
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
+    const currentTime = Date.now();
+    const timeSinceLastTap = currentTime - lastTapTimeRef.current;
+
+    // If less than 300ms since last tap, it's a double-tap
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      setIsFullscreen(!isFullscreen);
+      if (isFullscreen) {
+        // Reset zoom when exiting fullscreen
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+      }
+      lastTapTimeRef.current = 0; // Reset to prevent triple-tap from triggering
+    } else {
+      // First tap, just record the time
+      lastTapTimeRef.current = currentTime;
     }
   };
 
