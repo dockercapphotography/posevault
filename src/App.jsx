@@ -12,7 +12,7 @@ import NewCategoryModal from './components/Modals/NewCategoryModal';
 import CategorySettingsModal from './components/Modals/CategorySettingsModal';
 import DeleteConfirmModal from './components/Modals/DeleteConfirmModal';
 import ImageEditModal from './components/Modals/ImageEditModal';
-import TagFilterModal from './components/Modals/TagFilterModal';
+import FilterModal from './components/Modals/FilterModal';
 import BulkEditModal from './components/Modals/BulkEditModal';
 
 // Hooks & Utils
@@ -220,9 +220,25 @@ export default function PhotographyPoseGuide() {
     }
 
     bulkUpdateImages(currentCategory.id, selectedImages, bulkUpdates);
-    
+
     setBulkSelectMode(false);
     setSelectedImages([]);
+  };
+
+  const handleBulkDelete = () => {
+    if (!currentCategory) return;
+
+    // Sort indices in descending order to avoid index shifts during deletion
+    const sortedIndices = [...selectedImages].sort((a, b) => b - a);
+
+    // Delete each image
+    sortedIndices.forEach(index => {
+      deleteImage(currentCategory.id, index);
+    });
+
+    setBulkSelectMode(false);
+    setSelectedImages([]);
+    setShowBulkEditModal(false);
   };
 
   // Get current category data
@@ -265,8 +281,10 @@ export default function PhotographyPoseGuide() {
       <Header
         viewMode={viewMode}
         categoryName={category?.name}
+        categoryId={category?.id}
         onBack={handleBack}
         onAddCategory={() => setShowNewCategoryModal(true)}
+        onUploadPoses={handleImagesUpload}
         onLogout={handleLogout}
       />
 
@@ -328,6 +346,10 @@ export default function PhotographyPoseGuide() {
             if (currentImageIndex >= category.images.length - 1) {
               setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
             }
+          }}
+          onStartBulkSelect={(index) => {
+            setBulkSelectMode(true);
+            setSelectedImages([index]);
           }}
         />
       )}
@@ -398,13 +420,20 @@ export default function PhotographyPoseGuide() {
       })()}
 
       {showTagFilterModal && category && (
-        <TagFilterModal
+        <FilterModal
+          sortBy={sortBy}
+          showFavoritesOnly={showFavoritesOnly}
           categoryTags={categoryTags}
           selectedTagFilters={selectedTagFilters}
           tagFilterMode={tagFilterMode}
+          onSetSortBy={handleSetSortBy}
           onSetFilterMode={setTagFilterMode}
           onToggleTag={handleToggleTag}
-          onClearFilters={() => setSelectedTagFilters([])}
+          onClearFilters={() => {
+            setSelectedTagFilters([]);
+            setSortBy('dateAdded');
+            setShowFavoritesOnly(false);
+          }}
           onClose={() => setShowTagFilterModal(false)}
         />
       )}
@@ -416,6 +445,7 @@ export default function PhotographyPoseGuide() {
           allTags={allTags}
           onClose={() => setShowBulkEditModal(false)}
           onApply={handleBulkEdit}
+          onDelete={handleBulkDelete}
         />
       )}
     </div>

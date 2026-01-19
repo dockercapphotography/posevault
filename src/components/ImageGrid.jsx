@@ -1,9 +1,9 @@
 import React from 'react';
-import { Upload, Heart, Grid3x3, ChevronDown, Filter, CheckSquare, FileText, Images } from 'lucide-react';
+import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images, Upload } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
 
-export default function ImageGrid({ 
+export default function ImageGrid({
   category,
   images,
   originalImages,
@@ -25,7 +25,8 @@ export default function ImageGrid({
   onImageClick,
   onToggleFavorite,
   onEditImage,
-  onDeleteImage
+  onDeleteImage,
+  onStartBulkSelect
 }) {
   const gridColsClass = getGridColsClass(gridColumns);
 
@@ -73,93 +74,52 @@ export default function ImageGrid({
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="cursor-pointer inline-block">
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => onUploadImages(e, category.id)}
-            className="hidden"
-            id="upload-more-poses"
-          />
-          <div 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const input = document.getElementById('upload-more-poses');
-              if (input) input.click();
-            }}
-            className="px-4 py-2 rounded-lg inline-flex items-center gap-2 text-white cursor-pointer"
-            style={{
-              background: 'linear-gradient(to right, #2563eb, #3b82f6)',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-              transition: 'all 0.2s ease-in-out'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, #1d4ed8, #2563eb)';
-              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, #2563eb, #3b82f6)';
-              e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-            }}
-          >
-            <Upload size={20} />
-            <span>Add More Poses</span>
-          </div>
-        </label>
-
-        <select
-          value={showFavoritesOnly ? 'favoritesOnly' : sortBy}
-          onChange={(e) => onSetSortBy(e.target.value)}
-          className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-600"
+        {/* Combined Filter Button */}
+        <button
+          onClick={onShowTagFilter}
+          className={`px-2 md:px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer relative ${
+            selectedTagFilters && selectedTagFilters.length > 0
+              ? 'bg-purple-600 hover:bg-purple-700'
+              : 'bg-gray-700 hover:bg-gray-600'
+          }`}
         >
-          <option value="dateAdded">Newest First</option>
-          <option value="dateAddedOldest">Oldest First</option>
-          <option value="favorites">Favorites First</option>
-          <option value="favoritesOnly">Favorites Only</option>
-        </select>
-
-        {/* Tag Filter Button */}
-        {selectedTagFilters !== null && (
-          <button
-            onClick={onShowTagFilter}
-            className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
-              selectedTagFilters.length > 0
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-          >
-            <Filter size={20} />
-            <span>
-              {selectedTagFilters.length > 0
-                ? `${selectedTagFilters.length} Tag${selectedTagFilters.length > 1 ? 's' : ''}`
-                : 'Filter by Tags'}
+          <Filter size={20} />
+          <span className="hidden md:inline">
+            {selectedTagFilters && selectedTagFilters.length > 0
+              ? `Filter (${selectedTagFilters.length})`
+              : 'Filter & Sort'}
+          </span>
+          {selectedTagFilters && selectedTagFilters.length > 0 && (
+            <span className="md:hidden absolute -top-1 -right-1 bg-white text-purple-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {selectedTagFilters.length}
             </span>
-          </button>
-        )}
+          )}
+        </button>
 
         {/* Bulk Select Button */}
         <button
           onClick={onToggleBulkSelect}
-          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-2 md:px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
             bulkSelectMode
               ? 'bg-orange-600 hover:bg-orange-700'
               : 'bg-gray-700 hover:bg-gray-600'
           }`}
         >
-          <CheckSquare size={20} />
-          <span>{bulkSelectMode ? 'Cancel' : 'Bulk Select'}</span>
+          {bulkSelectMode ? <CopyX size={20} /> : <CopyCheck size={20} />}
+          <span className="hidden md:inline">{bulkSelectMode ? 'Cancel' : 'Bulk Select'}</span>
         </button>
 
         {/* Bulk Edit Button (shown when images selected) */}
         {bulkSelectMode && selectedImages.length > 0 && (
           <button
             onClick={onShowBulkEdit}
-            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-2 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-2 transition-colors cursor-pointer relative"
           >
-            <FileText size={20} />
-            <span>Edit {selectedImages.length} Image{selectedImages.length > 1 ? 's' : ''}</span>
+            <SquarePen size={20} />
+            <span className="hidden md:inline">Edit ({selectedImages.length})</span>
+            <span className="md:hidden absolute -top-1 -right-1 bg-white text-green-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {selectedImages.length}
+            </span>
           </button>
         )}
 
@@ -174,14 +134,14 @@ export default function ImageGrid({
           </button>
 
           {showGridDropdown && (
-            <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-10">
+            <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-10 min-w-[140px]">
               {[2, 3, 4].map(cols => (
                 <button
                   key={cols}
                   onClick={() => onSetGridColumns(cols)}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer ${
+                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer whitespace-nowrap ${
                     gridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
-                  }`}
+                  } ${cols === 4 ? 'hidden md:block' : ''}`}
                 >
                   {cols} Columns
                 </button>
@@ -213,6 +173,7 @@ export default function ImageGrid({
                 onToggleFavorite={onToggleFavorite}
                 onEdit={onEditImage}
                 onDelete={onDeleteImage}
+                onStartBulkSelect={onStartBulkSelect}
               />
             );
           })}

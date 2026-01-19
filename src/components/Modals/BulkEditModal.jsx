@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { X, Tag, FileText, Heart, Plus } from 'lucide-react';
+import { X, Tag, FileText, Heart, Plus, Trash2 } from 'lucide-react';
 
 export default function BulkEditModal({
   selectedCount,
   selectedImages,
   allTags,
   onClose,
-  onApply
+  onApply,
+  onDelete
 }) {
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [bulkTagsToAdd, setBulkTagsToAdd] = useState([]);
   const [bulkNotes, setBulkNotes] = useState('');
   const [bulkNotesMode, setBulkNotesMode] = useState('append');
   const [bulkFavoriteAction, setBulkFavoriteAction] = useState('noChange');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Extract unique existing tags from selected images
   const existingTags = React.useMemo(() => {
@@ -51,7 +53,7 @@ export default function BulkEditModal({
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Bulk Edit {selectedCount} Image{selectedCount > 1 ? 's' : ''}</h2>
+          <h2 className="text-xl font-bold">Bulk Edit {selectedCount} Pose{selectedCount > 1 ? 's' : ''}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
@@ -64,7 +66,7 @@ export default function BulkEditModal({
         <div className="mb-6">
           <label className="flex items-center gap-2 text-sm font-semibold mb-2">
             <Tag size={16} />
-            Add Tags to Selected Images
+            Add Tags to Selected Poses
           </label>
 
           <div className="relative">
@@ -226,6 +228,15 @@ export default function BulkEditModal({
         </div>
 
         {/* Action Buttons */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full mb-3 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+        >
+          <Trash2 size={20} />
+          Delete {selectedCount} Pose{selectedCount > 1 ? 's' : ''}
+        </button>
+
+        {/* Apply/Cancel Buttons */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -240,6 +251,43 @@ export default function BulkEditModal({
             Apply Changes
           </button>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-600 rounded-full">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Delete {selectedCount} Pose{selectedCount > 1 ? 's' : ''}?</h3>
+                  <p className="text-sm text-gray-400">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to permanently delete {selectedCount === 1 ? 'this pose' : `these ${selectedCount} poses`}?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onDelete();
+                    onClose();
+                  }}
+                  className="flex-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  Delete Poses
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
