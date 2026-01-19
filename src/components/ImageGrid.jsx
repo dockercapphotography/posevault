@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images } from 'lucide-react';
+import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images, Upload } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
 
