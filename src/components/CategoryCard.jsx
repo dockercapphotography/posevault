@@ -55,7 +55,7 @@ export default function CategoryCard({
               className="w-full h-full object-cover rounded-t-xl"
             />
             {category.images.length > 0 && (
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
             )}
           </div>
         </>
