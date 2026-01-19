@@ -60,7 +60,10 @@ export default function CategoryCard({
           </div>
         </>
       ) : (
-        <div className="bg-gray-700 py-6 md:py-8 flex items-center justify-center gap-2 md:gap-3 aspect-[4/3] rounded-t-xl">
+        <div
+          onClick={() => category.images.length > 0 && onOpen(category)}
+          className={`bg-gray-700 py-6 md:py-8 flex items-center justify-center gap-2 md:gap-3 aspect-[4/3] rounded-t-xl ${category.images.length > 0 ? 'cursor-pointer hover:bg-gray-600' : ''} transition-colors`}
+        >
           <Camera size={20} className="text-gray-400 md:w-6 md:h-6" />
           <span className="text-gray-400 font-medium text-sm md:text-base">No Cover Photo</span>
         </div>
