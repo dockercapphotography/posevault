@@ -430,9 +430,10 @@ export default function PhotographyPoseGuide() {
         />
       )}
 
-      {showBulkEditModal && (
+      {showBulkEditModal && currentCategory && (
         <BulkEditModal
           selectedCount={selectedImages.length}
+          selectedImages={selectedImages.map(index => currentCategory.images[index])}
           allTags={allTags}
           onClose={() => setShowBulkEditModal(false)}
           onApply={handleBulkEdit}

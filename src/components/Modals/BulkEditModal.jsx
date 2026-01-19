@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
 import { X, Tag, FileText, Heart, Plus } from 'lucide-react';
 
-export default function BulkEditModal({ 
+export default function BulkEditModal({
   selectedCount,
+  selectedImages,
   allTags,
-  onClose, 
-  onApply 
+  onClose,
+  onApply
 }) {
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [bulkTagsToAdd, setBulkTagsToAdd] = useState([]);
   const [bulkNotes, setBulkNotes] = useState('');
   const [bulkNotesMode, setBulkNotesMode] = useState('append');
   const [bulkFavoriteAction, setBulkFavoriteAction] = useState('noChange');
+
+  // Extract unique existing tags from selected images
+  const existingTags = React.useMemo(() => {
+    if (!selectedImages || selectedImages.length === 0) return [];
+    const tagSet = new Set();
+    selectedImages.forEach(image => {
+      if (image.tags && Array.isArray(image.tags)) {
+        image.tags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [selectedImages]);
 
   const handleApply = () => {
     onApply({
@@ -101,7 +114,23 @@ export default function BulkEditModal({
               </div>
             )}
           </div>
-          
+
+          {/* Existing tags section */}
+          {existingTags.length > 0 && (
+            <div className="mb-3">
+              <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                Existing tags
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {existingTags.map((tag, i) => (
+                  <span key={i} className="bg-gray-600 text-white px-3 py-1 rounded-full text-sm">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {bulkTagsToAdd.map((tag, i) => (
               <span key={i} className="bg-purple-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
