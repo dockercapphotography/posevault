@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical } from 'lucide-react';
+import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag } from 'lucide-react';
 
 export default function ImageCard({
   image,
@@ -14,6 +14,7 @@ export default function ImageCard({
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
   const menuRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
@@ -112,9 +113,9 @@ export default function ImageCard({
         </div>
       )}
       
-      {/* Tags overlay at bottom */}
+      {/* Tags overlay at bottom - hidden on mobile */}
       {image.tags && image.tags.length > 0 && !bulkSelectMode && (
-        <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+        <div className="hidden md:flex absolute bottom-2 left-2 right-2 flex-wrap gap-1">
           {image.tags.slice(0, 3).map((tag, i) => (
             <span key={i} className="bg-purple-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded">
               {tag}
@@ -159,6 +160,19 @@ export default function ImageCard({
             {/* Dropdown menu */}
             {showMenu && (
               <div className="absolute right-0 mt-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20">
+                {image.tags && image.tags.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTagsModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-white"
+                  >
+                    <Tag size={16} className="text-purple-400" />
+                    <span>View Tags</span>
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -220,6 +234,40 @@ export default function ImageCard({
                 Delete Pose
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tags Modal */}
+      {showTagsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={() => setShowTagsModal(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-purple-600 rounded-full">
+                <Tag size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Tags</h3>
+                <p className="text-sm text-gray-400">Pose {index + 1}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {image.tags && image.tags.length > 0 ? (
+                image.tags.map((tag, i) => (
+                  <span key={i} className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm">
+                    {tag}
+                  </span>
+                ))
+              ) : (
+                <p className="text-gray-400">No tags added yet</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowTagsModal(false)}
+              className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
