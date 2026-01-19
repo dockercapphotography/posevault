@@ -77,7 +77,7 @@ export default function CategoryGrid({
               onOpen={onOpenCategory}
               onToggleFavorite={onToggleFavorite}
               onUploadImages={onUploadImages}
-              onShowSettings={onShowSettings}
+              onEditSettings={onShowSettings}
             />
           ))}
         </div>
