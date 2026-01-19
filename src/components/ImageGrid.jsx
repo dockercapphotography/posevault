@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, FileText, Images } from 'lucide-react';
+import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
 
@@ -115,7 +115,7 @@ export default function ImageGrid({
             onClick={onShowBulkEdit}
             className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-2 transition-colors cursor-pointer relative"
           >
-            <FileText size={20} />
+            <SquarePen size={20} />
             <span className="hidden md:inline">Edit ({selectedImages.length})</span>
             <span className="md:hidden absolute -top-1 -right-1 bg-white text-green-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
               {selectedImages.length}

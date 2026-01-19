@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Trash2, FileText, CheckSquare, MoreVertical } from 'lucide-react';
+import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical } from 'lucide-react';
 
 export default function ImageCard({
   image,
@@ -166,7 +166,7 @@ export default function ImageCard({
                   }}
                   className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-white"
                 >
-                  <FileText size={16} className="text-blue-400" />
+                  <SquarePen size={16} className="text-blue-400" />
                   <span>Edit Pose Details</span>
                 </button>
                 <button
