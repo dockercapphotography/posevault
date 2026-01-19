@@ -75,7 +75,7 @@ export default function ImageCard({
               e.stopPropagation();
               onEdit(index);
             }}
-            className="absolute top-2 right-12 bg-blue-600 hover:bg-blue-700 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            className="absolute top-2 right-12 bg-blue-600 hover:bg-blue-700 p-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
           >
             <FileText size={16} />
           </button>
@@ -84,7 +84,7 @@ export default function ImageCard({
               e.stopPropagation();
               onDelete(index);
             }}
-            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 p-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
           >
             <Trash2 size={16} />
           </button>
