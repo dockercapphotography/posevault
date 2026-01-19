@@ -62,7 +62,7 @@ export default function ImageEditModal({
           <h2 className="text-xl font-bold">Edit Pose Details</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -111,12 +111,12 @@ export default function ImageEditModal({
               />
               <button
                 onClick={() => handleAddTag(tagInput)}
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 <Plus size={20} />
               </button>
             </div>
-            
+
             {/* Autocomplete Suggestions Dropdown */}
             {tagInput && suggestions.length > 0 && (
               <div className="absolute z-10 w-full bg-gray-700 rounded-lg shadow-xl border border-gray-600 max-h-48 overflow-y-auto mb-2">
@@ -124,7 +124,7 @@ export default function ImageEditModal({
                   <button
                     key={i}
                     onClick={() => handleAddTag(tag)}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-600 transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <Tag size={14} className="text-purple-400" />
                     <span>{tag}</span>
@@ -133,7 +133,7 @@ export default function ImageEditModal({
               </div>
             )}
           </div>
-          
+
           {/* Existing Tags */}
           <div className="flex flex-wrap gap-2 mb-3">
             {localTags.length > 0 ? (
@@ -142,7 +142,7 @@ export default function ImageEditModal({
                   {tag}
                   <button
                     onClick={() => handleRemoveTag(i)}
-                    className="hover:bg-purple-700 rounded-full p-0.5"
+                    className="hover:bg-purple-700 rounded-full p-0.5 cursor-pointer"
                   >
                     <X size={14} />
                   </button>
@@ -172,13 +172,13 @@ export default function ImageEditModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSaveNotes}
-            className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+            className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             Save
           </button>

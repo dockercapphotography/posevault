@@ -26,7 +26,7 @@ export default function CategoryGrid({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           onClick={onToggleShowFavorites}
-          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors ${
+          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
             showFavoriteCategoriesOnly
               ? 'bg-red-600 hover:bg-red-700'
               : 'bg-gray-700 hover:bg-gray-600'
@@ -39,20 +39,20 @@ export default function CategoryGrid({
         <div className="relative ml-auto" ref={categoryDropdownRef}>
           <button
             onClick={onToggleGridDropdown}
-            className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors"
+            className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Grid3x3 size={20} />
             <span className="hidden md:inline">{categoryGridColumns} Columns</span>
             <ChevronDown size={16} className="hidden md:inline" />
           </button>
-          
+
           {showCategoryGridDropdown && (
             <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-10">
               {[2, 3, 4].map(cols => (
                 <button
                   key={cols}
                   onClick={() => onSetGridColumns(cols)}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors ${
+                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer ${
                     categoryGridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
                   }`}
                 >

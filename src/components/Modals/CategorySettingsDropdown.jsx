@@ -18,7 +18,7 @@ export default function CategorySettingsDropdown({
           onEditSettings(category.id);
           onClose();
         }}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2"
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
       >
         <FileText size={16} />
         <span>Edit Name & Notes</span>
@@ -43,7 +43,7 @@ export default function CategorySettingsDropdown({
           onDelete(category.id);
           onClose();
         }}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 text-red-400"
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 text-red-400 cursor-pointer"
       >
         <Trash2 size={16} />
         <span>Delete Category</span>

@@ -11,7 +11,7 @@ export default function DeleteConfirmModal({ category, onConfirm, onClose }) {
           <h2 className="text-xl font-bold text-red-500">Delete Category?</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -20,7 +20,7 @@ export default function DeleteConfirmModal({ category, onConfirm, onClose }) {
         <p className="text-gray-300 mb-2">
           Are you sure you want to delete <strong className="text-white">"{category.name}"</strong>?
         </p>
-        
+
         <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-3 mb-4">
           <p className="text-red-300 text-sm">
             ⚠️ This will permanently delete:
@@ -39,13 +39,13 @@ export default function DeleteConfirmModal({ category, onConfirm, onClose }) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors font-semibold"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 bg-red-600 hover:bg-red-700 px-4 py-3 rounded-lg transition-colors font-semibold"
+            className="flex-1 bg-red-600 hover:bg-red-700 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
           >
             Delete Forever
           </button>

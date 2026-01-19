@@ -124,7 +124,7 @@ export default function ImageGrid({
         {selectedTagFilters !== null && (
           <button
             onClick={onShowTagFilter}
-            className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
               selectedTagFilters.length > 0
                 ? 'bg-purple-600 hover:bg-purple-700'
                 : 'bg-gray-700 hover:bg-gray-600'
@@ -132,7 +132,7 @@ export default function ImageGrid({
           >
             <Filter size={20} />
             <span>
-              {selectedTagFilters.length > 0 
+              {selectedTagFilters.length > 0
                 ? `${selectedTagFilters.length} Tag${selectedTagFilters.length > 1 ? 's' : ''}`
                 : 'Filter by Tags'}
             </span>
@@ -142,7 +142,7 @@ export default function ImageGrid({
         {/* Bulk Select Button */}
         <button
           onClick={onToggleBulkSelect}
-          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors ${
+          className={`px-4 py-2 rounded-lg inline-flex items-center gap-2 transition-colors cursor-pointer ${
             bulkSelectMode
               ? 'bg-orange-600 hover:bg-orange-700'
               : 'bg-gray-700 hover:bg-gray-600'
@@ -156,7 +156,7 @@ export default function ImageGrid({
         {bulkSelectMode && selectedImages.length > 0 && (
           <button
             onClick={onShowBulkEdit}
-            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-2 transition-colors"
+            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
             <FileText size={20} />
             <span>Edit {selectedImages.length} Image{selectedImages.length > 1 ? 's' : ''}</span>
@@ -166,20 +166,20 @@ export default function ImageGrid({
         <div className="relative ml-auto" ref={dropdownRef}>
           <button
             onClick={onToggleGridDropdown}
-            className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors"
+            className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Grid3x3 size={20} />
             <span className="hidden md:inline">{gridColumns} Columns</span>
             <ChevronDown size={16} className="hidden md:inline" />
           </button>
-          
+
           {showGridDropdown && (
             <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-10">
               {[2, 3, 4].map(cols => (
                 <button
                   key={cols}
                   onClick={() => onSetGridColumns(cols)}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors ${
+                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer ${
                     gridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
                   }`}
                 >

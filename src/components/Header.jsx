@@ -15,7 +15,7 @@ export default function Header({
           {viewMode !== 'categories' && (
             <button
               onClick={onBack}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
             >
               <ChevronLeft size={20} className="md:w-6 md:h-6" />
             </button>
@@ -28,7 +28,7 @@ export default function Header({
           {viewMode === 'categories' && (
             <button
               onClick={onAddCategory}
-              className="bg-green-600 hover:bg-green-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base"
+              className="bg-green-600 hover:bg-green-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
             >
               <Plus size={16} className="md:w-5 md:h-5" />
               <span className="hidden sm:inline">Add Category</span>
@@ -37,7 +37,7 @@ export default function Header({
           )}
           <button
             onClick={onLogout}
-            className="bg-red-600 hover:bg-red-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base"
+            className="bg-red-600 hover:bg-red-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
           >
             <LogOut size={16} className="md:w-5 md:h-5" />
             <span className="hidden sm:inline">Logout</span>

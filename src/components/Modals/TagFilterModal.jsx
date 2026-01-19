@@ -17,7 +17,7 @@ export default function TagFilterModal({
           <h2 className="text-xl font-bold">Filter by Tags</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -29,7 +29,7 @@ export default function TagFilterModal({
           <div className="flex gap-2">
             <button
               onClick={() => onSetFilterMode('include')}
-              className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex-1 px-4 py-2 rounded-lg transition-colors cursor-pointer ${
                 tagFilterMode === 'include'
                   ? 'bg-green-600 hover:bg-green-700'
                   : 'bg-gray-700 hover:bg-gray-600'
@@ -39,7 +39,7 @@ export default function TagFilterModal({
             </button>
             <button
               onClick={() => onSetFilterMode('exclude')}
-              className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex-1 px-4 py-2 rounded-lg transition-colors cursor-pointer ${
                 tagFilterMode === 'exclude'
                   ? 'bg-red-600 hover:bg-red-700'
                   : 'bg-gray-700 hover:bg-gray-600'
@@ -60,7 +60,7 @@ export default function TagFilterModal({
                 <button
                   key={i}
                   onClick={() => onToggleTag(tag)}
-                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                  className={`px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -81,13 +81,13 @@ export default function TagFilterModal({
               onClearFilters();
               onClose();
             }}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             Clear Filters
           </button>
           <button
             onClick={onClose}
-            className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+            className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             Apply
           </button>

@@ -37,7 +37,7 @@ export default function CategoryCard({
               e.stopPropagation();
               onToggleFavorite(category.id);
             }}
-            className="absolute top-2 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all z-10"
+            className="absolute top-2 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all z-10 cursor-pointer"
           >
             <Heart
               size={20}
@@ -77,7 +77,7 @@ export default function CategoryCard({
                 e.stopPropagation();
                 onToggleFavorite(category.id);
               }}
-              className="p-1 hover:bg-gray-700 rounded-full transition-all flex-shrink-0"
+              className="p-1 hover:bg-gray-700 rounded-full transition-all flex-shrink-0 cursor-pointer"
             >
               <Heart
                 size={16}
@@ -135,7 +135,7 @@ export default function CategoryCard({
                   e.stopPropagation();
                   setShowDropdown(!showDropdown);
                 }}
-                className="p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors relative z-10"
+                className="p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors relative z-10 cursor-pointer"
               >
                 <Settings size={16} className="text-gray-300 md:w-5 md:h-5" />
               </button>

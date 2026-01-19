@@ -191,7 +191,7 @@ export default function LoginScreen({ onLogin }) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
@@ -211,7 +211,7 @@ export default function LoginScreen({ onLogin }) {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -276,7 +276,7 @@ export default function LoginScreen({ onLogin }) {
             className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
               isRegisterDisabled
                 ? 'bg-gray-600 cursor-not-allowed opacity-50'
-                : 'bg-purple-600 hover:bg-purple-700'
+                : 'bg-purple-600 hover:bg-purple-700 cursor-pointer'
             }`}
           >
             {isRegistering ? 'Register' : 'Login'}
@@ -284,14 +284,14 @@ export default function LoginScreen({ onLogin }) {
           
           <button
             onClick={() => setIsRegistering(!isRegistering)}
-            className="w-full text-gray-400 hover:text-white transition-colors text-sm"
+            className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
           >
             {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
           </button>
 
           <button
             onClick={() => setShowGuestModal(true)}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2"
+            className="w-full bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2 cursor-pointer"
           >
             ⚡ Continue as Guest
           </button>
@@ -299,7 +299,7 @@ export default function LoginScreen({ onLogin }) {
           {/* DEBUG ONLY */}
           <button
             onClick={() => onLogin('debug@posevault.local', { firstName: 'Debug', lastName: 'User' })}
-            className="w-full bg-red-600 hover:bg-red-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2 text-xs"
+            className="w-full bg-red-600 hover:bg-red-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2 text-xs cursor-pointer"
           >
             🚀 SKIP LOGIN (DEBUG)
           </button>
@@ -328,7 +328,7 @@ export default function LoginScreen({ onLogin }) {
               <h2 className="text-xl font-bold text-yellow-400">⚠️ Guest Mode Warning</h2>
               <button
                 onClick={() => setShowGuestModal(false)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
               >
                 <X size={24} />
               </button>
@@ -352,13 +352,13 @@ export default function LoginScreen({ onLogin }) {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowGuestModal(false)}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors font-semibold"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
               >
                 Go Back
               </button>
               <button
                 onClick={skipRegistration}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors font-semibold"
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
               >
                 Continue Anyway
               </button>

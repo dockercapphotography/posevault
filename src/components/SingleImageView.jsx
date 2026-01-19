@@ -19,7 +19,7 @@ export default function SingleImageView({
         <div className="absolute top-4 left-4 z-10">
           <button
             onClick={onClose}
-            className="bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all"
+            className="bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer"
           >
             <X size={28} />
           </button>
@@ -31,10 +31,10 @@ export default function SingleImageView({
             alt={`Pose ${currentIndex + 1}`}
             className="max-w-full max-h-full object-contain"
           />
-          
+
           <button
             onClick={onToggleFavorite}
-            className="absolute top-4 right-4 p-3 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all"
+            className="absolute top-4 right-4 p-3 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
           >
             <Heart
               size={28}
@@ -45,16 +45,16 @@ export default function SingleImageView({
           {currentIndex > 0 && (
             <button
               onClick={onPrevious}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-4 rounded-full transition-all"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-4 rounded-full transition-all cursor-pointer"
             >
               <ChevronLeft size={32} />
             </button>
           )}
-          
+
           {currentIndex < totalImages - 1 && (
             <button
               onClick={onNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-4 rounded-full transition-all"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-4 rounded-full transition-all cursor-pointer"
             >
               <ChevronRight size={32} />
             </button>
