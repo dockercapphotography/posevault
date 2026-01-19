@@ -163,11 +163,13 @@ export default function SingleImageView({
             ref={imageRef}
             src={image.src}
             alt={`Pose ${currentIndex + 1}`}
-            className="max-w-full max-h-full object-contain transition-transform"
+            className="max-w-full max-h-full object-contain"
             style={isFullscreen ? {
               transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
               cursor: scale > 1 ? 'move' : 'pointer',
-              touchAction: 'none'
+              touchAction: 'none',
+              willChange: 'transform',
+              transition: 'none'
             } : {}}
             onClick={handleImageClick}
           />
