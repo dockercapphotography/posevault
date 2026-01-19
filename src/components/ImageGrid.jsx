@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Grid3x3, ChevronDown, Filter, CheckSquare, FileText, Images } from 'lucide-react';
+import { Heart, Grid3x3, ChevronDown, Filter, ClipboardCheck, ClipboardX, FileText, Images } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
 
@@ -105,7 +105,7 @@ export default function ImageGrid({
               : 'bg-gray-700 hover:bg-gray-600'
           }`}
         >
-          <CheckSquare size={20} />
+          {bulkSelectMode ? <ClipboardX size={20} /> : <ClipboardCheck size={20} />}
           <span className="hidden md:inline">{bulkSelectMode ? 'Cancel' : 'Bulk Select'}</span>
         </button>
 
