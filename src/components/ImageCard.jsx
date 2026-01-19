@@ -1,16 +1,33 @@
-import React from 'react';
-import { Heart, Trash2, FileText, CheckSquare } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Heart, Trash2, FileText, CheckSquare, MoreVertical } from 'lucide-react';
 
-export default function ImageCard({ 
-  image, 
+export default function ImageCard({
+  image,
   index,
   isSelected,
   bulkSelectMode,
-  onImageClick, 
-  onToggleFavorite, 
-  onEdit, 
-  onDelete 
+  onImageClick,
+  onToggleFavorite,
+  onEdit,
+  onDelete
 }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // Handle clicks outside to close the menu
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    }
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu]);
+
   return (
     <div className="relative group aspect-[3/4]">
       <img
@@ -70,24 +87,47 @@ export default function ImageCard({
               className={image.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
             />
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(index);
-            }}
-            className="absolute top-2 right-12 bg-blue-600 hover:bg-blue-700 p-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
-          >
-            <FileText size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(index);
-            }}
-            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 p-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
-          >
-            <Trash2 size={16} />
-          </button>
+
+          {/* Three-dot menu button */}
+          <div ref={menuRef} className="absolute top-2 right-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
+            >
+              <MoreVertical size={20} className="text-white" />
+            </button>
+
+            {/* Dropdown menu */}
+            {showMenu && (
+              <div className="absolute right-0 mt-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(index);
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-white"
+                >
+                  <FileText size={16} className="text-blue-400" />
+                  <span>Edit Pose Details</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(index);
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-red-400"
+                >
+                  <Trash2 size={16} />
+                  <span>Delete Pose</span>
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
