@@ -359,6 +359,7 @@ export default function PhotographyPoseGuide() {
           image={category.images[currentImageIndex]}
           currentIndex={currentImageIndex}
           totalImages={category.images.length}
+          categoryName={category.name}
           onClose={() => setViewMode('grid')}
           onToggleFavorite={() => handleToggleFavorite(category.id, currentImageIndex)}
           onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}

@@ -5,6 +5,7 @@ export default function SingleImageView({
   image,
   currentIndex,
   totalImages,
+  categoryName,
   onClose,
   onToggleFavorite,
   onPrevious,
@@ -22,6 +23,9 @@ export default function SingleImageView({
   const lastTapTimeRef = useRef(0);
 
   if (!image) return null;
+
+  // Generate pose name - use custom name or create default based on category
+  const displayPoseName = image.poseName || `${categoryName} - ${String(currentIndex + 1).padStart(2, '0')}`;
 
   // Reset fullscreen state when image changes
   useEffect(() => {
@@ -160,7 +164,7 @@ export default function SingleImageView({
       <div className="h-full flex flex-col">
         {/* Header - hidden in fullscreen */}
         {!isFullscreen && (
-          <div className="bg-gray-900 px-4 py-3 flex items-center justify-between">
+          <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -169,10 +173,8 @@ export default function SingleImageView({
             </button>
 
             <div className="text-center flex-1 mx-4">
-              {image.poseName && (
-                <h2 className="text-lg font-semibold">{image.poseName}</h2>
-              )}
-              <p className={`text-sm ${image.poseName ? 'text-gray-400' : 'text-lg font-semibold'}`}>
+              <h2 className="text-lg font-semibold">{displayPoseName}</h2>
+              <p className="text-sm text-gray-400">
                 Pose {currentIndex + 1} of {totalImages}
               </p>
             </div>
