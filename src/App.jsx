@@ -18,12 +18,13 @@ import BulkEditModal from './components/Modals/BulkEditModal';
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
 import { useCategories } from './hooks/useCategories';
-import { 
-  getAllTags, 
-  getCategoryTags, 
-  getDisplayedCategories, 
-  getDisplayedImages 
+import {
+  getAllTags,
+  getCategoryTags,
+  getDisplayedCategories,
+  getDisplayedImages
 } from './utils/helpers';
+import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 
 export default function PhotographyPoseGuide() {
   const { isAuthenticated, currentUser, isLoading: authLoading, login, logout } = useAuth();
@@ -128,36 +129,72 @@ export default function PhotographyPoseGuide() {
     setViewMode('single');
   };
 
-  const handleCoverUpload = (e, categoryId) => {
+  const handleCoverUpload = async (e, categoryId) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        updateCategory(categoryId, { cover: event.target.result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Convert to optimized WebP format (smaller size for thumbnails)
+        const optimizedCover = await convertToWebP(file, {
+          maxWidth: 800,
+          maxHeight: 800,
+          quality: 0.85
+        });
+        updateCategory(categoryId, { cover: optimizedCover });
+      } catch (error) {
+        console.error('Error optimizing cover image:', error);
+        // Fallback to original if conversion fails
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          updateCategory(categoryId, { cover: event.target.result });
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleImagesUpload = (e, categoryId) => {
+  const handleImagesUpload = async (e, categoryId) => {
     const files = Array.from(e.target.files);
-    const readers = files.map(file => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (event) => resolve({ 
-          src: event.target.result, 
-          isFavorite: false,
-          tags: [],
-          notes: '',
-          dateAdded: new Date().toISOString()
-        });
-        reader.readAsDataURL(file);
-      });
-    });
 
-    Promise.all(readers).then(images => {
+    try {
+      // Convert all images to optimized WebP format
+      const optimizedDataUrls = await convertMultipleToWebP(files, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.85
+      });
+
+      // Create image objects with optimized data
+      const images = optimizedDataUrls.map(src => ({
+        src,
+        isFavorite: false,
+        tags: [],
+        notes: '',
+        dateAdded: new Date().toISOString()
+      }));
+
       addImages(categoryId, images);
-    });
+    } catch (error) {
+      console.error('Error optimizing images:', error);
+
+      // Fallback to original method if conversion fails
+      const readers = files.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve({
+            src: event.target.result,
+            isFavorite: false,
+            tags: [],
+            notes: '',
+            dateAdded: new Date().toISOString()
+          });
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(readers).then(images => {
+        addImages(categoryId, images);
+      });
+    }
   };
 
   const handleToggleFavorite = (categoryId, imageIndex) => {
