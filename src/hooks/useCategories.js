@@ -23,8 +23,10 @@ export const useCategories = (currentUser) => {
       }
 
       // Debounce: wait 500ms after last change before saving
+      // Capture categories in the closure to avoid stale data
+      const categoriesToSave = categories;
       saveTimeoutRef.current = setTimeout(() => {
-        saveToStorage();
+        saveToStorage(categoriesToSave);
       }, 500);
     }
 
@@ -64,7 +66,7 @@ export const useCategories = (currentUser) => {
     }
   };
 
-  const saveToStorage = async () => {
+  const saveToStorage = async (categoriesToSave) => {
     if (isSaving) {
       console.log('Save already in progress, skipping...');
       return;
@@ -72,7 +74,7 @@ export const useCategories = (currentUser) => {
 
     setIsSaving(true);
     try {
-      await storage.set(`categories:${currentUser}`, JSON.stringify(categories));
+      await storage.set(`categories:${currentUser}`, JSON.stringify(categoriesToSave));
       console.log('Data saved successfully');
     } catch (error) {
       console.error('Failed to save data:', error);
