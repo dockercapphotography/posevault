@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#3b82f6"/>
-  <rect x="76.8" y="76.8" width="358.4" height="358.4" rx="35.839999999999996" fill="#2563eb"/>
-  <text x="50%" y="50%" font-size="179.2" font-weight="bold" text-anchor="middle" dy=".35em" fill="white" font-family="Arial, sans-serif">PV</text>
-</svg>
