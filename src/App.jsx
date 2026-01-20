@@ -27,17 +27,18 @@ import {
 
 export default function PhotographyPoseGuide() {
   const { isAuthenticated, currentUser, isLoading: authLoading, login, logout } = useAuth();
-  const { 
-    categories, 
-    isLoading: categoriesLoading, 
-    addCategory, 
-    updateCategory, 
-    deleteCategory, 
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     toggleCategoryFavorite,
     addImages,
     updateImage,
     deleteImage,
-    bulkUpdateImages
+    bulkUpdateImages,
+    bulkDeleteImages
   } = useCategories(currentUser);
 
   // View state
@@ -229,13 +230,8 @@ export default function PhotographyPoseGuide() {
   const handleBulkDelete = () => {
     if (!currentCategory) return;
 
-    // Sort indices in descending order to avoid index shifts during deletion
-    const sortedIndices = [...selectedImages].sort((a, b) => b - a);
-
-    // Delete each image
-    sortedIndices.forEach(index => {
-      deleteImage(currentCategory.id, index);
-    });
+    // Delete all selected images at once
+    bulkDeleteImages(currentCategory.id, selectedImages);
 
     setBulkSelectMode(false);
     setSelectedImages([]);

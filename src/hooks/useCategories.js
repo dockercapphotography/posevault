@@ -145,6 +145,14 @@ export const useCategories = (currentUser) => {
     ));
   };
 
+  const bulkDeleteImages = (categoryId, imageIndices) => {
+    setCategories(categories.map(cat =>
+      cat.id === categoryId
+        ? { ...cat, images: cat.images.filter((_, i) => !imageIndices.includes(i)) }
+        : cat
+    ));
+  };
+
   return {
     categories,
     isLoading,
@@ -155,6 +163,7 @@ export const useCategories = (currentUser) => {
     addImages,
     updateImage,
     deleteImage,
-    bulkUpdateImages
+    bulkUpdateImages,
+    bulkDeleteImages
   };
 };
