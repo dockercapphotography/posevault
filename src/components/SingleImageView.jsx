@@ -206,26 +206,22 @@ export default function SingleImageView({
             onClick={handleImageClick}
           />
 
-          {/* Navigation arrows - thin vertical strips on edges */}
+          {/* Navigation arrows - circular buttons on edges */}
           {!isFullscreen && currentIndex > 0 && (
             <button
               onClick={onPrevious}
-              className="absolute left-0 top-0 bottom-0 w-20 flex items-center justify-start pl-2 bg-gradient-to-r from-black/30 to-transparent hover:from-black/50 transition-all cursor-pointer group"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer"
             >
-              <div className="bg-gray-800 bg-opacity-75 group-hover:bg-opacity-100 p-3 rounded-full transition-all">
-                <ChevronLeft size={24} />
-              </div>
+              <ChevronLeft size={24} />
             </button>
           )}
 
           {!isFullscreen && currentIndex < totalImages - 1 && (
             <button
               onClick={onNext}
-              className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-end pr-2 bg-gradient-to-l from-black/30 to-transparent hover:from-black/50 transition-all cursor-pointer group"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer"
             >
-              <div className="bg-gray-800 bg-opacity-75 group-hover:bg-opacity-100 p-3 rounded-full transition-all">
-                <ChevronRight size={24} />
-              </div>
+              <ChevronRight size={24} />
             </button>
           )}
         </div>
