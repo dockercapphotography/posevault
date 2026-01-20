@@ -232,10 +232,10 @@ export default function SingleImageView({
             className={`bg-gray-900 p-4 ${image.notes ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
             onClick={() => image.notes && setShowNotesModal(true)}
           >
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto min-h-[40px]">
               <div className="flex items-center justify-between gap-4">
                 {/* Tags - max 3 */}
-                <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+                <div className="flex flex-wrap gap-2 flex-1 min-w-0 min-h-[32px] items-center">
                   {image.tags && image.tags.length > 0 ? (
                     <>
                       {image.tags.slice(0, 3).map((tag, i) => (
