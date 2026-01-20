@@ -64,7 +64,7 @@ export default function StorageMeter({ compact = false }) {
         </span>
 
         {/* Tooltip */}
-        <div className={`absolute bottom-full left-0 mb-2 z-50 w-64 ${showTooltip ? 'block' : 'hidden group-hover:block'}`}>
+        <div className={`absolute top-full left-0 mt-2 z-50 w-64 ${showTooltip ? 'block' : 'hidden group-hover:block'}`}>
           <div className="bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700">
             <div className="text-xs text-gray-400 mb-2">Storage Usage</div>
             <div className="flex justify-between text-sm mb-2">
