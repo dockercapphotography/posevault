@@ -156,6 +156,14 @@ async function migrateFromLocalStorage() {
   if (migrationComplete) return;
 
   try {
+    // Check if migration marker exists in IndexedDB
+    const migrationMarker = await indexedDBStorage.get('__migration_complete__');
+    if (migrationMarker && migrationMarker.value === 'true') {
+      console.log('Migration already completed previously, skipping...');
+      migrationComplete = true;
+      return;
+    }
+
     console.log('Checking for localStorage data to migrate...');
 
     // Get all localStorage keys that might be PoseVault data
@@ -173,16 +181,28 @@ async function migrateFromLocalStorage() {
       for (const key of keysToMigrate) {
         const value = localStorage.getItem(key);
         if (value) {
-          await indexedDBStorage.set(key, value);
-          console.log(`Migrated: ${key}`);
+          // Check if IndexedDB already has this key with data
+          const existing = await indexedDBStorage.get(key);
+          if (!existing) {
+            await indexedDBStorage.set(key, value);
+            console.log(`Migrated: ${key}`);
+          } else {
+            console.log(`Skipped migration for ${key} - already exists in IndexedDB`);
+          }
         }
       }
 
-      console.log('Migration complete! You can now safely clear localStorage.');
-      // Optionally clear localStorage after successful migration
-      // Uncomment the following lines to automatically clear after migration:
-      // keysToMigrate.forEach(key => localStorage.removeItem(key));
-      // console.log('localStorage cleared after migration');
+      console.log('Migration complete! Clearing localStorage to prevent future overwrites...');
+
+      // CRITICAL: Clear localStorage after migration to prevent overwriting new data
+      keysToMigrate.forEach(key => localStorage.removeItem(key));
+      console.log('localStorage cleared - IndexedDB is now primary storage');
+
+      // Set migration marker so we never migrate again
+      await indexedDBStorage.set('__migration_complete__', 'true');
+    } else {
+      // No data to migrate, just mark as complete
+      await indexedDBStorage.set('__migration_complete__', 'true');
     }
 
     migrationComplete = true;
@@ -271,6 +291,26 @@ export const storage = {
       return { cleared: true };
     } catch (error) {
       console.error('Clear failed:', error);
+      throw error;
+    }
+  },
+
+  // Force clear old localStorage data (useful if migration had issues)
+  clearLegacyStorage: () => {
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('categories:') || key.startsWith('users:') || key === 'currentUser')) {
+          keysToRemove.push(key);
+        }
+      }
+
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log(`Cleared ${keysToRemove.length} old localStorage items`);
+      return { cleared: keysToRemove.length };
+    } catch (error) {
+      console.error('Failed to clear legacy storage:', error);
       throw error;
     }
   }
