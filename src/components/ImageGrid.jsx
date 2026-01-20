@@ -145,7 +145,11 @@ export default function ImageGrid({
           </button>
         )}
 
-        <div className="relative ml-auto" ref={dropdownRef}>
+        {/* Column selector - hidden on mobile when bulk editing */}
+        <div
+          className={`relative ml-auto ${bulkSelectMode && selectedImages.length > 0 ? 'hidden md:block' : ''}`}
+          ref={dropdownRef}
+        >
           <button
             onClick={onToggleGridDropdown}
             className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors cursor-pointer"
