@@ -1,6 +1,6 @@
 import React from 'react';
-import { ChevronLeft, Plus, Upload, LogOut } from 'lucide-react';
-import StorageMeter from './StorageMeter';
+import { ChevronLeft, Plus, Upload } from 'lucide-react';
+import UserMenu from './UserMenu';
 
 export default function Header({
   viewMode,
@@ -30,7 +30,6 @@ export default function Header({
           </h1>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
-          <StorageMeter compact={true} pauseRefresh={isUploading || isSaving} />
           {viewMode === 'categories' && (
             <button
               onClick={onAddCategory}
@@ -64,13 +63,7 @@ export default function Header({
               </div>
             </label>
           )}
-          <button
-            onClick={onLogout}
-            className="bg-red-600 hover:bg-red-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
-          >
-            <LogOut size={16} className="md:w-5 md:h-5" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+          <UserMenu onLogout={onLogout} isUploading={isUploading} isSaving={isSaving} />
         </div>
       </div>
     </div>
