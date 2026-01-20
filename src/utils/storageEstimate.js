@@ -39,7 +39,7 @@ export const getStorageEstimate = async () => {
     }
 
     // Fallback: Try to estimate from IndexedDB
-    console.log('Storage API not available, using IndexedDB fallback estimation');
+    console.warn('Storage API not available - app must be accessed via HTTPS or localhost for accurate storage info');
     const dbEstimate = await estimateIndexedDBSize();
     return dbEstimate;
   } catch (error) {
@@ -100,8 +100,10 @@ const estimateIndexedDBSize = async () => {
             }
           });
 
-          // Assume a conservative quota of 50MB for browsers without Storage API
-          const assumedQuota = 50 * 1024 * 1024;
+          // Assume a realistic quota for modern mobile devices
+          // Chrome typically allocates ~6-10% of available storage
+          // Using 300MB as a reasonable estimate for mobile devices
+          const assumedQuota = 300 * 1024 * 1024;
           const percentUsed = (estimatedSize / assumedQuota) * 100;
 
           resolve({
@@ -112,7 +114,8 @@ const estimateIndexedDBSize = async () => {
             quotaMB: (assumedQuota / (1024 * 1024)).toFixed(0),
             available: assumedQuota - estimatedSize,
             availableMB: ((assumedQuota - estimatedSize) / (1024 * 1024)).toFixed(2),
-            estimated: true
+            estimated: true,
+            insecureContext: true
           });
         };
 

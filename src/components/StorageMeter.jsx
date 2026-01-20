@@ -98,6 +98,11 @@ export default function StorageMeter({ compact = false }) {
             <div className="text-xs text-gray-400">
               {storageInfo.availableMB}MB available
               {storageInfo.estimated && ' (estimated)'}
+              {storageInfo.insecureContext && (
+                <div className="text-xs text-blue-400 mt-1">
+                  ⚠️ Use HTTPS for accurate quota
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -178,6 +183,19 @@ export default function StorageMeter({ compact = false }) {
                 Request
               </button>
             )}
+          </div>
+        )}
+
+        {/* Warning about insecure context */}
+        {storageInfo.insecureContext && (
+          <div className="flex items-start gap-2 p-3 bg-blue-950/30 rounded-lg border border-blue-500/30 mt-3">
+            <AlertCircle size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="text-blue-400 font-medium mb-1">Limited Storage API Access</p>
+              <p className="text-gray-400 text-xs">
+                App accessed via HTTP. Use HTTPS or localhost for accurate storage quota (typically 6-10% of device storage).
+              </p>
+            </div>
           </div>
         )}
 
