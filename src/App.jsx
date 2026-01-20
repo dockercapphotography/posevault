@@ -41,7 +41,8 @@ export default function PhotographyPoseGuide() {
     updateImage,
     deleteImage,
     bulkUpdateImages,
-    bulkDeleteImages
+    bulkDeleteImages,
+    forceSave
   } = useCategories(currentUser);
 
   // View state
@@ -498,6 +499,7 @@ export default function PhotographyPoseGuide() {
             onUpdateTags={(catId, imgIndex, tags) => updateImage(catId, imgIndex, { tags })}
             onUpdateNotes={(catId, imgIndex, notes) => updateImage(catId, imgIndex, { notes })}
             onUpdatePoseName={(catId, imgIndex, poseName) => updateImage(catId, imgIndex, { poseName })}
+            onForceSave={forceSave}
           />
         );
       })()}

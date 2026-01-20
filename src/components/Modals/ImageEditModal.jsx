@@ -9,7 +9,8 @@ export default function ImageEditModal({
   onClose,
   onUpdateTags,
   onUpdateNotes,
-  onUpdatePoseName
+  onUpdatePoseName,
+  onForceSave
 }) {
   const [tagInput, setTagInput] = useState('');
   const [localNotes, setLocalNotes] = useState('');
@@ -40,11 +41,17 @@ export default function ImageEditModal({
     onUpdateTags(categoryId, imageIndex, newTags);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     onUpdateNotes(categoryId, imageIndex, localNotes);
     if (onUpdatePoseName) {
       onUpdatePoseName(categoryId, imageIndex, localPoseName);
     }
+
+    // Force immediate save to storage, bypassing debounce
+    if (onForceSave) {
+      await onForceSave();
+    }
+
     onClose();
   };
 

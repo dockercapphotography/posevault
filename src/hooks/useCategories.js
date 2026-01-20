@@ -197,6 +197,15 @@ export const useCategories = (currentUser) => {
     ));
   };
 
+  const forceSave = async () => {
+    // Force immediate save, bypassing debounce
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    await saveToStorage(categories);
+  };
+
   return {
     categories,
     isLoading,
@@ -209,6 +218,7 @@ export const useCategories = (currentUser) => {
     updateImage,
     deleteImage,
     bulkUpdateImages,
-    bulkDeleteImages
+    bulkDeleteImages,
+    forceSave
   };
 };
