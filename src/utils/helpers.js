@@ -37,20 +37,40 @@ export const getDisplayedCategories = (categories, showFavoriteCategoriesOnly) =
 };
 
 export const getDisplayedImages = (category, filters) => {
-  const { selectedTagFilters, tagFilterMode, showFavoritesOnly, sortBy } = filters;
-  
+  const { selectedTagFilters, tagFilterMode, showFavoritesOnly, sortBy, searchTerm } = filters;
+
   if (!category) return [];
-  
+
   let sorted = [...category.images];
-  
+
+  // Filter by search term first
+  if (searchTerm && searchTerm.trim()) {
+    const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    sorted = sorted.filter(img => {
+      // Search in pose name
+      if (img.poseName && img.poseName.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
+      // Search in tags
+      if (img.tags && img.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))) {
+        return true;
+      }
+      // Search in notes
+      if (img.notes && img.notes.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
+      return false;
+    });
+  }
+
   // Filter by tags if any are selected
   if (selectedTagFilters.length > 0) {
     if (tagFilterMode === 'include') {
-      sorted = sorted.filter(img => 
+      sorted = sorted.filter(img =>
         img.tags && selectedTagFilters.every(tag => img.tags.includes(tag))
       );
     } else {
-      sorted = sorted.filter(img => 
+      sorted = sorted.filter(img =>
         !img.tags || !selectedTagFilters.some(tag => img.tags.includes(tag))
       );
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images, Upload } from 'lucide-react';
+import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images, Upload, Search, X as XIcon } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
 
@@ -12,12 +12,14 @@ export default function ImageGrid({
   sortBy,
   showFavoritesOnly,
   selectedTagFilters,
+  searchTerm,
   bulkSelectMode,
   selectedImages,
   dropdownRef,
   onUploadImages,
   onSetSortBy,
   onShowTagFilter,
+  onSearchChange,
   onToggleBulkSelect,
   onShowBulkEdit,
   onToggleGridDropdown,
@@ -74,6 +76,26 @@ export default function ImageGrid({
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        {/* Search Box */}
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm || ''}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search poses..."
+            className="w-full bg-gray-700 text-white pl-10 pr-10 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+            >
+              <XIcon size={18} />
+            </button>
+          )}
+        </div>
+
         {/* Combined Filter Button */}
         <button
           onClick={onShowTagFilter}
@@ -123,7 +145,11 @@ export default function ImageGrid({
           </button>
         )}
 
-        <div className="relative ml-auto" ref={dropdownRef}>
+        {/* Column selector - hidden on mobile when bulk editing */}
+        <div
+          className={`relative ml-auto ${bulkSelectMode && selectedImages.length > 0 ? 'hidden md:block' : ''}`}
+          ref={dropdownRef}
+        >
           <button
             onClick={onToggleGridDropdown}
             className="px-2 md:px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 inline-flex items-center gap-2 transition-colors cursor-pointer"

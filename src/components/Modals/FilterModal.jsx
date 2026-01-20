@@ -29,26 +29,16 @@ export default function FilterModal({
         {/* Sort Options */}
         <div className="mb-6">
           <label className="text-sm font-semibold mb-2 block">Sort By</label>
-          <div className="space-y-2">
-            {[
-              { value: 'dateAdded', label: 'Newest First' },
-              { value: 'dateAddedOldest', label: 'Oldest First' },
-              { value: 'favorites', label: 'Favorites First' },
-              { value: 'favoritesOnly', label: 'Favorites Only' }
-            ].map((option) => (
-              <button
-                key={option.value}
-                onClick={() => onSetSortBy(option.value)}
-                className={`w-full px-4 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  (showFavoritesOnly ? 'favoritesOnly' : sortBy) === option.value
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <select
+            value={showFavoritesOnly ? 'favoritesOnly' : sortBy}
+            onChange={(e) => onSetSortBy(e.target.value)}
+            className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 cursor-pointer"
+          >
+            <option value="dateAdded">Newest First</option>
+            <option value="dateAddedOldest">Oldest First</option>
+            <option value="favorites">Favorites First</option>
+            <option value="favoritesOnly">Favorites Only</option>
+          </select>
         </div>
 
         {/* Tag Filters */}

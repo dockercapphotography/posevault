@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { X, Tag, FileText, Calendar, Plus } from 'lucide-react';
+import { X, Tag, FileText, Calendar, Plus, Type } from 'lucide-react';
 
-export default function ImageEditModal({ 
-  image, 
+export default function ImageEditModal({
+  image,
   imageIndex,
   categoryId,
   allTags,
-  onClose, 
+  onClose,
   onUpdateTags,
-  onUpdateNotes
+  onUpdateNotes,
+  onUpdatePoseName
 }) {
   const [tagInput, setTagInput] = useState('');
   const [localNotes, setLocalNotes] = useState('');
   const [localTags, setLocalTags] = useState([]);
+  const [localPoseName, setLocalPoseName] = useState('');
 
   useEffect(() => {
     if (image) {
       setLocalNotes(image.notes || '');
       setLocalTags(image.tags || []);
+      setLocalPoseName(image.poseName || '');
       setTagInput('');
     }
   }, [image]);
@@ -37,8 +40,11 @@ export default function ImageEditModal({
     onUpdateTags(categoryId, imageIndex, newTags);
   };
 
-  const handleSaveNotes = () => {
+  const handleSave = () => {
     onUpdateNotes(categoryId, imageIndex, localNotes);
+    if (onUpdatePoseName) {
+      onUpdatePoseName(categoryId, imageIndex, localPoseName);
+    }
     onClose();
   };
 
@@ -66,6 +72,21 @@ export default function ImageEditModal({
           >
             <X size={24} />
           </button>
+        </div>
+
+        {/* Pose Name Section */}
+        <div className="mb-6">
+          <label className="flex items-center gap-2 text-sm font-semibold mb-2">
+            <Type size={16} />
+            Pose Name
+          </label>
+          <input
+            type="text"
+            value={localPoseName}
+            onChange={(e) => setLocalPoseName(e.target.value)}
+            placeholder="Enter a name for this pose (e.g., Standing Profile, Action Shot)"
+            className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+          />
         </div>
 
         {/* Image Preview */}
@@ -177,7 +198,7 @@ export default function ImageEditModal({
             Cancel
           </button>
           <button
-            onClick={handleSaveNotes}
+            onClick={handleSave}
             className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             Save

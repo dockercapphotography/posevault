@@ -27,17 +27,18 @@ import {
 
 export default function PhotographyPoseGuide() {
   const { isAuthenticated, currentUser, isLoading: authLoading, login, logout } = useAuth();
-  const { 
-    categories, 
-    isLoading: categoriesLoading, 
-    addCategory, 
-    updateCategory, 
-    deleteCategory, 
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     toggleCategoryFavorite,
     addImages,
     updateImage,
     deleteImage,
-    bulkUpdateImages
+    bulkUpdateImages,
+    bulkDeleteImages
   } = useCategories(currentUser);
 
   // View state
@@ -67,6 +68,7 @@ export default function PhotographyPoseGuide() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedTagFilters, setSelectedTagFilters] = useState([]);
   const [tagFilterMode, setTagFilterMode] = useState('include');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Bulk selection
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
@@ -228,13 +230,8 @@ export default function PhotographyPoseGuide() {
   const handleBulkDelete = () => {
     if (!currentCategory) return;
 
-    // Sort indices in descending order to avoid index shifts during deletion
-    const sortedIndices = [...selectedImages].sort((a, b) => b - a);
-
-    // Delete each image
-    sortedIndices.forEach(index => {
-      deleteImage(currentCategory.id, index);
-    });
+    // Delete all selected images at once
+    bulkDeleteImages(currentCategory.id, selectedImages);
 
     setBulkSelectMode(false);
     setSelectedImages([]);
@@ -252,7 +249,8 @@ export default function PhotographyPoseGuide() {
     selectedTagFilters,
     tagFilterMode,
     showFavoritesOnly,
-    sortBy
+    sortBy,
+    searchTerm
   }) : [];
 
   // Get all tags
@@ -322,12 +320,14 @@ export default function PhotographyPoseGuide() {
           sortBy={sortBy}
           showFavoritesOnly={showFavoritesOnly}
           selectedTagFilters={categoryTags.length > 0 ? selectedTagFilters : null}
+          searchTerm={searchTerm}
           bulkSelectMode={bulkSelectMode}
           selectedImages={selectedImages}
           dropdownRef={dropdownRef}
           onUploadImages={handleImagesUpload}
           onSetSortBy={handleSetSortBy}
           onShowTagFilter={() => setShowTagFilterModal(true)}
+          onSearchChange={setSearchTerm}
           onToggleBulkSelect={() => {
             setBulkSelectMode(!bulkSelectMode);
             setSelectedImages([]);
@@ -359,6 +359,7 @@ export default function PhotographyPoseGuide() {
           image={category.images[currentImageIndex]}
           currentIndex={currentImageIndex}
           totalImages={category.images.length}
+          categoryName={category.name}
           onClose={() => setViewMode('grid')}
           onToggleFavorite={() => handleToggleFavorite(category.id, currentImageIndex)}
           onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
@@ -415,6 +416,7 @@ export default function PhotographyPoseGuide() {
             onClose={() => setEditingImage(null)}
             onUpdateTags={(catId, imgIndex, tags) => updateImage(catId, imgIndex, { tags })}
             onUpdateNotes={(catId, imgIndex, notes) => updateImage(catId, imgIndex, { notes })}
+            onUpdatePoseName={(catId, imgIndex, poseName) => updateImage(catId, imgIndex, { poseName })}
           />
         );
       })()}
