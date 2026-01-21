@@ -84,27 +84,30 @@ export default function UserMenu({ onLogout, isUploading = false, isSaving = fal
         {/* Dropdown Menu */}
         {isOpen && (
           <div className="absolute top-full right-0 mt-2 z-50 w-64 sm:w-72 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
-            {/* Offline Status */}
-            <div className="px-4 py-3 border-b border-gray-700">
-              <div className="flex items-center gap-2 text-sm">
-                {isOnline ? (
-                  <>
-                    <Wifi size={16} className="text-green-500" />
-                    <span className="text-green-500 font-medium">Online</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff size={16} className="text-orange-500" />
-                    <div className="flex-1">
-                      <div className="text-orange-500 font-medium">Offline Mode</div>
-                      <div className="text-gray-400 text-xs mt-1">
-                        Your data is saved locally
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+			{/* Offline Status */}
+			<div className="px-4 py-3 border-b border-gray-700">
+			  <div className="flex items-center justify-between text-sm">
+				<span className="text-gray-300 font-medium">PoseVault Connection:</span>
+				<div className="flex items-center gap-2">
+				  {isOnline ? (
+					<>
+					  <Wifi size={16} className="text-green-500" />
+					  <span className="text-green-500 font-medium">Online</span>
+					</>
+				  ) : (
+					<>
+					  <WifiOff size={16} className="text-orange-500" />
+					  <span className="text-orange-500 font-medium">Offline</span>
+					</>
+				  )}
+				</div>
+			  </div>
+			  {!isOnline && (
+				<div className="text-gray-400 text-xs mt-2 text-right">
+				  Your data is saved locally
+				</div>
+			  )}
+			</div>
 
             {/* Storage Meter */}
             <div className="px-4 py-3 border-b border-gray-700">

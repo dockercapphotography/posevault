@@ -99,7 +99,8 @@ export const getDisplayedImages = (category, filters) => {
 
 export const getGridColsClass = (gridColumns) => {
   return {
-    2: 'grid-cols-2',
+    1: 'grid-cols-1',
+	2: 'grid-cols-2',
     3: 'grid-cols-3',
     4: 'grid-cols-4'
   }[gridColumns] || 'grid-cols-3';
@@ -107,9 +108,10 @@ export const getGridColsClass = (gridColumns) => {
 
 export const getCategoryGridColsClass = (categoryGridColumns) => {
   return {
-    2: 'grid-cols-1 sm:grid-cols-2',
-    3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
-    4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+    1: 'grid-cols-1',
+	2: 'grid-cols-2',
+    3: 'grid-cols-3 sm:grid-cols-2 md:grid-cols-3',
+    4: 'grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
   }[categoryGridColumns] || 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
 };
 

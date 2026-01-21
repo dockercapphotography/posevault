@@ -1,273 +1,176 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote } from 'lucide-react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Keyboard } from 'swiper/modules';
+
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/navigation';
 
 export default function SingleImageView({
   image,
   currentIndex,
   totalImages,
   categoryName,
+  category,
   onClose,
   onToggleFavorite,
   onPrevious,
   onNext
 }) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [showNotesModal, setShowNotesModal] = useState(false);
-  const imageRef = useRef(null);
-  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
-  const lastTouchDistanceRef = useRef(null);
-  const lastTouchCenterRef = useRef(null);
-  const panStartPositionRef = useRef({ x: 0, y: 0 });
-  const lastTapTimeRef = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(currentIndex);
+  const swiperRef = useRef(null);
 
-  if (!image) return null;
+  if (!image || !category?.images) return null;
 
   // Generate pose name - use custom name or create default based on category
-  const displayPoseName = image.poseName || `${categoryName} - ${String(currentIndex + 1).padStart(2, '0')}`;
+  const getDisplayPoseName = (idx) => {
+    const img = category.images[idx];
+    return img?.poseName || `${categoryName} - ${String(idx + 1).padStart(2, '0')}`;
+  };
 
-  // Reset fullscreen state when image changes
+  const displayPoseName = getDisplayPoseName(activeIndex);
+  const currentImage = category.images[activeIndex];
+
+  // Sync Swiper with external currentIndex changes
   useEffect(() => {
-    setIsFullscreen(false);
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setShowNotesModal(false);
+    if (swiperRef.current && activeIndex !== currentIndex) {
+      swiperRef.current.slideTo(currentIndex, 0); // 0 = no animation for external changes
+      setActiveIndex(currentIndex);
+    }
   }, [currentIndex]);
 
-  // Handle swipe gestures for navigation (only when not in fullscreen)
-  const handleTouchStart = (e) => {
-    if (isFullscreen) return;
+  // Reset modal when image changes
+  useEffect(() => {
+    setShowNotesModal(false);
+  }, [activeIndex]);
 
-    const touch = e.touches[0];
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now()
-    };
-  };
-
-  const handleTouchEnd = (e) => {
-    if (isFullscreen) return;
-
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-    const deltaTime = Date.now() - touchStartRef.current.time;
-
-    // Detect swipe (must be horizontal, fast, and significant distance)
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50 && deltaTime < 300) {
-      if (deltaX > 0 && currentIndex > 0) {
-        // Swipe right - go to previous image
-        onPrevious();
-      } else if (deltaX < 0 && currentIndex < totalImages - 1) {
-        // Swipe left - go to next image
-        onNext();
-      }
+  const handleSlideChange = (swiper) => {
+    const newIndex = swiper.activeIndex;
+    setActiveIndex(newIndex);
+    
+    // Notify parent of the change
+    if (newIndex > activeIndex) {
+      onNext();
+    } else if (newIndex < activeIndex) {
+      onPrevious();
     }
-  };
-
-  // Handle double-tap to toggle fullscreen
-  const handleImageClick = (e) => {
-    // Only toggle fullscreen on double tap (not during pinch)
-    if (e.touches && e.touches.length > 1) return;
-
-    const currentTime = Date.now();
-    const timeSinceLastTap = currentTime - lastTapTimeRef.current;
-
-    // If less than 300ms since last tap, it's a double-tap
-    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
-      setIsFullscreen(!isFullscreen);
-      if (isFullscreen) {
-        // Reset zoom when exiting fullscreen
-        setScale(1);
-        setPosition({ x: 0, y: 0 });
-      }
-      lastTapTimeRef.current = 0; // Reset to prevent triple-tap from triggering
-    } else {
-      // First tap, just record the time
-      lastTapTimeRef.current = currentTime;
-    }
-  };
-
-  // Handle pinch to zoom in fullscreen mode
-  const handleTouchStartFullscreen = (e) => {
-    if (!isFullscreen) return;
-
-    if (e.touches.length === 2) {
-      // Calculate initial distance between two fingers
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const distance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-      lastTouchDistanceRef.current = distance;
-
-      // Calculate center point between fingers
-      lastTouchCenterRef.current = {
-        x: (touch1.clientX + touch2.clientX) / 2,
-        y: (touch1.clientY + touch2.clientY) / 2
-      };
-    } else if (e.touches.length === 1 && scale > 1) {
-      // Single touch while zoomed - prepare for panning
-      const touch = e.touches[0];
-      touchStartRef.current = {
-        x: touch.clientX,
-        y: touch.clientY,
-        time: Date.now()
-      };
-      panStartPositionRef.current = { ...position };
-    }
-  };
-
-  const handleTouchMoveFullscreen = (e) => {
-    if (!isFullscreen) return;
-
-    if (e.touches.length === 2 && lastTouchDistanceRef.current) {
-      e.preventDefault();
-
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const distance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-
-      // Calculate scale change
-      const scaleChange = distance / lastTouchDistanceRef.current;
-      const newScale = Math.max(1, Math.min(scale * scaleChange, 5)); // Limit between 1x and 5x
-
-      setScale(newScale);
-      lastTouchDistanceRef.current = distance;
-    } else if (e.touches.length === 1 && scale > 1) {
-      // Pan when zoomed in - calculate cumulative delta from initial touch
-      e.preventDefault();
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - touchStartRef.current.x;
-      const deltaY = touch.clientY - touchStartRef.current.y;
-
-      setPosition({
-        x: panStartPositionRef.current.x + deltaX,
-        y: panStartPositionRef.current.y + deltaY
-      });
-    }
-  };
-
-  const handleTouchEndFullscreen = () => {
-    lastTouchDistanceRef.current = null;
-    lastTouchCenterRef.current = null;
   };
 
   return (
     <div className="fixed inset-0 bg-black z-50">
       <div className="h-full flex flex-col">
-        {/* Header - hidden in fullscreen */}
-        {!isFullscreen && (
-          <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <X size={24} />
-            </button>
+        {/* Header */}
+        <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+          >
+            <X size={24} />
+          </button>
 
-            <div className="text-center flex-1 mx-4">
-              <h2 className="text-lg font-semibold">{displayPoseName}</h2>
-              <p className="text-sm text-gray-400">
-                Pose {currentIndex + 1} of {totalImages}
-              </p>
-            </div>
-
-            <button
-              onClick={onToggleFavorite}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <Heart
-                size={24}
-                className={image.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
-              />
-            </button>
+          <div className="text-center flex-1 mx-4">
+            <h2 className="text-lg font-semibold">{displayPoseName}</h2>
+            <p className="text-sm text-gray-400">
+              Pose {activeIndex + 1} of {totalImages}
+            </p>
           </div>
-        )}
 
-        {/* Image container with navigation */}
-        <div
-          className="flex-1 flex items-center justify-center relative overflow-hidden"
-          onTouchStart={isFullscreen ? handleTouchStartFullscreen : handleTouchStart}
-          onTouchMove={isFullscreen ? handleTouchMoveFullscreen : undefined}
-          onTouchEnd={isFullscreen ? handleTouchEndFullscreen : handleTouchEnd}
-        >
-          <img
-            ref={imageRef}
-            src={image.src}
-            alt={`Pose ${currentIndex + 1}`}
-            className="max-w-full max-h-full object-contain"
-            style={isFullscreen ? {
-              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-              cursor: scale > 1 ? 'move' : 'pointer',
-              touchAction: 'none',
-              willChange: 'transform',
-              transition: 'none'
-            } : {}}
-            onClick={handleImageClick}
-          />
-
-          {/* Navigation arrows - circular buttons on edges */}
-          {!isFullscreen && currentIndex > 0 && (
-            <button
-              onClick={onPrevious}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer"
-            >
-              <ChevronLeft size={24} />
-            </button>
-          )}
-
-          {!isFullscreen && currentIndex < totalImages - 1 && (
-            <button
-              onClick={onNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer"
-            >
-              <ChevronRight size={24} />
-            </button>
-          )}
+          <button
+            onClick={() => {
+              const idx = activeIndex;
+              onToggleFavorite(idx);
+            }}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+          >
+            <Heart
+              size={24}
+              className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
+            />
+          </button>
         </div>
 
-        {/* Footer - hidden in fullscreen */}
-        {!isFullscreen && (
-          <div
-            className={`bg-gray-900 p-4 ${image.notes ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
-            onClick={() => image.notes && setShowNotesModal(true)}
+        {/* Swiper Container */}
+        <div className="flex-1 relative overflow-hidden">
+          <Swiper
+            modules={[Navigation, Keyboard]}
+            initialSlide={currentIndex}
+            onSwiper={(swiper) => {
+              swiperRef.current = swiper;
+            }}
+            onSlideChange={handleSlideChange}
+            navigation={{
+              prevEl: '.swiper-button-prev-custom',
+              nextEl: '.swiper-button-next-custom',
+            }}
+            keyboard={{
+              enabled: true,
+            }}
+            speed={300}
+            className="h-full"
           >
-            <div className="max-w-4xl mx-auto min-h-[40px]">
-              <div className="flex items-center justify-between gap-4">
+            {category.images.map((img, idx) => (
+              <SwiperSlide key={idx} className="h-full">
+                <div className="h-full w-full flex items-center justify-center">
+                  <img
+                    src={img.src}
+                    alt={`Pose ${idx + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+
+          {/* Custom Navigation Arrows - hidden on mobile */}
+          <button
+            className="swiper-button-prev-custom absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <button
+            className="swiper-button-next-custom absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+
+        {/* Footer */}
+        {currentImage && (
+          <div
+            className={`bg-gray-900 p-3 ${currentImage.notes ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
+            onClick={() => currentImage.notes && setShowNotesModal(true)}
+          >
+            <div className="max-w-4xl mx-auto h-[32px]">
+              <div className="flex items-center justify-between gap-4 h-full">
                 {/* Tags - max 3 */}
-                <div className="flex flex-wrap gap-2 flex-1 min-w-0 min-h-[32px] items-center">
-                  {image.tags && image.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 items-center overflow-hidden">
+                  {currentImage.tags && currentImage.tags.length > 0 ? (
                     <>
-                      {image.tags.slice(0, 3).map((tag, i) => (
-                        <span key={i} className="bg-purple-600 text-white text-sm px-3 py-1 rounded-full">
+                      {currentImage.tags.slice(0, 3).map((tag, i) => (
+                        <span key={i} className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
                           {tag}
                         </span>
                       ))}
-                      {image.tags.length > 3 && (
-                        <span className="bg-gray-700 text-white text-sm px-3 py-1 rounded-full">
-                          +{image.tags.length - 3}
+                      {currentImage.tags.length > 3 && (
+                        <span className="bg-gray-700 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+                          +{currentImage.tags.length - 3}
                         </span>
                       )}
                     </>
                   ) : (
-                    <span className="text-gray-400 text-sm">No tags</span>
+                    <span className="text-gray-400 text-xs">No tags</span>
                   )}
                 </div>
 
                 {/* Date and Notes indicator */}
-                <div className="flex items-center gap-3 text-gray-400 text-sm whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} />
+                <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={14} />
                     <span>
-                      {image.dateAdded
-                        ? new Date(image.dateAdded).toLocaleDateString('en-US', {
+                      {currentImage.dateAdded
+                        ? new Date(currentImage.dateAdded).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
@@ -275,8 +178,8 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
-                  {image.notes && (
-                    <StickyNote size={16} className="text-blue-400" />
+                  {currentImage.notes && (
+                    <StickyNote size={14} className="text-blue-400" />
                   )}
                 </div>
               </div>
@@ -285,7 +188,7 @@ export default function SingleImageView({
         )}
 
         {/* Notes Modal */}
-        {showNotesModal && image.notes && (
+        {showNotesModal && currentImage?.notes && (
           <div
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
             onClick={() => setShowNotesModal(false)}
@@ -300,11 +203,11 @@ export default function SingleImageView({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">Notes</h3>
-                  <p className="text-sm text-gray-400">Pose {currentIndex + 1}</p>
+                  <p className="text-sm text-gray-400">Pose {activeIndex + 1}</p>
                 </div>
               </div>
               <div className="bg-gray-700 rounded-lg p-4 mb-6">
-                <p className="text-gray-300 whitespace-pre-wrap">{image.notes}</p>
+                <p className="text-gray-300 whitespace-pre-wrap">{currentImage.notes}</p>
               </div>
               <button
                 onClick={() => setShowNotesModal(false)}
