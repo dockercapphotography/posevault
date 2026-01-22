@@ -9,10 +9,13 @@ export default function CategoryCard({
   onUploadImages,
   onEditSettings,
   onUploadCover,
-  onDelete
+  onDelete,
+  onGeneratePDF
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState('bottom');
   const dropdownRef = useRef(null);
+  const settingsButtonRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -27,6 +30,33 @@ export default function CategoryCard({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showDropdown]);
+
+  // Calculate dropdown position
+  const handleSettingsClick = (e) => {
+    e.stopPropagation();
+    
+    if (settingsButtonRef.current) {
+      const rect = settingsButtonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const spaceRight = window.innerWidth - rect.right;
+      
+      // Check vertical position
+      // If not enough space below (less than 250px) and more space above, render on top
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setDropdownPosition('top');
+      } else {
+        setDropdownPosition('bottom');
+      }
+      
+      // Check horizontal position
+      // If dropdown would go off right edge (need ~200px), shift it left
+      if (spaceRight < 220) {
+        setDropdownPosition(prev => prev + '-left');
+      }
+    }
+    setShowDropdown(!showDropdown);
+  };
 
   return (
     <div className="bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-shadow relative">
@@ -130,22 +160,24 @@ export default function CategoryCard({
             </div>
           </label>
 
-          {/* Settings button with dropdown - SIMPLE RELATIVE POSITIONING */}
+          {/* Settings button with dropdown - DYNAMIC POSITIONING */}
           <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDropdown(!showDropdown);
-                }}
+                ref={settingsButtonRef}
+                onClick={handleSettingsClick}
                 className="p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors relative z-10 cursor-pointer"
               >
                 <Settings size={16} className="text-gray-300 md:w-5 md:h-5" />
               </button>
 
-              {/* Dropdown positioned absolutely relative to this wrapper */}
+              {/* Dropdown positioned dynamically based on available space */}
               {showDropdown && (
-                <div className="absolute top-full right-0 mt-2 z-50">
+                <div className={`absolute ${
+                  dropdownPosition.includes('top') ? 'bottom-full mb-2' : 'top-full mt-2'
+                } ${
+                  dropdownPosition.includes('left') ? 'left-0' : 'right-0'
+                } z-50`}>
                   <CategorySettingsDropdown
                     category={category}
                     onEditSettings={(catId) => {
@@ -156,6 +188,9 @@ export default function CategoryCard({
                     }}
                     onDelete={(catId) => {
                       onDelete(catId);
+                    }}
+                    onGeneratePDF={() => {
+                      onGeneratePDF(category);
                     }}
                     onClose={() => setShowDropdown(false)}
                   />

@@ -17,7 +17,8 @@ export default function CategoryGrid({
   onUploadImages,
   onEditSettings,
   onUploadCover,
-  onDelete
+  onDelete,
+  onGeneratePDF
 }) {
   const categoryGridColsClass = getCategoryGridColsClass(categoryGridColumns);
 
@@ -47,28 +48,18 @@ export default function CategoryGrid({
           </button>
 
           {showCategoryGridDropdown && (
-            <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-50">
-              {[1, 2, 3, 4].map(cols => {
-			  // Hide 1 column on desktop, hide 3-4 columns on mobile
-			  let hideClass = '';
-			  if (cols === 1) {
-				hideClass = 'md:hidden'; // Show on mobile, hide on desktop
-			  } else if (cols >= 3) {
-				hideClass = 'hidden md:block'; // Hide on mobile, show on desktop
-			  }
-			  
-			  return (
-				<button
-				  key={cols}
-				  onClick={() => onSetGridColumns(cols)}
-				  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer whitespace-nowrap ${
-					categoryGridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
-				  } ${hideClass}`}
-				>
-				  {cols} Columns
-				</button>
-			  );
-			})}
+            <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-10">
+              {[2, 3, 4].map(cols => (
+                <button
+                  key={cols}
+                  onClick={() => onSetGridColumns(cols)}
+                  className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer ${
+                    categoryGridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
+                  }`}
+                >
+                  {cols} Columns
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -92,6 +83,7 @@ export default function CategoryGrid({
               onEditSettings={onEditSettings}
               onUploadCover={onUploadCover}
               onDelete={onDelete}
+              onGeneratePDF={onGeneratePDF}
             />
           ))}
         </div>

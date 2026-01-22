@@ -15,6 +15,8 @@ import ImageEditModal from './components/Modals/ImageEditModal';
 import FilterModal from './components/Modals/FilterModal';
 import BulkEditModal from './components/Modals/BulkEditModal';
 import UploadProgressModal from './components/Modals/UploadProgressModal';
+import PrivateGalleryWarning from './components/Modals/PrivateGalleryWarning';
+import PDFOptionsModal from './components/Modals/PDFOptionsModal';
 
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
@@ -66,6 +68,8 @@ export default function PhotographyPoseGuide() {
   const [editingImage, setEditingImage] = useState(null);
   const [showTagFilterModal, setShowTagFilterModal] = useState(false);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [pendingPrivateCategory, setPendingPrivateCategory] = useState(null);
+  const [pdfCategory, setPdfCategory] = useState(null);
 
   // Upload progress
   const [showUploadProgress, setShowUploadProgress] = useState(false);
@@ -122,6 +126,27 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleOpenCategory = (category) => {
+    // Check if category is private
+    if (category.isPrivate) {
+      setPendingPrivateCategory(category);
+      return;
+    }
+    
+    // Open normally if not private
+    setCurrentCategory(category);
+    setViewMode('grid');
+    setCurrentImageIndex(0);
+    setShowFavoritesOnly(false);
+    setSelectedTagFilters([]);
+    setTagFilterMode('include');
+    setBulkSelectMode(false);
+    setSelectedImages([]);
+  };
+
+  const handleProceedToPrivateGallery = () => {
+    const category = pendingPrivateCategory;
+    setPendingPrivateCategory(null);
+    
     setCurrentCategory(category);
     setViewMode('grid');
     setCurrentImageIndex(0);
@@ -246,8 +271,8 @@ export default function PhotographyPoseGuide() {
     updateImage(categoryId, imageIndex, { isFavorite: !image.isFavorite });
   };
 
-  const handleSaveCategorySettings = (categoryId, name, notes) => {
-    updateCategory(categoryId, { name, notes });
+  const handleSaveCategorySettings = (categoryId, updates) => {
+    updateCategory(categoryId, updates);
     setEditingCategory(null);
   };
 
@@ -389,6 +414,7 @@ export default function PhotographyPoseGuide() {
           onDelete={(catId) => {
             setShowDeleteConfirm(catId);
           }}
+          onGeneratePDF={(category) => setPdfCategory(category)}
         />
       )}
 
@@ -455,8 +481,8 @@ export default function PhotographyPoseGuide() {
       {showNewCategoryModal && (
         <NewCategoryModal
           onClose={() => setShowNewCategoryModal(false)}
-          onAdd={(name) => {
-            addCategory(name);
+          onAdd={(name, privateSettings) => {
+            addCategory(name, privateSettings);
             setShowNewCategoryModal(false);
           }}
         />
@@ -544,6 +570,23 @@ export default function PhotographyPoseGuide() {
         totalImages={uploadProgress.total}
         isComplete={uploadComplete}
       />
+
+      {/* Private Gallery Warning Modal */}
+      {pendingPrivateCategory && (
+        <PrivateGalleryWarning
+          category={pendingPrivateCategory}
+          onProceed={handleProceedToPrivateGallery}
+          onCancel={() => setPendingPrivateCategory(null)}
+        />
+      )}
+
+      {/* PDF Options Modal */}
+      {pdfCategory && (
+        <PDFOptionsModal
+          category={pdfCategory}
+          onClose={() => setPdfCategory(null)}
+        />
+      )}
     </div>
   );
 }
