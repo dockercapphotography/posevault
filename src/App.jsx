@@ -56,7 +56,7 @@ export default function PhotographyPoseGuide() {
     typeof window !== 'undefined' && window.innerWidth < 768 ? 2 : 3
   );
   const [showCategoryGridDropdown, setShowCategoryGridDropdown] = useState(false);
-  const [gridColumns, setGridColumns] = useState(2);
+  const [gridColumns, setGridColumns] = useState(3);
   const [showGridDropdown, setShowGridDropdown] = useState(false);
 
   // Modals
@@ -442,11 +442,12 @@ export default function PhotographyPoseGuide() {
           currentIndex={currentImageIndex}
           totalImages={category.images.length}
           categoryName={category.name}
-		  category={category}
+          category={category}
           onClose={() => setViewMode('grid')}
           onToggleFavorite={() => handleToggleFavorite(category.id, currentImageIndex)}
           onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
           onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
+          onUpdateImage={updateImage}
         />
       )}
 
@@ -500,6 +501,7 @@ export default function PhotographyPoseGuide() {
             onUpdateTags={(catId, imgIndex, tags) => updateImage(catId, imgIndex, { tags })}
             onUpdateNotes={(catId, imgIndex, notes) => updateImage(catId, imgIndex, { notes })}
             onUpdatePoseName={(catId, imgIndex, poseName) => updateImage(catId, imgIndex, { poseName })}
+            onUpdate={(catId, imgIndex, updates) => updateImage(catId, imgIndex, updates)}
             onForceSave={forceSave}
           />
         );

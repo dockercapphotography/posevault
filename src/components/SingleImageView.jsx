@@ -16,11 +16,16 @@ export default function SingleImageView({
   onClose,
   onToggleFavorite,
   onPrevious,
-  onNext
+  onNext,
+  onUpdateImage
 }) {
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
   const [activeIndex, setActiveIndex] = useState(currentIndex);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
   const swiperRef = useRef(null);
+  const nameInputRef = useRef(null);
 
   if (!image || !category?.images) return null;
 
@@ -44,7 +49,17 @@ export default function SingleImageView({
   // Reset modal when image changes
   useEffect(() => {
     setShowNotesModal(false);
+    setShowTagsModal(false);
+    setIsEditingName(false);
   }, [activeIndex]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
 
   const handleSlideChange = (swiper) => {
     const newIndex = swiper.activeIndex;
@@ -55,6 +70,32 @@ export default function SingleImageView({
       onNext();
     } else if (newIndex < activeIndex) {
       onPrevious();
+    }
+  };
+
+  const handleStartEditName = () => {
+    setEditedName(currentImage?.poseName || '');
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = () => {
+    if (onUpdateImage && editedName.trim() !== '') {
+      // Save the pose name
+      onUpdateImage(category.id, activeIndex, { poseName: editedName.trim() });
+    }
+    setIsEditingName(false);
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditedName('');
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      handleCancelEditName();
     }
   };
 
@@ -71,7 +112,28 @@ export default function SingleImageView({
           </button>
 
           <div className="text-center flex-1 mx-4">
-            <h2 className="text-lg font-semibold">{displayPoseName}</h2>
+            {isEditingName ? (
+              <div className="flex items-center justify-center gap-2">
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  onBlur={handleSaveName}
+                  className="bg-gray-700 text-white px-3 py-1 rounded text-lg font-semibold text-center focus:outline-none focus:ring-2 focus:ring-purple-600 max-w-md"
+                  placeholder="Enter pose name..."
+                />
+              </div>
+            ) : (
+              <h2 
+                className="text-lg font-semibold cursor-pointer hover:text-purple-400 transition-colors"
+                onClick={handleStartEditName}
+                title="Click to edit pose name"
+              >
+                {displayPoseName}
+              </h2>
+            )}
             <p className="text-sm text-gray-400">
               Pose {activeIndex + 1} of {totalImages}
             </p>
@@ -138,14 +200,16 @@ export default function SingleImageView({
 
         {/* Footer */}
         {currentImage && (
-          <div
-            className={`bg-gray-900 p-3 ${currentImage.notes ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
-            onClick={() => currentImage.notes && setShowNotesModal(true)}
-          >
+          <div className="bg-gray-900 p-3">
             <div className="max-w-4xl mx-auto h-[32px]">
               <div className="flex items-center justify-between gap-4 h-full">
-                {/* Tags - max 3 */}
-                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 items-center overflow-hidden">
+                {/* Tags - max 3 - clickable */}
+                <div 
+                  className={`flex flex-wrap gap-1.5 flex-1 min-w-0 items-center overflow-hidden ${
+                    currentImage.tags && currentImage.tags.length > 0 ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+                  }`}
+                  onClick={() => currentImage.tags && currentImage.tags.length > 0 && setShowTagsModal(true)}
+                >
                   {currentImage.tags && currentImage.tags.length > 0 ? (
                     <>
                       {currentImage.tags.slice(0, 3).map((tag, i) => (
@@ -179,7 +243,12 @@ export default function SingleImageView({
                     </span>
                   </div>
                   {currentImage.notes && (
-                    <StickyNote size={14} className="text-blue-400" />
+                    <button
+                      onClick={() => setShowNotesModal(true)}
+                      className="hover:text-blue-300 transition-colors"
+                    >
+                      <StickyNote size={14} className="text-blue-400" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -211,6 +280,46 @@ export default function SingleImageView({
               </div>
               <button
                 onClick={() => setShowNotesModal(false)}
+                className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tags Modal */}
+        {showTagsModal && currentImage?.tags && currentImage.tags.length > 0 && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowTagsModal(false)}
+          >
+            <div
+              className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-purple-600 rounded-full">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Tags</h3>
+                  <p className="text-sm text-gray-400">Pose {activeIndex + 1}</p>
+                </div>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {currentImage.tags.map((tag, i) => (
+                    <span key={i} className="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTagsModal(false)}
                 className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 Close

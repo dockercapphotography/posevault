@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Tag, FileText, Calendar, Plus, Type } from 'lucide-react';
 
 export default function ImageEditModal({
@@ -10,6 +10,7 @@ export default function ImageEditModal({
   onUpdateTags,
   onUpdateNotes,
   onUpdatePoseName,
+  onUpdate, // New combined update function
   onForceSave
 }) {
   const [tagInput, setTagInput] = useState('');
@@ -19,20 +20,21 @@ export default function ImageEditModal({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Don't reset local state if we're in the middle of saving
+    // Initialize local state from image prop when modal opens
+    // Since we're not saving immediately on tag changes, this only runs when the modal first opens
     if (image && !isSaving) {
       setLocalNotes(image.notes || '');
       setLocalTags(image.tags || []);
       setLocalPoseName(image.poseName || '');
       setTagInput('');
     }
-  }, [image, isSaving]);
+  }, [image?.dateAdded, isSaving]); // Use dateAdded as a stable identifier instead of image object
 
   const handleAddTag = (tag) => {
     if (tag.trim() && !localTags.includes(tag.trim())) {
       const newTags = [...localTags, tag.trim()];
       setLocalTags(newTags);
-      onUpdateTags(categoryId, imageIndex, newTags);
+      // Don't save immediately - wait for user to click Save button
       setTagInput('');
     }
   };
@@ -40,22 +42,33 @@ export default function ImageEditModal({
   const handleRemoveTag = (tagIndex) => {
     const newTags = localTags.filter((_, i) => i !== tagIndex);
     setLocalTags(newTags);
-    onUpdateTags(categoryId, imageIndex, newTags);
+    // Don't save immediately - wait for user to click Save button
   };
 
   const handleSave = async () => {
-    // Prevent useEffect from resetting local state during save
     setIsSaving(true);
 
-    onUpdateNotes(categoryId, imageIndex, localNotes);
-    if (onUpdatePoseName) {
-      onUpdatePoseName(categoryId, imageIndex, localPoseName);
+    // Use the combined update function to save all changes at once
+    // This prevents multiple re-renders and ensures data consistency
+    if (onUpdate) {
+      onUpdate(categoryId, imageIndex, {
+        tags: localTags,
+        notes: localNotes,
+        poseName: localPoseName
+      });
+    } else {
+      // Fallback to individual updates if onUpdate not available
+      onUpdateTags(categoryId, imageIndex, localTags);
+      onUpdateNotes(categoryId, imageIndex, localNotes);
+      if (onUpdatePoseName) {
+        onUpdatePoseName(categoryId, imageIndex, localPoseName);
+      }
     }
 
-    // Wait for the debounced save to complete (500ms + save time)
-    // The debounced save has the correct data captured in its closure
+    // Wait for debounced save
     await new Promise(resolve => setTimeout(resolve, 700));
 
+    setIsSaving(false);
     onClose();
   };
 
