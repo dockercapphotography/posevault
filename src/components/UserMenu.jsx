@@ -1,18 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, LogOut, WifiOff, Wifi, X } from 'lucide-react';
+import { Menu, LogOut, WifiOff, Wifi, Download } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import StorageMeter from './StorageMeter';
 
 /**
- * User menu dropdown containing offline status, storage meter, and logout
+ * User menu dropdown containing offline status, storage meter, PWA install, and logout
  */
 export default function UserMenu({ onLogout, isUploading = false, isSaving = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showOnlineNotification, setShowOnlineNotification] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
   const menuRef = useRef(null);
   const isOnline = useOnlineStatus();
+
+  // Handle PWA install prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later
+      setDeferredPrompt(e);
+      setIsInstalled(false);
+    };
+
+    const handleAppInstalled = () => {
+      // Clear the deferred prompt
+      setDeferredPrompt(null);
+      setIsInstalled(true);
+    };
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   // Handle online/offline notifications
   useEffect(() => {
@@ -58,6 +90,27 @@ export default function UserMenu({ onLogout, isUploading = false, isSaving = fal
     setShowLogoutConfirm(false);
   };
 
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      return;
+    }
+
+    // Show the install prompt
+    deferredPrompt.prompt();
+
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+    } else {
+      console.log('User dismissed the install prompt');
+    }
+
+    // Clear the deferred prompt
+    setDeferredPrompt(null);
+  };
+
   return (
     <>
       {/* Temporary "Back Online" notification banner */}
@@ -84,35 +137,58 @@ export default function UserMenu({ onLogout, isUploading = false, isSaving = fal
         {/* Dropdown Menu */}
         {isOpen && (
           <div className="absolute top-full right-0 mt-2 z-50 w-64 sm:w-72 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
-			{/* Offline Status */}
-			<div className="px-4 py-3 border-b border-gray-700">
-			  <div className="flex items-center justify-between text-sm">
-				<span className="text-gray-300 font-medium">PoseVault Connection:</span>
-				<div className="flex items-center gap-2">
-				  {isOnline ? (
-					<>
-					  <Wifi size={16} className="text-green-500" />
-					  <span className="text-green-500 font-medium">Online</span>
-					</>
-				  ) : (
-					<>
-					  <WifiOff size={16} className="text-orange-500" />
-					  <span className="text-orange-500 font-medium">Offline</span>
-					</>
-				  )}
-				</div>
-			  </div>
-			  {!isOnline && (
-				<div className="text-gray-400 text-xs mt-2 text-right">
-				  Your data is saved locally
-				</div>
-			  )}
-			</div>
+            {/* Offline Status */}
+            <div className="px-4 py-3 border-b border-gray-700">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-300 font-medium">PoseVault Connection:</span>
+                <div className="flex items-center gap-2">
+                  {isOnline ? (
+                    <>
+                      <Wifi size={16} className="text-green-500" />
+                      <span className="text-green-500 font-medium">Online</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff size={16} className="text-orange-500" />
+                      <span className="text-orange-500 font-medium">Offline</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              {!isOnline && (
+                <div className="text-gray-400 text-xs mt-2 text-right">
+                  Your data is saved locally
+                </div>
+              )}
+            </div>
 
             {/* Storage Meter */}
             <div className="px-4 py-3 border-b border-gray-700">
               <StorageMeter compact={false} pauseRefresh={isUploading || isSaving} />
             </div>
+
+            {/* Install PWA Button */}
+            {!isInstalled && deferredPrompt && (
+              <div className="p-2 border-b border-gray-700">
+                <button
+                  onClick={handleInstallClick}
+                  className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Download size={16} />
+                  <span>Install PoseVault</span>
+                </button>
+              </div>
+            )}
+
+            {/* Already Installed Message */}
+            {isInstalled && (
+              <div className="px-4 py-3 border-b border-gray-700">
+                <div className="flex items-center gap-2 text-sm text-green-500">
+                  <Download size={16} />
+                  <span className="font-medium">PoseVault Installed</span>
+                </div>
+              </div>
+            )}
 
             {/* Logout Button */}
             <div className="p-2">
