@@ -9,11 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vite.svg', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png'],
+      includeAssets: ['vite.svg', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png', 'screenshot-1.png', 'screenshot-2.png'],
       manifest: {
         name: 'PoseVault',
         short_name: 'PoseVault',
-        description: 'Photography pose library management system - works offline',
+        description: 'Better posing. Better portraits.',
         theme_color: '#111827',
         background_color: '#111827',
         display: 'standalone',
@@ -38,7 +38,22 @@ export default defineConfig({
             type: 'image/png',
             purpose: 'maskable'
           }
-        ]
+        ],
+		
+		screenshots: [
+		  {
+			src: 'screenshot-1.png',
+			sizes: '1080x1920',
+			type: 'image/png',
+			form_factor: 'narrow'
+		  },
+		  {
+			src: 'screenshot-2.png',
+			sizes: '1920x1080',
+			type: 'image/png',
+			form_factor: 'wide'
+		  }
+		]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
