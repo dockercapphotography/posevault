@@ -117,15 +117,15 @@ export const getCategoryGridColsClass = (categoryGridColumns) => {
 
 export const initializeDefaultCategories = () => {
   return [
-    { id: 1, name: "Men's Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 2, name: "Women's Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 3, name: "Couples Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 4, name: "Couples & Pet Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 5, name: "Family Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 6, name: "Siblings Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 7, name: "Engagement Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 8, name: "Maternity Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 9, name: "Newborn Poses", cover: null, images: [], isFavorite: false, notes: '' },
-    { id: 10, name: "Boudoir Poses", cover: null, images: [], isFavorite: false, notes: '' }
+    { id: 1, name: "Men's Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 2, name: "Women's Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 3, name: "Couples Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 4, name: "Couples & Pet Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 5, name: "Family Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 6, name: "Siblings Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 7, name: "Engagement Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 8, name: "Maternity Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 9, name: "Newborn Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
+    { id: 10, name: "Boudoir Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: true, privatePassword: null }
   ];
 };

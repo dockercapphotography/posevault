@@ -17,7 +17,8 @@ export default function CategoryGrid({
   onUploadImages,
   onEditSettings,
   onUploadCover,
-  onDelete
+  onDelete,
+  onGeneratePDF
 }) {
   const categoryGridColsClass = getCategoryGridColsClass(categoryGridColumns);
 
@@ -46,7 +47,7 @@ export default function CategoryGrid({
             <ChevronDown size={16} className="hidden md:inline" />
           </button>
 
-          {showCategoryGridDropdown && (
+           {showCategoryGridDropdown && (
             <div className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden z-50">
               {[1, 2, 3, 4].map(cols => {
 			  // Hide 1 column on desktop, hide 3-4 columns on mobile
@@ -92,6 +93,7 @@ export default function CategoryGrid({
               onEditSettings={onEditSettings}
               onUploadCover={onUploadCover}
               onDelete={onDelete}
+              onGeneratePDF={onGeneratePDF}
             />
           ))}
         </div>

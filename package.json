@@ -10,7 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.91.1",
     "@tailwindcss/vite": "^4.1.18",
+    "jspdf": "^4.0.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -28,6 +31,7 @@
     "globals": "^16.5.0",
     "sharp": "^0.34.5",
     "vite": "^7.2.4",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "wrangler": "^4.60.0"
   }
 }
