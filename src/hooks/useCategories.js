@@ -112,10 +112,10 @@ export const useCategories = (currentUser) => {
       return [...prev, {
         id: newId,
         name: name,
-        cover: null,
+        cover: privateSettings.cover || null,
         images: [],
         isFavorite: false,
-        notes: '',
+        notes: privateSettings.notes || '',
         isPrivate: privateSettings.isPrivate || false,
         privatePassword: privateSettings.privatePassword || null,
       }];

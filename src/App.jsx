@@ -471,7 +471,7 @@ export default function PhotographyPoseGuide() {
     if (userId) {
       const categoryData = {
         name,
-        notes: '',
+        notes: privateSettings?.notes || '',
         isFavorite: false,
         isPrivate: privateSettings?.isPrivate || false,
         galleryPassword: hashedPassword,
