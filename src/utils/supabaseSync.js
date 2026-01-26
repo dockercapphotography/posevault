@@ -296,40 +296,68 @@ export async function syncImageTags(imageUid, tags, userId) {
 
   try {
     // Get current tags for this image
-    const { data: currentTags } = await supabase
+    const { data: currentTags, error: selectError } = await supabase
       .from('image_tags')
-      .select('uid, tag_uid, tags(name)')
+      .select('uid, tag_uid, image_uid')
       .eq('image_uid', imageUid);
 
-    const currentTagNames = (currentTags || []).map(t => t.tags?.name);
+    if (selectError) {
+      console.error('image_tags SELECT error:', selectError);
+    }
+
+    // Separately fetch tag names for current image_tags entries
+    const currentTagEntries = [];
+    for (const it of (currentTags || [])) {
+      const { data: tagData } = await supabase
+        .from('tags')
+        .select('name')
+        .eq('uid', it.tag_uid)
+        .single();
+      if (tagData) {
+        currentTagEntries.push({ ...it, tagName: tagData.name });
+      }
+    }
+
+    const currentTagNames = currentTagEntries.map(t => t.tagName);
     const newTagNames = tags.map(t => t.toLowerCase().trim());
 
     // Tags to add
     const tagsToAdd = newTagNames.filter(t => !currentTagNames.includes(t));
 
     // Tags to remove
-    const tagsToRemove = (currentTags || []).filter(
-      t => !newTagNames.includes(t.tags?.name)
+    const tagsToRemove = currentTagEntries.filter(
+      t => !newTagNames.includes(t.tagName)
     );
 
     // Remove old tags
     for (const tag of tagsToRemove) {
-      await supabase
+      const { error: deleteError } = await supabase
         .from('image_tags')
         .delete()
         .eq('uid', tag.uid);
+      if (deleteError) {
+        console.error('image_tags DELETE error:', deleteError);
+      }
     }
 
     // Add new tags
     for (const tagName of tagsToAdd) {
       const tagResult = await getOrCreateTag(tagName, userId);
       if (tagResult.ok) {
-        await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from('image_tags')
           .insert({
             image_uid: imageUid,
             tag_uid: tagResult.uid,
-          });
+          })
+          .select();
+
+        if (insertError) {
+          console.error('image_tags INSERT error:', insertError);
+          console.error('Attempted insert:', { image_uid: imageUid, tag_uid: tagResult.uid });
+        } else {
+          console.log('image_tags entry created:', insertData);
+        }
       }
     }
 
@@ -351,40 +379,64 @@ export async function syncCategoryTags(categoryUid, tags, userId) {
 
   try {
     // Get current tags for this category
-    const { data: currentTags } = await supabase
+    const { data: currentTags, error: selectError } = await supabase
       .from('category_tags')
-      .select('uid, tag_uid, tags(name)')
+      .select('uid, tag_uid, category_uid')
       .eq('category_uid', categoryUid);
 
-    const currentTagNames = (currentTags || []).map(t => t.tags?.name);
+    if (selectError) {
+      console.error('category_tags SELECT error:', selectError);
+    }
+
+    // Separately fetch tag names for current entries
+    const currentTagEntries = [];
+    for (const ct of (currentTags || [])) {
+      const { data: tagData } = await supabase
+        .from('tags')
+        .select('name')
+        .eq('uid', ct.tag_uid)
+        .single();
+      if (tagData) {
+        currentTagEntries.push({ ...ct, tagName: tagData.name });
+      }
+    }
+
+    const currentTagNames = currentTagEntries.map(t => t.tagName);
     const newTagNames = tags.map(t => t.toLowerCase().trim());
 
     // Tags to add
     const tagsToAdd = newTagNames.filter(t => !currentTagNames.includes(t));
 
     // Tags to remove
-    const tagsToRemove = (currentTags || []).filter(
-      t => !newTagNames.includes(t.tags?.name)
+    const tagsToRemove = currentTagEntries.filter(
+      t => !newTagNames.includes(t.tagName)
     );
 
     // Remove old tags
     for (const tag of tagsToRemove) {
-      await supabase
+      const { error: deleteError } = await supabase
         .from('category_tags')
         .delete()
         .eq('uid', tag.uid);
+      if (deleteError) {
+        console.error('category_tags DELETE error:', deleteError);
+      }
     }
 
     // Add new tags
     for (const tagName of tagsToAdd) {
       const tagResult = await getOrCreateTag(tagName, userId);
       if (tagResult.ok) {
-        await supabase
+        const { error: insertError } = await supabase
           .from('category_tags')
           .insert({
             category_uid: categoryUid,
             tag_uid: tagResult.uid,
           });
+
+        if (insertError) {
+          console.error('category_tags INSERT error:', insertError);
+        }
       }
     }
 
