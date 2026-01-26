@@ -29,6 +29,7 @@ import {
 } from './utils/helpers';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2 } from './utils/r2Upload';
+import { hashPassword } from './utils/crypto';
 import {
   createCategory as createCategoryInSupabase,
   updateCategory as updateCategoryInSupabase,
@@ -424,9 +425,17 @@ export default function PhotographyPoseGuide() {
   // Add category locally AND create in Supabase
   const addCategoryWithSync = async (name, privateSettings = {}) => {
     const userId = session?.user?.id;
+    const plainPassword = privateSettings?.privatePassword || null;
 
-    // Create locally first (fast)
-    addCategory(name, privateSettings);
+    // Hash the password before storing locally
+    const hashedPassword = plainPassword ? await hashPassword(plainPassword) : null;
+    const localSettings = {
+      ...privateSettings,
+      privatePassword: hashedPassword,
+    };
+
+    // Create locally with hashed password
+    addCategory(name, localSettings);
 
     // Then create in Supabase
     if (userId) {
@@ -435,17 +444,12 @@ export default function PhotographyPoseGuide() {
         notes: '',
         isFavorite: false,
         isPrivate: privateSettings?.isPrivate || false,
-        galleryPassword: privateSettings?.galleryPassword || null,
+        galleryPassword: hashedPassword,
       };
 
       createCategoryInSupabase(categoryData, userId)
         .then(result => {
           if (result.ok) {
-            // Find the category we just added (it has the highest ID)
-            const newCat = categories.reduce((max, cat) =>
-              cat.id > max.id ? cat : max
-            , { id: 0 });
-
             // Update local category with Supabase UID
             // Note: This needs to find by name since we just added it
             const latestCategories = [...categories];
@@ -463,7 +467,12 @@ export default function PhotographyPoseGuide() {
   };
 
   // Update category locally AND sync to Supabase
-  const updateCategoryWithSync = (categoryId, updates) => {
+  const updateCategoryWithSync = async (categoryId, updates) => {
+    // Hash password if it's being updated
+    if (updates.privatePassword) {
+      updates.privatePassword = await hashPassword(updates.privatePassword);
+    }
+
     // Update locally first
     updateCategory(categoryId, updates);
 
@@ -472,7 +481,13 @@ export default function PhotographyPoseGuide() {
     const userId = session?.user?.id;
 
     if (cat?.supabaseUid && userId) {
-      updateCategoryInSupabase(cat.supabaseUid, updates, userId)
+      // Map local field names to Supabase field names for password
+      const supabaseUpdates = { ...updates };
+      if (updates.privatePassword !== undefined) {
+        supabaseUpdates.galleryPassword = updates.privatePassword;
+      }
+
+      updateCategoryInSupabase(cat.supabaseUid, supabaseUpdates, userId)
         .then(result => {
           if (!result.ok) {
             console.warn('Supabase category sync failed:', result.error);

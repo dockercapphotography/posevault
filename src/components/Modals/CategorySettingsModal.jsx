@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Settings, FileText, Lock, AlertTriangle } from 'lucide-react';
+import { verifyPassword } from '../../utils/crypto';
 
 export default function CategorySettingsModal({ category, onClose, onSave }) {
   const [name, setName] = useState(category?.name || '');
@@ -21,15 +22,16 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
     };
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       setError('Please enter a category name');
       return;
     }
 
-    // If changing password, verify current password
+    // If changing password, verify current password against hash
     if (hasExistingPassword && showPasswordSection) {
-      if (currentPassword !== category.privatePassword) {
+      const isValid = await verifyPassword(currentPassword, category.privatePassword);
+      if (!isValid) {
         setError('Current password is incorrect');
         return;
       }
@@ -51,8 +53,12 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
       name: name.trim(),
       notes,
       isPrivate,
-      privatePassword: showPasswordSection && newPassword ? newPassword : category?.privatePassword || null
     };
+
+    // Only include privatePassword if it's actually being changed (plain text to be hashed)
+    if (showPasswordSection && newPassword) {
+      updates.privatePassword = newPassword;
+    }
 
     onSave(category.id, updates);
   };

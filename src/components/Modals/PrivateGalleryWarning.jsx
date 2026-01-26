@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Lock, X } from 'lucide-react';
+import { verifyPassword } from '../../utils/crypto';
 
 export default function PrivateGalleryWarning({ 
   category, 
@@ -18,9 +19,10 @@ export default function PrivateGalleryWarning({
     };
   }, []);
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (requiresPassword) {
-      if (password === category.privatePassword) {
+      const isValid = await verifyPassword(password, category.privatePassword);
+      if (isValid) {
         onProceed();
       } else {
         setError('Incorrect password');

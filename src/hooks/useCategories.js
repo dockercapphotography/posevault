@@ -106,7 +106,7 @@ export const useCategories = (currentUser) => {
     }
   };
 
-  const addCategory = (name) => {
+  const addCategory = (name, privateSettings = {}) => {
     const newId = Math.max(...categories.map(c => c.id), 0) + 1;
     setCategories([...categories, {
       id: newId,
@@ -114,7 +114,9 @@ export const useCategories = (currentUser) => {
       cover: null,
       images: [],
       isFavorite: false,
-      notes: ''
+      notes: '',
+      isPrivate: privateSettings.isPrivate || false,
+      privatePassword: privateSettings.privatePassword || null,
     }]);
   };
 
