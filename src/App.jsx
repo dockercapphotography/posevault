@@ -484,6 +484,22 @@ export default function PhotographyPoseGuide() {
             const addedCat = categoriesRef.current.find(c => c.name === name && !c.supabaseUid);
             if (addedCat) {
               updateCategory(addedCat.id, { supabaseUid: result.uid });
+
+              // Push current local state to Supabase to catch any edits
+              // made while the create was in flight (e.g. user added notes)
+              const localUpdates = {};
+              if (addedCat.notes) localUpdates.notes = addedCat.notes;
+              if (addedCat.isFavorite) localUpdates.isFavorite = addedCat.isFavorite;
+              if (addedCat.name !== name) localUpdates.name = addedCat.name;
+
+              if (Object.keys(localUpdates).length > 0) {
+                updateCategoryInSupabase(result.uid, localUpdates, userId)
+                  .then(syncResult => {
+                    if (!syncResult.ok) {
+                      console.warn('Post-create sync failed:', syncResult.error);
+                    }
+                  });
+              }
             }
             console.log(`Category created in Supabase: ${result.uid}`);
           } else {
