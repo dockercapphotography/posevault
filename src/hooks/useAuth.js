@@ -40,6 +40,12 @@ export const useAuth = () => {
     });
 
     if (error) {
+      // Provide more specific error messages
+      if (error.message === 'Invalid login credentials') {
+        throw new Error(
+          'Invalid email or password. If you just registered, please check your email and confirm your account first.'
+        );
+      }
       throw error;
     }
 
@@ -59,14 +65,21 @@ export const useAuth = () => {
       throw error;
     }
 
-    return data;
+    // Check if email confirmation is required
+    // If session is null, the user needs to confirm their email
+    const needsEmailConfirmation = !data.session;
+
+    return { ...data, needsEmailConfirmation };
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
+    // Use global scope to invalidate all sessions server-side
+    // This prevents stale refresh tokens from causing issues
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
     if (error) {
-      console.error('Logout failed:', error);
-      throw error;
+      console.error('Logout error (global):', error);
+      // Fallback: at minimum, clear local session
+      await supabase.auth.signOut({ scope: 'local' });
     }
   };
 

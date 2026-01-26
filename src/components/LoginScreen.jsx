@@ -74,12 +74,15 @@ export default function LoginScreen({ onLogin, onRegister }) {
 
     try {
       if (isRegistering) {
-        await onRegister(email, password, { firstName, lastName });
-        setSuccessMessage('Account created! Please check your email to confirm your account, then log in.');
-        setIsRegistering(false);
-        // Clear form
-        setPassword('');
-        setConfirmPassword('');
+        const result = await onRegister(email, password, { firstName, lastName });
+        if (result.needsEmailConfirmation) {
+          setSuccessMessage('Account created! Please check your email and click the confirmation link, then log in.');
+          setIsRegistering(false);
+          // Clear password fields but keep email for convenience
+          setPassword('');
+          setConfirmPassword('');
+        }
+        // If no email confirmation needed, onAuthStateChange will auto-login
       } else {
         await onLogin(email, password);
         // Auth state will update automatically via Supabase listener
