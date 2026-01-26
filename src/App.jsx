@@ -37,10 +37,12 @@ import {
   createImage as createImageInSupabase,
   updateImage as updateImageInSupabase,
   deleteImage as deleteImageInSupabase,
+  findImageByR2Key,
   syncImageTags,
   syncCategoryTags,
   updateUserStorage,
-  fetchSupabaseCategories
+  fetchSupabaseCategories,
+  fetchSupabaseImages
 } from './utils/supabaseSync';
 
 export default function PhotographyPoseGuide() {
@@ -120,32 +122,70 @@ export default function PhotographyPoseGuide() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Hydrate local categories with Supabase UIDs on load
+  // Hydrate local categories AND images with Supabase UIDs on load
   useEffect(() => {
     if (!session?.user?.id || categoriesLoading || categories.length === 0) return;
 
-    // Check if any categories are missing supabaseUid
-    const needsHydration = categories.some(c => !c.supabaseUid);
-    if (!needsHydration) return;
+    const userId = session.user.id;
 
-    fetchSupabaseCategories(session.user.id).then(result => {
-      if (!result.ok) return;
+    // Check if any categories or images need hydration
+    const needsCategoryHydration = categories.some(c => !c.supabaseUid);
+    const needsImageHydration = categories.some(c =>
+      c.supabaseUid && c.images?.some(img => !img.supabaseUid && img.r2Key)
+    );
 
-      const supabaseCategories = result.categories;
-      // Use ref to get the latest local categories
-      const localCategories = categoriesRef.current;
+    if (!needsCategoryHydration && !needsImageHydration) return;
 
-      for (const local of localCategories) {
-        if (local.supabaseUid) continue; // Already has UID
+    const hydrateAll = async () => {
+      // Step 1: Hydrate categories
+      if (needsCategoryHydration) {
+        const result = await fetchSupabaseCategories(userId);
+        if (result.ok) {
+          const supabaseCategories = result.categories;
+          const localCategories = categoriesRef.current;
 
-        // Match by name
-        const match = supabaseCategories.find(sc => sc.name === local.name);
-        if (match) {
-          updateCategory(local.id, { supabaseUid: match.uid });
-          console.log(`Hydrated supabaseUid for "${local.name}": ${match.uid}`);
+          for (const local of localCategories) {
+            if (local.supabaseUid) continue;
+            const match = supabaseCategories.find(sc => sc.name === local.name);
+            if (match) {
+              updateCategory(local.id, { supabaseUid: match.uid });
+              console.log(`Hydrated category supabaseUid for "${local.name}": ${match.uid}`);
+            }
+          }
+
+          // Wait for category state to settle before hydrating images
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
-    });
+
+      // Step 2: Hydrate images - backfill supabaseUid by matching r2_key
+      const latestCategories = categoriesRef.current;
+      for (const cat of latestCategories) {
+        if (!cat.supabaseUid) continue;
+
+        const imagesNeedingHydration = cat.images?.filter(img => !img.supabaseUid && img.r2Key) || [];
+        if (imagesNeedingHydration.length === 0) continue;
+
+        console.log(`Hydrating ${imagesNeedingHydration.length} images for category "${cat.name}"`);
+
+        const imgResult = await fetchSupabaseImages(cat.supabaseUid, userId);
+        if (!imgResult.ok) continue;
+
+        const supabaseImages = imgResult.images;
+        for (let idx = 0; idx < cat.images.length; idx++) {
+          const localImg = cat.images[idx];
+          if (localImg.supabaseUid || !localImg.r2Key) continue;
+
+          const match = supabaseImages.find(si => si.r2_key === localImg.r2Key);
+          if (match) {
+            updateImage(cat.id, idx, { supabaseUid: match.uid });
+            console.log(`Hydrated image supabaseUid for r2Key="${localImg.r2Key}": ${match.uid}`);
+          }
+        }
+      }
+    };
+
+    hydrateAll();
   }, [session?.user?.id, categoriesLoading, categories.length]);
 
   // Handlers
@@ -354,6 +394,10 @@ export default function PhotographyPoseGuide() {
         }
       }
 
+      // Capture the current image count BEFORE adding (for correct R2 upload indexing)
+      const existingCat = categoriesRef.current.find(c => c.id === categoryId);
+      const startIndex = existingCat ? existingCat.images.length : 0;
+
       // Add all processed images to local storage first (fast)
       addImages(categoryId, images);
 
@@ -368,7 +412,7 @@ export default function PhotographyPoseGuide() {
 
       // Upload to R2 in background (don't block UI)
       if (session?.access_token) {
-        uploadImagesToR2InBackground(categoryId, images, filenames);
+        uploadImagesToR2InBackground(categoryId, images, filenames, startIndex);
       } else {
         console.warn('No session - skipping R2 upload');
       }
@@ -390,14 +434,8 @@ export default function PhotographyPoseGuide() {
   };
 
   // Background R2 upload function
-  const uploadImagesToR2InBackground = async (categoryId, images, filenames) => {
-    const cat = categoriesRef.current.find(c => c.id === categoryId);
-    if (!cat) return;
-
-    // Find the starting index of the newly added images
-    const startIndex = cat.images.length - images.length;
+  const uploadImagesToR2InBackground = async (categoryId, images, filenames, startIndex) => {
     const userId = session?.user?.id;
-    const categorySupabaseUid = cat.supabaseUid; // Get category's Supabase UID
 
     for (let i = 0; i < images.length; i++) {
       const imageIndex = startIndex + i;
@@ -422,6 +460,13 @@ export default function PhotographyPoseGuide() {
 
           // Create image record in Supabase
           if (userId) {
+            // Read category UID fresh from ref (may have been hydrated since upload started)
+            const categorySupabaseUid = categoriesRef.current.find(c => c.id === categoryId)?.supabaseUid;
+            if (!categorySupabaseUid) {
+              console.warn(`No supabaseUid for category ${categoryId}, skipping Supabase image create`);
+              continue;
+            }
+
             const supabaseResult = await createImageInSupabase(
               {
                 r2Key: result.key,
@@ -468,28 +513,51 @@ export default function PhotographyPoseGuide() {
     if (cat && cat.images[imageIndex]) {
       const image = cat.images[imageIndex];
       const userId = session?.user?.id;
+      if (!userId) return;
 
-      // Only sync if the image has a Supabase UID
-      if (image.supabaseUid && userId) {
-        // Sync metadata updates
-        updateImageInSupabase(image.supabaseUid, updates, userId)
+      let imageUid = image.supabaseUid;
+
+      // Fallback: if no supabaseUid but we have an r2Key, look it up
+      if (!imageUid && image.r2Key) {
+        console.log('Image missing supabaseUid, looking up by r2Key:', image.r2Key);
+        const lookup = await findImageByR2Key(image.r2Key, userId);
+        if (lookup.ok) {
+          imageUid = lookup.uid;
+          // Cache the UID locally so we don't have to look it up again
+          updateImage(categoryId, imageIndex, { supabaseUid: imageUid });
+          console.log('Found and cached supabaseUid:', imageUid);
+        } else {
+          console.warn('Could not find image in Supabase by r2Key:', image.r2Key);
+          return;
+        }
+      }
+
+      if (!imageUid) {
+        console.warn('No supabaseUid and no r2Key for image, skipping Supabase sync');
+        return;
+      }
+
+      // Sync metadata updates
+      updateImageInSupabase(imageUid, updates, userId)
+        .then(result => {
+          if (!result.ok) {
+            console.warn('Supabase image sync failed:', result.error);
+          }
+        })
+        .catch(err => console.error('Supabase sync error:', err));
+
+      // Sync tags if they were updated
+      if (updates.tags) {
+        console.log('Syncing tags to Supabase:', updates.tags, 'imageUid:', imageUid);
+        syncImageTags(imageUid, updates.tags, userId)
           .then(result => {
             if (!result.ok) {
-              console.warn('Supabase image sync failed:', result.error);
+              console.warn('Supabase tags sync failed:', result.error);
+            } else {
+              console.log('Tags synced successfully to Supabase');
             }
           })
-          .catch(err => console.error('Supabase sync error:', err));
-
-        // Sync tags if they were updated
-        if (updates.tags) {
-          syncImageTags(image.supabaseUid, updates.tags, userId)
-            .then(result => {
-              if (!result.ok) {
-                console.warn('Supabase tags sync failed:', result.error);
-              }
-            })
-            .catch(err => console.error('Supabase tags sync error:', err));
-        }
+          .catch(err => console.error('Supabase tags sync error:', err));
       }
     }
   };
@@ -688,7 +756,7 @@ export default function PhotographyPoseGuide() {
     }
   };
 
-  const handleBulkEdit = (updates) => {
+  const handleBulkEdit = async (updates) => {
     if (!currentCategory) return;
 
     const bulkUpdates = {};
@@ -718,7 +786,18 @@ export default function PhotographyPoseGuide() {
       if (cat) {
         for (const imageIndex of selectedImages) {
           const image = cat.images[imageIndex];
-          if (!image?.supabaseUid) continue;
+          if (!image) continue;
+
+          // Resolve supabaseUid (with fallback lookup by r2Key)
+          let imageUid = image.supabaseUid;
+          if (!imageUid && image.r2Key) {
+            const lookup = await findImageByR2Key(image.r2Key, userId);
+            if (lookup.ok) {
+              imageUid = lookup.uid;
+              updateImage(currentCategory.id, imageIndex, { supabaseUid: imageUid });
+            }
+          }
+          if (!imageUid) continue;
 
           // Sync metadata updates (notes, favorites)
           const metaUpdates = {};
@@ -726,7 +805,7 @@ export default function PhotographyPoseGuide() {
           if (bulkUpdates.isFavorite !== undefined) metaUpdates.isFavorite = bulkUpdates.isFavorite;
 
           if (Object.keys(metaUpdates).length > 0) {
-            updateImageInSupabase(image.supabaseUid, metaUpdates, userId)
+            updateImageInSupabase(imageUid, metaUpdates, userId)
               .catch(err => console.error('Bulk edit Supabase sync error:', err));
           }
 
@@ -734,7 +813,7 @@ export default function PhotographyPoseGuide() {
           if (bulkUpdates.tags && bulkUpdates.tags.length > 0) {
             const existingTags = image.tags || [];
             const mergedTags = [...new Set([...existingTags, ...bulkUpdates.tags])];
-            syncImageTags(image.supabaseUid, mergedTags, userId)
+            syncImageTags(imageUid, mergedTags, userId)
               .catch(err => console.error('Bulk edit tag sync error:', err));
           }
         }

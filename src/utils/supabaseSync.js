@@ -510,6 +510,31 @@ export async function fetchSupabaseCategories(userId) {
 }
 
 /**
+ * Fetch all images for a category from Supabase
+ * Used for hydration - backfilling supabaseUid on local image objects.
+ */
+export async function fetchSupabaseImages(categoryUid, userId) {
+  try {
+    const { data, error } = await supabase
+      .from('images')
+      .select('uid, r2_key, name')
+      .eq('category_uid', categoryUid)
+      .eq('user_id', userId)
+      .is('deleted_at', null);
+
+    if (error) {
+      console.error('Fetch images error:', error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true, images: data || [] };
+  } catch (err) {
+    console.error('Fetch images exception:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * ==========================================
  * LEGACY COMPATIBILITY (for existing code)
  * ==========================================
