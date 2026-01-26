@@ -349,6 +349,7 @@ export async function syncImageTags(imageUid, tags, userId) {
           .insert({
             image_uid: imageUid,
             tag_uid: tagResult.uid,
+            created_at: new Date().toISOString(),
           })
           .select();
 
@@ -432,6 +433,7 @@ export async function syncCategoryTags(categoryUid, tags, userId) {
           .insert({
             category_uid: categoryUid,
             tag_uid: tagResult.uid,
+            created_at: new Date().toISOString(),
           });
 
         if (insertError) {
