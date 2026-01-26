@@ -77,38 +77,9 @@ export default {
       );
     }
 
-    // Insert metadata into Supabase
-    try {
-      const supabaseRes = await fetch(`${env.SUPABASE_URL}/rest/v1/images`, {
-        method: "POST",
-        headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-          "Content-Type": "application/json",
-          "Prefer": "return=minimal",
-        },
-        body: JSON.stringify({
-          user_uid: userId,
-          name: file.name,
-          image_size: file.size,
-        }),
-      });
-
-      if (!supabaseRes.ok) {
-        const text = await supabaseRes.text();
-        return new Response(
-          JSON.stringify({ ok: false, error: "Supabase insert failed: " + text }),
-          { status: supabaseRes.status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
-        );
-      }
-    } catch (err) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "Supabase insert exception: " + err.message }),
-        { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-
-    // Success
+    // Success - return key and size
+    // Note: Supabase metadata insert is now handled by the frontend
+    // which has access to category_uid and other context
     return new Response(
       JSON.stringify({ ok: true, key, size: file.size }),
       { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }

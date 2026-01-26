@@ -29,7 +29,13 @@ import {
 } from './utils/helpers';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2 } from './utils/r2Upload';
-import { syncImageMetadata, syncImageDeletion } from './utils/supabaseSync';
+import {
+  createImage as createImageInSupabase,
+  updateImage as updateImageInSupabase,
+  deleteImage as deleteImageInSupabase,
+  syncImageTags,
+  updateUserStorage
+} from './utils/supabaseSync';
 
 export default function PhotographyPoseGuide() {
   const { isAuthenticated, currentUser, session, isLoading: authLoading, login, register, logout } = useAuth();
@@ -285,6 +291,8 @@ export default function PhotographyPoseGuide() {
 
     // Find the starting index of the newly added images
     const startIndex = cat.images.length - images.length;
+    const userId = session?.user?.id;
+    const categorySupabaseUid = cat.supabaseUid; // Get category's Supabase UID
 
     for (let i = 0; i < images.length; i++) {
       const imageIndex = startIndex + i;
@@ -300,12 +308,40 @@ export default function PhotographyPoseGuide() {
         );
 
         if (result.ok) {
-          // Update with R2 key
+          // Update local with R2 key
           updateImage(categoryId, imageIndex, {
             r2Key: result.key,
             r2Status: 'uploaded'
           });
           console.log(`R2 upload successful: ${result.key}`);
+
+          // Create image record in Supabase
+          if (userId) {
+            const supabaseResult = await createImageInSupabase(
+              {
+                r2Key: result.key,
+                size: result.size,
+                poseName: images[i].poseName || filenames[i],
+                notes: images[i].notes || '',
+                isFavorite: images[i].isFavorite || false,
+              },
+              categorySupabaseUid,
+              userId
+            );
+
+            if (supabaseResult.ok) {
+              // Store the Supabase UID locally
+              updateImage(categoryId, imageIndex, {
+                supabaseUid: supabaseResult.uid
+              });
+              console.log(`Supabase image created: ${supabaseResult.uid}`);
+
+              // Update user storage tracking
+              updateUserStorage(userId, result.size);
+            } else {
+              console.error('Supabase image create failed:', supabaseResult.error);
+            }
+          }
         } else {
           updateImage(categoryId, imageIndex, { r2Status: 'failed' });
           console.error(`R2 upload failed for image ${i + 1}:`, result.error);
@@ -326,16 +362,29 @@ export default function PhotographyPoseGuide() {
     const cat = categories.find(c => c.id === categoryId);
     if (cat && cat.images[imageIndex]) {
       const image = cat.images[imageIndex];
+      const userId = session?.user?.id;
 
-      // Only sync if the image has been uploaded to R2
-      if (image.r2Key && session?.user?.id) {
-        syncImageMetadata(image.r2Key, updates, session.user.id)
+      // Only sync if the image has a Supabase UID
+      if (image.supabaseUid && userId) {
+        // Sync metadata updates
+        updateImageInSupabase(image.supabaseUid, updates, userId)
           .then(result => {
             if (!result.ok) {
-              console.warn('Supabase sync failed:', result.error);
+              console.warn('Supabase image sync failed:', result.error);
             }
           })
           .catch(err => console.error('Supabase sync error:', err));
+
+        // Sync tags if they were updated
+        if (updates.tags) {
+          syncImageTags(image.supabaseUid, updates.tags, userId)
+            .then(result => {
+              if (!result.ok) {
+                console.warn('Supabase tags sync failed:', result.error);
+              }
+            })
+            .catch(err => console.error('Supabase tags sync error:', err));
+        }
       }
     }
   };
@@ -345,10 +394,11 @@ export default function PhotographyPoseGuide() {
     const cat = categories.find(c => c.id === categoryId);
     if (cat && cat.images[imageIndex]) {
       const image = cat.images[imageIndex];
+      const userId = session?.user?.id;
 
-      // Sync deletion to Supabase if image was uploaded
-      if (image.r2Key && session?.user?.id) {
-        syncImageDeletion(image.r2Key, session.user.id)
+      // Sync deletion to Supabase if image has a Supabase UID
+      if (image.supabaseUid && userId) {
+        deleteImageInSupabase(image.supabaseUid, userId)
           .catch(err => console.error('Supabase delete sync error:', err));
       }
     }
