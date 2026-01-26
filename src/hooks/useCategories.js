@@ -107,43 +107,45 @@ export const useCategories = (currentUser) => {
   };
 
   const addCategory = (name, privateSettings = {}) => {
-    const newId = Math.max(...categories.map(c => c.id), 0) + 1;
-    setCategories([...categories, {
-      id: newId,
-      name: name,
-      cover: null,
-      images: [],
-      isFavorite: false,
-      notes: '',
-      isPrivate: privateSettings.isPrivate || false,
-      privatePassword: privateSettings.privatePassword || null,
-    }]);
+    setCategories(prev => {
+      const newId = Math.max(...prev.map(c => c.id), 0) + 1;
+      return [...prev, {
+        id: newId,
+        name: name,
+        cover: null,
+        images: [],
+        isFavorite: false,
+        notes: '',
+        isPrivate: privateSettings.isPrivate || false,
+        privatePassword: privateSettings.privatePassword || null,
+      }];
+    });
   };
 
   const updateCategory = (categoryId, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, ...updates } : cat
     ));
   };
 
   const deleteCategory = (categoryId) => {
-    setCategories(categories.filter(cat => cat.id !== categoryId));
+    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
   };
 
   const toggleCategoryFavorite = (categoryId) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, isFavorite: !cat.isFavorite } : cat
     ));
   };
 
   const addImages = (categoryId, newImages) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, images: [...cat.images, ...newImages] } : cat
     ));
   };
 
   const updateImage = (categoryId, imageIndex, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -156,7 +158,7 @@ export const useCategories = (currentUser) => {
   };
 
   const deleteImage = (categoryId, imageIndex) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => i !== imageIndex) }
         : cat
@@ -164,7 +166,7 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkUpdateImages = (categoryId, imageIndices, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -198,7 +200,7 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkDeleteImages = (categoryId, imageIndices) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => !imageIndices.includes(i)) }
         : cat
