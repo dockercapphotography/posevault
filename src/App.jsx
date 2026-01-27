@@ -28,7 +28,7 @@ import {
   getDisplayedImages
 } from './utils/helpers';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
-import { uploadToR2, fetchFromR2, getR2Url } from './utils/r2Upload';
+import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
 import {
   createCategory as createCategoryInSupabase,
@@ -43,7 +43,8 @@ import {
   updateUserStorage,
   fetchSupabaseCategories,
   fetchSupabaseImages,
-  fetchFullCloudData
+  fetchFullCloudData,
+  runCleanup
 } from './utils/supabaseSync';
 
 export default function PhotographyPoseGuide() {
@@ -110,6 +111,7 @@ export default function PhotographyPoseGuide() {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncProgress, setCloudSyncProgress] = useState('');
   const cloudSyncAttemptedRef = useRef(false);
+  const cleanupAttemptedRef = useRef(false);
 
   // Refs
   const dropdownRef = useRef(null);
@@ -339,6 +341,40 @@ export default function PhotographyPoseGuide() {
 
     hydrateAll();
   }, [session?.user?.id, categoriesLoading, categories.length]);
+
+  // ==========================================
+  // BATCH CLEANUP: Purge soft-deleted records and R2 files
+  // ==========================================
+  useEffect(() => {
+    if (!session?.user?.id || !session?.access_token || categoriesLoading) return;
+    if (cleanupAttemptedRef.current) return;
+    cleanupAttemptedRef.current = true;
+
+    const doCleanup = async () => {
+      console.log('Running batch cleanup...');
+      const result = await runCleanup(session.user.id, session.access_token, deleteFromR2);
+      if (result.ok) {
+        const { deletedImages, deletedCategories, freedBytes, errors } = result;
+        if (deletedImages > 0 || deletedCategories > 0) {
+          console.log(
+            `Cleanup finished: ${deletedImages} images, ${deletedCategories} categories purged, ` +
+            `${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`
+          );
+        } else {
+          console.log('Cleanup: nothing to purge');
+        }
+        if (errors.length > 0) {
+          console.warn('Cleanup encountered errors:', errors);
+        }
+      } else {
+        console.error('Cleanup failed:', result.errors);
+      }
+    };
+
+    // Run cleanup in background after a short delay to not compete with initial load
+    const timer = setTimeout(doCleanup, 3000);
+    return () => clearTimeout(timer);
+  }, [session?.user?.id, session?.access_token, categoriesLoading]);
 
   // Handlers
 
@@ -842,15 +878,30 @@ export default function PhotographyPoseGuide() {
     }
   };
 
-  // Delete category locally AND soft-delete in Supabase
-  const deleteCategoryWithSync = (categoryId) => {
+  // Delete category locally AND soft-delete in Supabase (including child images)
+  const deleteCategoryWithSync = async (categoryId) => {
     const cat = categoriesRef.current.find(c => c.id === categoryId);
     const userId = session?.user?.id;
 
-    // Sync deletion to Supabase
-    if (cat?.supabaseUid && userId) {
-      deleteCategoryInSupabase(cat.supabaseUid, userId)
-        .catch(err => console.error('Supabase category delete error:', err));
+    if (cat && userId) {
+      // Soft-delete all images in this category
+      for (const image of (cat.images || [])) {
+        let imageUid = image.supabaseUid;
+        if (!imageUid && image.r2Key) {
+          const lookup = await findImageByR2Key(image.r2Key, userId);
+          if (lookup.ok) imageUid = lookup.uid;
+        }
+        if (imageUid) {
+          deleteImageInSupabase(imageUid, userId)
+            .catch(err => console.error('Supabase image delete (category cascade) error:', err));
+        }
+      }
+
+      // Soft-delete the category itself
+      if (cat.supabaseUid) {
+        deleteCategoryInSupabase(cat.supabaseUid, userId)
+          .catch(err => console.error('Supabase category delete error:', err));
+      }
     }
 
     // Delete locally
@@ -976,10 +1027,33 @@ export default function PhotographyPoseGuide() {
     setSelectedImages([]);
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (!currentCategory) return;
 
-    // Delete all selected images at once
+    const userId = session?.user?.id;
+
+    // Soft-delete each selected image in Supabase before removing locally
+    if (userId) {
+      const cat = categoriesRef.current.find(c => c.id === currentCategory.id);
+      if (cat) {
+        for (const imageIndex of selectedImages) {
+          const image = cat.images[imageIndex];
+          if (!image) continue;
+
+          let imageUid = image.supabaseUid;
+          if (!imageUid && image.r2Key) {
+            const lookup = await findImageByR2Key(image.r2Key, userId);
+            if (lookup.ok) imageUid = lookup.uid;
+          }
+          if (imageUid) {
+            deleteImageInSupabase(imageUid, userId)
+              .catch(err => console.error('Bulk delete Supabase sync error:', err));
+          }
+        }
+      }
+    }
+
+    // Delete all selected images locally
     bulkDeleteImages(currentCategory.id, selectedImages);
 
     setBulkSelectMode(false);

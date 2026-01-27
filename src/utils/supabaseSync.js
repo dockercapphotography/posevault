@@ -718,6 +718,176 @@ export async function fetchSupabaseImages(categoryUid, userId) {
  * ==========================================
  */
 
+/**
+ * ==========================================
+ * BATCH CLEANUP - Purge soft-deleted records and R2 files
+ * ==========================================
+ */
+
+/**
+ * Run batch cleanup: find all soft-deleted images and categories,
+ * delete their R2 files, remove associated tags, hard-delete the
+ * records, and reclaim storage.
+ *
+ * @param {string} userId - The user's ID
+ * @param {string} accessToken - Supabase session access token (for R2 auth)
+ * @param {Function} deleteR2File - Function to delete an R2 file: (r2Key, accessToken) => Promise
+ * @returns {Promise<{ok: boolean, deletedImages: number, deletedCategories: number, freedBytes: number, errors: string[]}>}
+ */
+export async function runCleanup(userId, accessToken, deleteR2File) {
+  const errors = [];
+  let deletedImages = 0;
+  let deletedCategories = 0;
+  let freedBytes = 0;
+
+  try {
+    // ---- Step 1: Find all soft-deleted images ----
+    const { data: deletedImgs, error: imgFetchErr } = await supabase
+      .from('images')
+      .select('uid, r2_key, image_size')
+      .eq('user_id', userId)
+      .not('deleted_at', 'is', null);
+
+    if (imgFetchErr) {
+      errors.push('Failed to fetch deleted images: ' + imgFetchErr.message);
+    }
+
+    const imagesToClean = deletedImgs || [];
+    console.log(`Cleanup: found ${imagesToClean.length} soft-deleted images`);
+
+    for (const img of imagesToClean) {
+      // Delete R2 file
+      if (img.r2_key && deleteR2File) {
+        const r2Result = await deleteR2File(img.r2_key, accessToken);
+        if (!r2Result.ok) {
+          errors.push(`R2 delete failed for ${img.r2_key}: ${r2Result.error}`);
+        } else {
+          console.log(`Cleanup: deleted R2 file ${img.r2_key}`);
+        }
+      }
+
+      // Delete image_tags entries for this image
+      const { error: itDeleteErr } = await supabase
+        .from('image_tags')
+        .delete()
+        .eq('image_uid', img.uid);
+
+      if (itDeleteErr) {
+        errors.push(`image_tags cleanup failed for image ${img.uid}: ${itDeleteErr.message}`);
+      }
+
+      // Hard-delete the image record
+      const { error: imgDeleteErr } = await supabase
+        .from('images')
+        .delete()
+        .eq('uid', img.uid)
+        .eq('user_id', userId);
+
+      if (imgDeleteErr) {
+        errors.push(`Image hard-delete failed for ${img.uid}: ${imgDeleteErr.message}`);
+      } else {
+        deletedImages++;
+        freedBytes += img.image_size || 0;
+      }
+    }
+
+    // ---- Step 2: Find all soft-deleted categories ----
+    const { data: deletedCats, error: catFetchErr } = await supabase
+      .from('categories')
+      .select('uid')
+      .eq('user_id', userId)
+      .not('deleted_at', 'is', null);
+
+    if (catFetchErr) {
+      errors.push('Failed to fetch deleted categories: ' + catFetchErr.message);
+    }
+
+    const categoriesToClean = deletedCats || [];
+    console.log(`Cleanup: found ${categoriesToClean.length} soft-deleted categories`);
+
+    for (const cat of categoriesToClean) {
+      // Delete category_tags entries
+      const { error: ctDeleteErr } = await supabase
+        .from('category_tags')
+        .delete()
+        .eq('category_uid', cat.uid);
+
+      if (ctDeleteErr) {
+        errors.push(`category_tags cleanup failed for category ${cat.uid}: ${ctDeleteErr.message}`);
+      }
+
+      // Hard-delete the category record
+      const { error: catDeleteErr } = await supabase
+        .from('categories')
+        .delete()
+        .eq('uid', cat.uid)
+        .eq('user_id', userId);
+
+      if (catDeleteErr) {
+        errors.push(`Category hard-delete failed for ${cat.uid}: ${catDeleteErr.message}`);
+      } else {
+        deletedCategories++;
+      }
+    }
+
+    // ---- Step 3: Reclaim storage ----
+    if (freedBytes > 0) {
+      const { data: storageData } = await supabase
+        .from('user_storage')
+        .select('uid, current_storage')
+        .eq('user_id', userId)
+        .single();
+
+      if (storageData) {
+        const newStorage = Math.max(0, (storageData.current_storage || 0) - freedBytes);
+        await supabase
+          .from('user_storage')
+          .update({ current_storage: newStorage })
+          .eq('uid', storageData.uid);
+
+        console.log(`Cleanup: reclaimed ${freedBytes} bytes, new storage: ${newStorage}`);
+      }
+    }
+
+    // ---- Step 4: Clean up orphaned tags (no image_tags or category_tags referencing them) ----
+    const { data: userTags } = await supabase
+      .from('tags')
+      .select('uid')
+      .eq('user_id', userId);
+
+    if (userTags && userTags.length > 0) {
+      for (const tag of userTags) {
+        const { data: itRefs } = await supabase
+          .from('image_tags')
+          .select('uid')
+          .eq('tag_uid', tag.uid)
+          .limit(1);
+
+        const { data: ctRefs } = await supabase
+          .from('category_tags')
+          .select('uid')
+          .eq('tag_uid', tag.uid)
+          .limit(1);
+
+        if ((!itRefs || itRefs.length === 0) && (!ctRefs || ctRefs.length === 0)) {
+          await supabase
+            .from('tags')
+            .delete()
+            .eq('uid', tag.uid)
+            .eq('user_id', userId);
+        }
+      }
+    }
+
+    console.log(`Cleanup complete: ${deletedImages} images, ${deletedCategories} categories, ${freedBytes} bytes freed, ${errors.length} errors`);
+
+    return { ok: true, deletedImages, deletedCategories, freedBytes, errors };
+  } catch (err) {
+    console.error('Cleanup exception:', err);
+    return { ok: false, deletedImages, deletedCategories, freedBytes, errors: [...errors, err.message] };
+  }
+}
+
 // Keep old function names working during migration
 export const syncImageMetadata = updateImage;
 export const syncImageDeletion = async (r2Key, userId) => {

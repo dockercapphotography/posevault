@@ -100,6 +100,37 @@ export async function fetchFromR2(r2Key, accessToken) {
 }
 
 /**
+ * Delete an image from R2
+ * @param {string} r2Key - The R2 object key to delete
+ * @param {string} accessToken - Supabase session access token
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function deleteFromR2(r2Key, accessToken) {
+  if (!r2Key || !accessToken) {
+    return { ok: false, error: 'Missing r2Key or accessToken' };
+  }
+
+  try {
+    const response = await fetch(`${R2_WORKER_URL}/${r2Key}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      return { ok: false, error: result.error || `HTTP ${response.status}` };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Upload multiple images to R2 in the background
  * @param {Array<{src: string, filename: string}>} images - Images to upload
  * @param {string} accessToken - Supabase session access token

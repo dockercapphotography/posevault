@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
     };
 
@@ -78,6 +78,42 @@ export default {
       } catch (err) {
         return new Response(
           JSON.stringify({ ok: false, error: "R2 fetch failed: " + err.message }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
+
+    // ==========================================
+    // DELETE: Remove an image from R2
+    // ==========================================
+    if (request.method === "DELETE") {
+      const url = new URL(request.url);
+      const key = decodeURIComponent(url.pathname.slice(1));
+
+      if (!key) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "No key provided" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Security: ensure the user can only delete their own files
+      if (!key.startsWith(`users/${userId}/`)) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Access denied" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      try {
+        await env.MY_BUCKET.delete(key);
+        return new Response(
+          JSON.stringify({ ok: true, key }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "R2 delete failed: " + err.message }),
           { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
