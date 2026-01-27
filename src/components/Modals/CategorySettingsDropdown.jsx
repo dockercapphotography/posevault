@@ -46,7 +46,7 @@ export default function CategorySettingsDropdown({
       <label className="block cursor-pointer hover:bg-gray-600 transition-colors">
         <input
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
           onChange={(e) => {
             onUploadCover(e, category.id);
             onClose();

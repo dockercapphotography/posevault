@@ -44,7 +44,7 @@ export default function ImageGrid({
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
               onChange={(e) => onUploadImages(e, category.id)}
               className="hidden"
             />

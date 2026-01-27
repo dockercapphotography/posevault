@@ -111,7 +111,7 @@ export default function NewCategoryModal({ onClose, onAdd }) {
           <input
             ref={coverInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
             onChange={handleCoverUpload}
             className="hidden"
           />

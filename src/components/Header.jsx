@@ -45,7 +45,7 @@ export default function Header({
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
                 onChange={(e) => onUploadPoses(e, categoryId)}
                 className="hidden"
                 id="header-upload-poses"
