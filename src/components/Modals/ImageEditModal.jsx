@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Tag, FileText, Calendar, Plus, Type } from 'lucide-react';
+import { X, Tag, FileText, Calendar, Plus, Type, HardDrive } from 'lucide-react';
 
 export default function ImageEditModal({
   image,
@@ -122,20 +122,32 @@ export default function ImageEditModal({
           />
         </div>
 
-        {/* Date Added */}
-        <div className="mb-6 flex items-center gap-2 text-gray-400 text-sm">
-          <Calendar size={16} />
-          <span>
-            {image.dateAdded
-              ? `Added ${new Date(image.dateAdded).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}`
-              : 'Date not available'}
-          </span>
+        {/* Date Added & File Size */}
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-400 text-sm">
+          <div className="flex items-center gap-2">
+            <Calendar size={16} />
+            <span>
+              {image.dateAdded
+                ? `Added ${new Date(image.dateAdded).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}`
+                : 'Date not available'}
+            </span>
+          </div>
+          {image.size > 0 && (
+            <div className="flex items-center gap-2">
+              <HardDrive size={16} />
+              <span>
+                {image.size >= 1048576
+                  ? `${(image.size / 1048576).toFixed(1)}mb`
+                  : `${Math.round(image.size / 1024)}kb`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Tags Section */}
