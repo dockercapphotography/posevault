@@ -250,35 +250,56 @@ export async function findImageByR2Key(r2Key, userId) {
  * @returns {Promise<{ok: boolean, uid?: number, error?: string}>}
  */
 export async function getOrCreateTag(tagName, userId) {
+  const normalized = tagName.toLowerCase().trim();
+
   try {
-    // First, try to find existing tag
-    const { data: existing } = await supabase
+    // First, try to find existing tag (maybeSingle avoids 406 error on zero rows)
+    const { data: existing, error: selectError } = await supabase
       .from('tags')
       .select('uid')
-      .eq('name', tagName.toLowerCase().trim())
+      .eq('name', normalized)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (selectError) {
+      console.error('Tag lookup error:', selectError);
+    }
 
     if (existing) {
+      console.log('Found existing tag:', normalized, existing.uid);
       return { ok: true, uid: existing.uid, created: false };
     }
 
-    // Create new tag
+    // Tag doesn't exist — create it
     const { data, error } = await supabase
       .from('tags')
       .insert({
-        name: tagName.toLowerCase().trim(),
+        name: normalized,
         user_id: userId,
       })
       .select('uid')
       .single();
 
     if (error) {
+      // If insert failed (e.g. unique constraint), try to look up again
+      console.warn('Tag insert failed, re-looking up:', error.message);
+      const { data: retry } = await supabase
+        .from('tags')
+        .select('uid')
+        .eq('name', normalized)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (retry) {
+        console.log('Found tag on retry:', normalized, retry.uid);
+        return { ok: true, uid: retry.uid, created: false };
+      }
+
       console.error('Supabase tag create error:', error);
       return { ok: false, error: error.message };
     }
 
-    console.log('Tag created in Supabase:', tagName, data.uid);
+    console.log('Tag created in Supabase:', normalized, data.uid);
     return { ok: true, uid: data.uid, created: true };
   } catch (err) {
     console.error('Tag create exception:', err);
