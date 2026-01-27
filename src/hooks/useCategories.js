@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { initializeDefaultCategories } from '../utils/helpers';
 
 export const useCategories = (currentUser) => {
   const [categories, setCategories] = useState([]);
@@ -63,11 +62,11 @@ export const useCategories = (currentUser) => {
         }));
         setCategories(migratedCategories);
       } else {
-        setCategories(initializeDefaultCategories());
+        setCategories([]);
       }
     } catch (error) {
-      console.log('No saved data found, initializing defaults');
-      setCategories(initializeDefaultCategories());
+      console.log('No saved data found, starting with empty categories');
+      setCategories([]);
     } finally {
       setIsLoading(false);
     }
