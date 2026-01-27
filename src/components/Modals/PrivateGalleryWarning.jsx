@@ -21,12 +21,17 @@ export default function PrivateGalleryWarning({
 
   const handleProceed = async () => {
     if (requiresPassword) {
-      const isValid = await verifyPassword(password, category.privatePassword);
-      if (isValid) {
-        onProceed();
-      } else {
-        setError('Incorrect password');
-        setPassword('');
+      try {
+        const isValid = await verifyPassword(password, category.privatePassword);
+        if (isValid) {
+          onProceed();
+        } else {
+          setError('Incorrect password');
+          setPassword('');
+        }
+      } catch (err) {
+        console.error('Password verification error:', err);
+        setError('Password verification failed. Please try again.');
       }
     } else {
       onProceed();
