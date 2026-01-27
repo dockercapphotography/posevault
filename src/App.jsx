@@ -132,39 +132,36 @@ export default function PhotographyPoseGuide() {
   }, []);
 
   // ==========================================
-  // CROSS-DEVICE SYNC: Pull from cloud if local is empty
+  // CROSS-DEVICE SYNC: Pull from cloud on every load and merge
   // ==========================================
   useEffect(() => {
     if (!session?.user?.id || categoriesLoading || isCloudSyncing) return;
     if (cloudSyncAttemptedRef.current) return;
-
-    // Only sync if local storage has no real data (empty or just defaults with no images)
-    const hasLocalData = categories.some(c => c.images && c.images.length > 0);
-    if (hasLocalData) {
-      cloudSyncAttemptedRef.current = true;
-      return;
-    }
-
-    // Mark that we've attempted sync so we don't loop
     cloudSyncAttemptedRef.current = true;
 
-    const syncFromCloud = async () => {
-      const userId = session.user.id;
-      const accessToken = session.access_token;
+    const userId = session.user.id;
+    const accessToken = session.access_token;
+    const hasLocalData = categories.some(c => c.images && c.images.length > 0);
 
+    const syncFromCloud = async () => {
       setIsCloudSyncing(true);
       setCloudSyncProgress('Checking cloud for your data...');
 
       try {
         const cloudData = await fetchFullCloudData(userId);
-        if (!cloudData.ok || cloudData.categories.length === 0) {
-          console.log('No cloud data found for this user');
+        if (!cloudData.ok) {
+          console.warn('Cloud sync failed:', cloudData.error);
           setIsCloudSyncing(false);
           setCloudSyncProgress('');
           return;
         }
 
-        setCloudSyncProgress(`Found ${cloudData.categories.length} categories, loading images...`);
+        if (cloudData.categories.length === 0) {
+          console.log('No cloud data found for this user');
+          setIsCloudSyncing(false);
+          setCloudSyncProgress('');
+          return;
+        }
 
         const { categories: supabaseCategories, images: supabaseImages, imageTagsLookup } = cloudData;
 
@@ -177,96 +174,16 @@ export default function PhotographyPoseGuide() {
           imagesByCategoryUid[img.category_uid].push(img);
         }
 
-        // Build local category objects
-        const localCategories = [];
-        let totalImages = 0;
-        let loadedImages = 0;
-
-        // Count total images for progress
-        for (const cat of supabaseCategories) {
-          totalImages += (imagesByCategoryUid[cat.uid] || []).length;
+        if (!hasLocalData) {
+          // ---- FRESH SYNC: No local data, pull everything from cloud ----
+          await fullCloudPull(supabaseCategories, imagesByCategoryUid, imageTagsLookup, accessToken);
+        } else {
+          // ---- INCREMENTAL MERGE: Merge cloud changes into existing local data ----
+          await mergeCloudIntoLocal(supabaseCategories, supabaseImages, imagesByCategoryUid, imageTagsLookup, accessToken, userId);
         }
-
-        for (let catIdx = 0; catIdx < supabaseCategories.length; catIdx++) {
-          const cat = supabaseCategories[catIdx];
-          const catImages = imagesByCategoryUid[cat.uid] || [];
-
-          setCloudSyncProgress(
-            `Loading "${cat.name}" (${catIdx + 1}/${supabaseCategories.length})...`
-          );
-
-          // Build image objects — fetch actual image data from R2
-          const localImages = [];
-          for (const img of catImages) {
-            loadedImages++;
-            if (loadedImages % 5 === 0 || loadedImages === totalImages) {
-              setCloudSyncProgress(
-                `Loading images... ${loadedImages}/${totalImages}`
-              );
-            }
-
-            // Fetch the actual image from R2
-            let imageSrc = null;
-            if (img.r2_key && accessToken) {
-              const r2Result = await fetchFromR2(img.r2_key, accessToken);
-              if (r2Result.ok) {
-                imageSrc = r2Result.dataURL;
-              } else {
-                console.warn(`Failed to fetch image from R2: ${img.r2_key}`, r2Result.error);
-                // Fallback: try direct URL
-                imageSrc = getR2Url(img.r2_key);
-              }
-            }
-
-            localImages.push({
-              src: imageSrc,
-              poseName: img.name || '',
-              notes: img.notes || '',
-              isFavorite: img.favorite || false,
-              tags: imageTagsLookup[img.uid] || [],
-              dateAdded: img.created_at || new Date().toISOString(),
-              r2Key: img.r2_key || null,
-              r2Status: img.r2_key ? 'uploaded' : 'pending',
-              supabaseUid: img.uid,
-              size: img.image_size || 0,
-            });
-          }
-
-          // Find cover image data URL
-          let coverSrc = null;
-          if (cat.cover_image_uid) {
-            const coverImg = catImages.find(img => img.uid === cat.cover_image_uid);
-            if (coverImg) {
-              const coverLocal = localImages.find(li => li.supabaseUid === cat.cover_image_uid);
-              if (coverLocal) {
-                coverSrc = coverLocal.src;
-              }
-            }
-          }
-
-          localCategories.push({
-            id: catIdx + 1,
-            name: cat.name,
-            cover: coverSrc,
-            images: localImages,
-            isFavorite: cat.favorite || false,
-            notes: cat.notes || '',
-            isPrivate: cat.private_gallery || false,
-            privatePassword: cat.gallery_password || null,
-            supabaseUid: cat.uid,
-          });
-        }
-
-        setCloudSyncProgress('Saving to local storage...');
-
-        // Replace local state with cloud data
-        replaceAllCategories(localCategories);
-
-        console.log(`Cloud sync complete: ${localCategories.length} categories, ${loadedImages} images`);
 
         setCloudSyncProgress('');
         setIsCloudSyncing(false);
-
       } catch (err) {
         console.error('Cloud sync error:', err);
         setCloudSyncProgress('');
@@ -276,6 +193,291 @@ export default function PhotographyPoseGuide() {
 
     syncFromCloud();
   }, [session?.user?.id, categoriesLoading]);
+
+  // Full cloud pull — used when local storage is empty (first sync / new device)
+  const fullCloudPull = async (supabaseCategories, imagesByCategoryUid, imageTagsLookup, accessToken) => {
+    setCloudSyncProgress(`Found ${supabaseCategories.length} categories, loading images...`);
+
+    const localCategories = [];
+    let totalImages = 0;
+    let loadedImages = 0;
+
+    for (const cat of supabaseCategories) {
+      totalImages += (imagesByCategoryUid[cat.uid] || []).length;
+    }
+
+    for (let catIdx = 0; catIdx < supabaseCategories.length; catIdx++) {
+      const cat = supabaseCategories[catIdx];
+      const catImages = imagesByCategoryUid[cat.uid] || [];
+
+      setCloudSyncProgress(
+        `Loading "${cat.name}" (${catIdx + 1}/${supabaseCategories.length})...`
+      );
+
+      const localImages = [];
+      for (const img of catImages) {
+        loadedImages++;
+        if (loadedImages % 5 === 0 || loadedImages === totalImages) {
+          setCloudSyncProgress(`Loading images... ${loadedImages}/${totalImages}`);
+        }
+
+        let imageSrc = null;
+        if (img.r2_key && accessToken) {
+          const r2Result = await fetchFromR2(img.r2_key, accessToken);
+          if (r2Result.ok) {
+            imageSrc = r2Result.dataURL;
+          } else {
+            console.warn(`Failed to fetch image from R2: ${img.r2_key}`, r2Result.error);
+            imageSrc = getR2Url(img.r2_key);
+          }
+        }
+
+        localImages.push({
+          src: imageSrc,
+          poseName: img.name || '',
+          notes: img.notes || '',
+          isFavorite: img.favorite || false,
+          tags: imageTagsLookup[img.uid] || [],
+          dateAdded: img.created_at || new Date().toISOString(),
+          r2Key: img.r2_key || null,
+          r2Status: img.r2_key ? 'uploaded' : 'pending',
+          supabaseUid: img.uid,
+          size: img.image_size || 0,
+        });
+      }
+
+      let coverSrc = null;
+      if (cat.cover_image_uid) {
+        const coverLocal = localImages.find(li => li.supabaseUid === cat.cover_image_uid);
+        if (coverLocal) {
+          coverSrc = coverLocal.src;
+        }
+      }
+
+      localCategories.push({
+        id: catIdx + 1,
+        name: cat.name,
+        cover: coverSrc,
+        images: localImages,
+        isFavorite: cat.favorite || false,
+        notes: cat.notes || '',
+        isPrivate: cat.private_gallery || false,
+        privatePassword: cat.gallery_password || null,
+        supabaseUid: cat.uid,
+      });
+    }
+
+    setCloudSyncProgress('Saving to local storage...');
+    replaceAllCategories(localCategories);
+    console.log(`Cloud sync complete: ${localCategories.length} categories, ${loadedImages} images`);
+  };
+
+  // Incremental merge — used when local data exists (page refresh / returning to app)
+  const mergeCloudIntoLocal = async (supabaseCategories, supabaseImages, imagesByCategoryUid, imageTagsLookup, accessToken, userId) => {
+    const local = categoriesRef.current;
+
+    // Build lookup of local categories by supabaseUid
+    const localByUid = {};
+    for (const cat of local) {
+      if (cat.supabaseUid) {
+        localByUid[cat.supabaseUid] = cat;
+      }
+    }
+
+    // Build set of cloud category UIDs and image UIDs
+    const cloudCatUids = new Set(supabaseCategories.map(c => c.uid));
+    const cloudImageUids = new Set(supabaseImages.map(i => i.uid));
+
+    let changed = false;
+    let nextId = Math.max(...local.map(c => c.id), 0) + 1;
+    const updatedCategories = [...local];
+
+    // ---- 1. Add new categories from cloud ----
+    for (const cloudCat of supabaseCategories) {
+      if (localByUid[cloudCat.uid]) continue; // Already exists locally
+
+      setCloudSyncProgress(`Syncing new category "${cloudCat.name}"...`);
+
+      const catImages = imagesByCategoryUid[cloudCat.uid] || [];
+      const localImages = [];
+
+      for (const img of catImages) {
+        let imageSrc = null;
+        if (img.r2_key && accessToken) {
+          const r2Result = await fetchFromR2(img.r2_key, accessToken);
+          if (r2Result.ok) {
+            imageSrc = r2Result.dataURL;
+          } else {
+            imageSrc = getR2Url(img.r2_key);
+          }
+        }
+
+        localImages.push({
+          src: imageSrc,
+          poseName: img.name || '',
+          notes: img.notes || '',
+          isFavorite: img.favorite || false,
+          tags: imageTagsLookup[img.uid] || [],
+          dateAdded: img.created_at || new Date().toISOString(),
+          r2Key: img.r2_key || null,
+          r2Status: img.r2_key ? 'uploaded' : 'pending',
+          supabaseUid: img.uid,
+          size: img.image_size || 0,
+        });
+      }
+
+      let coverSrc = null;
+      if (cloudCat.cover_image_uid) {
+        const coverLocal = localImages.find(li => li.supabaseUid === cloudCat.cover_image_uid);
+        if (coverLocal) coverSrc = coverLocal.src;
+      }
+
+      updatedCategories.push({
+        id: nextId++,
+        name: cloudCat.name,
+        cover: coverSrc,
+        images: localImages,
+        isFavorite: cloudCat.favorite || false,
+        notes: cloudCat.notes || '',
+        isPrivate: cloudCat.private_gallery || false,
+        privatePassword: cloudCat.gallery_password || null,
+        supabaseUid: cloudCat.uid,
+      });
+      changed = true;
+    }
+
+    // ---- 2. For existing categories, merge new images & update metadata ----
+    for (let i = 0; i < updatedCategories.length; i++) {
+      const localCat = updatedCategories[i];
+      if (!localCat.supabaseUid) continue;
+
+      const cloudCat = supabaseCategories.find(c => c.uid === localCat.supabaseUid);
+      if (!cloudCat) continue;
+
+      // Update category metadata from cloud
+      const catUpdates = {};
+      if (cloudCat.name !== localCat.name) catUpdates.name = cloudCat.name;
+      if (cloudCat.notes !== localCat.notes && cloudCat.notes != null) catUpdates.notes = cloudCat.notes;
+      if ((cloudCat.favorite || false) !== localCat.isFavorite) catUpdates.isFavorite = cloudCat.favorite || false;
+      if ((cloudCat.private_gallery || false) !== localCat.isPrivate) catUpdates.isPrivate = cloudCat.private_gallery || false;
+      if ((cloudCat.gallery_password || null) !== localCat.privatePassword) catUpdates.privatePassword = cloudCat.gallery_password || null;
+
+      if (Object.keys(catUpdates).length > 0) {
+        updatedCategories[i] = { ...localCat, ...catUpdates };
+        changed = true;
+      }
+
+      // Check for new images in this category from cloud
+      const cloudImages = imagesByCategoryUid[localCat.supabaseUid] || [];
+      const localImageUids = new Set(
+        localCat.images.filter(img => img.supabaseUid).map(img => img.supabaseUid)
+      );
+
+      const newCloudImages = cloudImages.filter(ci => !localImageUids.has(ci.uid));
+      if (newCloudImages.length > 0) {
+        setCloudSyncProgress(`Syncing ${newCloudImages.length} new images to "${localCat.name}"...`);
+
+        const newLocalImages = [];
+        for (const img of newCloudImages) {
+          let imageSrc = null;
+          if (img.r2_key && accessToken) {
+            const r2Result = await fetchFromR2(img.r2_key, accessToken);
+            if (r2Result.ok) {
+              imageSrc = r2Result.dataURL;
+            } else {
+              imageSrc = getR2Url(img.r2_key);
+            }
+          }
+
+          newLocalImages.push({
+            src: imageSrc,
+            poseName: img.name || '',
+            notes: img.notes || '',
+            isFavorite: img.favorite || false,
+            tags: imageTagsLookup[img.uid] || [],
+            dateAdded: img.created_at || new Date().toISOString(),
+            r2Key: img.r2_key || null,
+            r2Status: img.r2_key ? 'uploaded' : 'pending',
+            supabaseUid: img.uid,
+            size: img.image_size || 0,
+          });
+        }
+
+        updatedCategories[i] = {
+          ...updatedCategories[i],
+          images: [...updatedCategories[i].images, ...newLocalImages],
+        };
+        changed = true;
+      }
+
+      // Update metadata on existing images from cloud
+      const currentImages = updatedCategories[i].images;
+      let imagesChanged = false;
+      const mergedImages = currentImages.map(localImg => {
+        if (!localImg.supabaseUid) return localImg;
+        const cloudImg = cloudImages.find(ci => ci.uid === localImg.supabaseUid);
+        if (!cloudImg) return localImg;
+
+        const imgUpdates = {};
+        const cloudName = cloudImg.name || '';
+        const cloudNotes = cloudImg.notes || '';
+        const cloudFav = cloudImg.favorite || false;
+        const cloudTags = imageTagsLookup[cloudImg.uid] || [];
+
+        if (cloudName !== localImg.poseName) imgUpdates.poseName = cloudName;
+        if (cloudNotes !== localImg.notes) imgUpdates.notes = cloudNotes;
+        if (cloudFav !== localImg.isFavorite) imgUpdates.isFavorite = cloudFav;
+        if (JSON.stringify(cloudTags.sort()) !== JSON.stringify((localImg.tags || []).sort())) {
+          imgUpdates.tags = cloudTags;
+        }
+
+        if (Object.keys(imgUpdates).length > 0) {
+          imagesChanged = true;
+          return { ...localImg, ...imgUpdates };
+        }
+        return localImg;
+      });
+
+      if (imagesChanged) {
+        updatedCategories[i] = { ...updatedCategories[i], images: mergedImages };
+        changed = true;
+      }
+    }
+
+    // ---- 3. Remove locally-synced categories that were deleted in cloud ----
+    const beforeCount = updatedCategories.length;
+    const filtered = updatedCategories.filter(cat => {
+      // Keep categories that have no supabaseUid (local-only, not yet synced)
+      if (!cat.supabaseUid) return true;
+      // Keep if still exists in cloud
+      return cloudCatUids.has(cat.supabaseUid);
+    });
+    if (filtered.length !== beforeCount) {
+      changed = true;
+    }
+
+    // ---- 4. Remove locally-synced images that were deleted in cloud ----
+    const finalCategories = filtered.map(cat => {
+      if (!cat.supabaseUid) return cat;
+      const originalLen = cat.images.length;
+      const filteredImages = cat.images.filter(img => {
+        if (!img.supabaseUid) return true;
+        return cloudImageUids.has(img.supabaseUid);
+      });
+      if (filteredImages.length !== originalLen) {
+        changed = true;
+        return { ...cat, images: filteredImages };
+      }
+      return cat;
+    });
+
+    if (changed) {
+      replaceAllCategories(finalCategories);
+      console.log('Incremental cloud sync: local data updated');
+    } else {
+      console.log('Incremental cloud sync: already up to date');
+    }
+  };
 
   // Hydrate local categories AND images with Supabase UIDs on load
   useEffect(() => {
