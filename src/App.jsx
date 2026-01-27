@@ -228,6 +228,7 @@ export default function PhotographyPoseGuide() {
               r2Key: img.r2_key || null,
               r2Status: img.r2_key ? 'uploaded' : 'pending',
               supabaseUid: img.uid,
+              size: img.image_size || 0,
             });
           }
 
@@ -639,10 +640,11 @@ export default function PhotographyPoseGuide() {
         );
 
         if (result.ok) {
-          // Update local with R2 key
+          // Update local with R2 key and file size
           updateImage(categoryId, imageIndex, {
             r2Key: result.key,
-            r2Status: 'uploaded'
+            r2Status: 'uploaded',
+            size: result.size || 0
           });
           console.log(`R2 upload successful: ${result.key}`);
 
