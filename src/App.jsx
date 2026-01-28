@@ -938,19 +938,35 @@ export default function PhotographyPoseGuide() {
             );
 
             if (supabaseResult.ok) {
-              // Generate friendly poseName: "Category Name - UID"
-              const category = categoriesRef.current.find(c => c.id === categoryId);
-              const friendlyName = `${category?.name || 'Image'} - ${supabaseResult.uid}`;
+              // Get current image state to check if user has customized the name
+              const currentCategory = categoriesRef.current.find(c => c.id === categoryId);
+              const currentImage = currentCategory?.images[imageIndex];
+              const originalFilename = filenames[i];
+              const currentPoseName = currentImage?.poseName;
 
-              // Store the Supabase UID and friendly poseName locally
-              updateImage(categoryId, imageIndex, {
-                supabaseUid: supabaseResult.uid,
-                poseName: friendlyName
-              });
-              console.log(`Supabase image created: ${supabaseResult.uid}, named: ${friendlyName}`);
+              // Only set friendly name if user hasn't manually changed it from the original filename
+              const hasCustomName = currentPoseName && currentPoseName !== originalFilename;
 
-              // Update Supabase with the friendly poseName
-              updateImageInSupabase(supabaseResult.uid, { poseName: friendlyName }, userId);
+              if (hasCustomName) {
+                // User has customized the name, just store the UID
+                updateImage(categoryId, imageIndex, {
+                  supabaseUid: supabaseResult.uid
+                });
+                console.log(`Supabase image created: ${supabaseResult.uid}, keeping user name: ${currentPoseName}`);
+              } else {
+                // Generate friendly poseName: "Category Name - UID"
+                const friendlyName = `${currentCategory?.name || 'Image'} - ${supabaseResult.uid}`;
+
+                // Store the Supabase UID and friendly poseName locally
+                updateImage(categoryId, imageIndex, {
+                  supabaseUid: supabaseResult.uid,
+                  poseName: friendlyName
+                });
+                console.log(`Supabase image created: ${supabaseResult.uid}, named: ${friendlyName}`);
+
+                // Update Supabase with the friendly poseName
+                updateImageInSupabase(supabaseResult.uid, { poseName: friendlyName }, userId);
+              }
 
               // Update user storage tracking
               updateUserStorage(userId, result.size);
@@ -1036,17 +1052,29 @@ export default function PhotographyPoseGuide() {
               );
 
               if (supabaseResult.ok) {
-                // Generate friendly poseName: "Category Name - UID"
-                const friendlyName = `${cat.name || 'Image'} - ${supabaseResult.uid}`;
+                // Check if user has customized the name (not the default fallback)
+                const defaultFilename = `image-${imgIdx}`;
+                const hasCustomName = img.poseName && img.poseName !== defaultFilename;
 
-                updateImage(cat.id, imgIdx, {
-                  supabaseUid: supabaseResult.uid,
-                  poseName: friendlyName
-                });
-                console.log(`Retry Supabase record created: ${supabaseResult.uid}, named: ${friendlyName}`);
+                if (hasCustomName) {
+                  // User has customized the name, just store the UID
+                  updateImage(cat.id, imgIdx, {
+                    supabaseUid: supabaseResult.uid
+                  });
+                  console.log(`Retry Supabase record created: ${supabaseResult.uid}, keeping user name: ${img.poseName}`);
+                } else {
+                  // Generate friendly poseName: "Category Name - UID"
+                  const friendlyName = `${cat.name || 'Image'} - ${supabaseResult.uid}`;
 
-                // Update Supabase with the friendly poseName
-                updateImageInSupabase(supabaseResult.uid, { poseName: friendlyName }, userId);
+                  updateImage(cat.id, imgIdx, {
+                    supabaseUid: supabaseResult.uid,
+                    poseName: friendlyName
+                  });
+                  console.log(`Retry Supabase record created: ${supabaseResult.uid}, named: ${friendlyName}`);
+
+                  // Update Supabase with the friendly poseName
+                  updateImageInSupabase(supabaseResult.uid, { poseName: friendlyName }, userId);
+                }
 
                 updateUserStorage(userId, result.size);
               } else {
