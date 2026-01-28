@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Plus, Upload } from 'lucide-react';
+import { ChevronLeft, Plus, Upload, RefreshCw } from 'lucide-react';
 import UserMenu from './UserMenu';
 
 export default function Header({
@@ -9,9 +9,11 @@ export default function Header({
   onBack,
   onAddCategory,
   onUploadPoses,
+  onSync,
   onLogout,
   isUploading = false,
-  isSaving = false
+  isSaving = false,
+  isSyncing = false
 }) {
   return (
     <div className="bg-gray-800 border-b border-gray-700 p-3 md:p-4">
@@ -62,6 +64,20 @@ export default function Header({
                 <span className="hidden md:inline">Add</span>
               </div>
             </label>
+          )}
+          {onSync && (
+            <button
+              onClick={onSync}
+              disabled={isSyncing}
+              title={isSyncing ? 'Syncing...' : 'Sync from cloud'}
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                isSyncing
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-700 hover:bg-gray-600 text-white'
+              }`}
+            >
+              <RefreshCw size={18} className={`md:w-5 md:h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+            </button>
           )}
           <UserMenu onLogout={onLogout} isUploading={isUploading} isSaving={isSaving} />
         </div>
