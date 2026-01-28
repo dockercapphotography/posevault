@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { initializeDefaultCategories } from '../utils/helpers';
 
 export const useCategories = (currentUser) => {
   const [categories, setCategories] = useState([]);
@@ -63,11 +62,11 @@ export const useCategories = (currentUser) => {
         }));
         setCategories(migratedCategories);
       } else {
-        setCategories(initializeDefaultCategories());
+        setCategories([]);
       }
     } catch (error) {
-      console.log('No saved data found, initializing defaults');
-      setCategories(initializeDefaultCategories());
+      console.log('No saved data found, starting with empty categories');
+      setCategories([]);
     } finally {
       setIsLoading(false);
     }
@@ -106,42 +105,46 @@ export const useCategories = (currentUser) => {
     }
   };
 
-  const addCategory = (name) => {
-    const newId = Math.max(...categories.map(c => c.id), 0) + 1;
-    setCategories([...categories, {
-      id: newId,
-      name: name,
-      cover: null,
-      images: [],
-      isFavorite: false,
-      notes: ''
-    }]);
+  const addCategory = (name, privateSettings = {}) => {
+    setCategories(prev => {
+      const newId = Math.max(...prev.map(c => c.id), 0) + 1;
+      return [...prev, {
+        id: newId,
+        name: name,
+        cover: privateSettings.cover || null,
+        images: [],
+        isFavorite: false,
+        notes: privateSettings.notes || '',
+        isPrivate: privateSettings.isPrivate || false,
+        privatePassword: privateSettings.privatePassword || null,
+      }];
+    });
   };
 
   const updateCategory = (categoryId, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, ...updates } : cat
     ));
   };
 
   const deleteCategory = (categoryId) => {
-    setCategories(categories.filter(cat => cat.id !== categoryId));
+    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
   };
 
   const toggleCategoryFavorite = (categoryId) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, isFavorite: !cat.isFavorite } : cat
     ));
   };
 
   const addImages = (categoryId, newImages) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, images: [...cat.images, ...newImages] } : cat
     ));
   };
 
   const updateImage = (categoryId, imageIndex, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -154,7 +157,7 @@ export const useCategories = (currentUser) => {
   };
 
   const deleteImage = (categoryId, imageIndex) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => i !== imageIndex) }
         : cat
@@ -162,7 +165,7 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkUpdateImages = (categoryId, imageIndices, updates) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -196,11 +199,16 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkDeleteImages = (categoryId, imageIndices) => {
-    setCategories(categories.map(cat =>
+    setCategories(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => !imageIndices.includes(i)) }
         : cat
     ));
+  };
+
+  // Replace all categories (used by cloud sync to populate local state)
+  const replaceAllCategories = (newCategories) => {
+    setCategories(newCategories);
   };
 
   const forceSave = async () => {
@@ -217,6 +225,7 @@ export const useCategories = (currentUser) => {
 
   return {
     categories,
+    categoriesRef: latestCategoriesRef,
     isLoading,
     isSaving,
     addCategory,
@@ -228,6 +237,7 @@ export const useCategories = (currentUser) => {
     deleteImage,
     bulkUpdateImages,
     bulkDeleteImages,
+    replaceAllCategories,
     forceSave
   };
 };

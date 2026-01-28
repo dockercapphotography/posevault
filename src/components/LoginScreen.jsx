@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
-import { storage } from '../utils/storage';
+import { Eye, EyeOff } from 'lucide-react';
 
-export default function LoginScreen({ onLogin }) {
-  const [isRegistering, setIsRegistering] = useState(false);
+export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUpdatePassword, isPasswordRecovery }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -11,7 +10,9 @@ export default function LoginScreen({ onLogin }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
     hasLowercase: false,
@@ -20,8 +21,19 @@ export default function LoginScreen({ onLogin }) {
     hasSymbol: false
   });
 
+  // If the user clicked a password recovery link, show the new-password form
   useEffect(() => {
-    if (isRegistering) {
+    if (isPasswordRecovery) {
+      setMode('newPassword');
+      setError('');
+      setSuccessMessage('');
+      setPassword('');
+      setConfirmPassword('');
+    }
+  }, [isPasswordRecovery]);
+
+  useEffect(() => {
+    if (mode === 'register' || mode === 'newPassword') {
       setPasswordRequirements({
         minLength: password.length >= 8,
         hasLowercase: /[a-z]/.test(password),
@@ -30,20 +42,79 @@ export default function LoginScreen({ onLogin }) {
         hasSymbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
       });
     }
-  }, [password, isRegistering]);
+  }, [password, mode]);
+
+  // Clear messages when switching modes
+  useEffect(() => {
+    setError('');
+    setSuccessMessage('');
+  }, [mode]);
+
+  const allPasswordReqsMet =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasLowercase &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    passwordRequirements.hasSymbol;
 
   const handleAuth = async () => {
+    if (mode === 'forgot') {
+      if (!email) {
+        setError('Please enter your email address');
+        return;
+      }
+      setError('');
+      setIsSubmitting(true);
+      try {
+        await onResetPassword(email);
+        setSuccessMessage('Password reset email sent! Check your inbox and click the link to reset your password.');
+      } catch (err) {
+        console.error('Reset password error:', err);
+        setError(err.message || 'Failed to send reset email. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (mode === 'newPassword') {
+      if (!password || !confirmPassword) {
+        setError('Please enter and confirm your new password');
+        return;
+      }
+      if (!allPasswordReqsMet) {
+        setError('Password does not meet all requirements');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      setError('');
+      setIsSubmitting(true);
+      try {
+        await onUpdatePassword(password);
+        setSuccessMessage('Password updated successfully! You are now logged in.');
+      } catch (err) {
+        console.error('Update password error:', err);
+        setError(err.message || 'Failed to update password. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     if (!email || !password) {
-      alert('Please enter both email and password');
+      setError('Please enter both email and password');
       return;
     }
 
-    if (isRegistering && (!firstName || !lastName)) {
-      alert('Please enter your first and last name');
+    if (mode === 'register' && (!firstName || !lastName)) {
+      setError('Please enter your first and last name');
       return;
     }
 
-    if (isRegistering) {
+    if (mode === 'register') {
       const passwordErrors = [];
       if (password.length < 8) passwordErrors.push('at least 8 characters');
       if (!/[a-z]/.test(password)) passwordErrors.push('a lowercase letter');
@@ -52,108 +123,104 @@ export default function LoginScreen({ onLogin }) {
       if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) passwordErrors.push('a symbol');
 
       if (passwordErrors.length > 0) {
-        alert(`Password must contain:\n• ${passwordErrors.join('\n• ')}`);
+        setError(`Password must contain: ${passwordErrors.join(', ')}`);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
         return;
       }
     }
 
-    const userKey = `user:${email}`;
+    setError('');
+    setIsSubmitting(true);
 
-    if (isRegistering) {
-      try {
-        const existingUser = await storage.get(userKey);
-        if (existingUser) {
-          alert('An account with this email already exists. Please login or use a different email.');
-          return;
-        }
-
-        if (!passwordRequirements.minLength || !passwordRequirements.hasLowercase || 
-            !passwordRequirements.hasUppercase || !passwordRequirements.hasNumber || 
-            !passwordRequirements.hasSymbol) {
-          alert('Please meet all password requirements before registering.');
-          return;
-        }
-
-        const userData = {
-          email: email,
-          firstName: firstName,
-          lastName: lastName,
-          password: password,
-          createdAt: new Date().toISOString()
-        };
-
-        await storage.set(userKey, JSON.stringify(userData));
-        await onLogin(email, userData);
-        
-      } catch (error) {
-        alert('Registration failed. Please try again.');
-        console.error(error);
-      }
-    } else {
-      try {
-        const result = await storage.get(userKey);
-        
-        if (!result) {
-          alert('User not found. Please register first.');
-          return;
-        }
-
-        const userData = JSON.parse(result.value);
-        
-        if (userData.password !== password) {
-          alert('Incorrect password');
-          return;
-        }
-
-        await onLogin(email, userData);
-        
-      } catch (error) {
-        alert('Login failed. Please try again.');
-        console.error(error);
-      }
-    }
-  };
-
-  const skipRegistration = async () => {
     try {
-      const guestEmail = 'guest@posevault.local';
-      
-      if (typeof localStorage === 'undefined') {
-        alert('LocalStorage not available. Please enable cookies and storage in your browser settings.');
-        return;
+      if (mode === 'register') {
+        const result = await onRegister(email, password, { firstName, lastName });
+        if (result.needsEmailConfirmation) {
+          setSuccessMessage('Account created! Please check your email and click the confirmation link, then log in.');
+          setMode('login');
+          // Clear password fields but keep email for convenience
+          setPassword('');
+          setConfirmPassword('');
+        }
+        // If no email confirmation needed, onAuthStateChange will auto-login
+      } else {
+        await onLogin(email, password);
+        // Auth state will update automatically via Supabase listener
       }
-      
-      await onLogin(guestEmail, { firstName: 'Guest', lastName: 'User' });
-      setShowGuestModal(false);
-    } catch (error) {
-      alert('Error logging in as guest: ' + error.message);
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Authentication failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const isRegisterDisabled = isRegistering && (
-    !firstName || 
-    !lastName || 
-    !email || 
-    !password || 
+  const isRegisterDisabled = mode === 'register' && (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !password ||
     !confirmPassword ||
     password !== confirmPassword ||
-    !passwordRequirements.minLength ||
-    !passwordRequirements.hasLowercase ||
-    !passwordRequirements.hasUppercase ||
-    !passwordRequirements.hasNumber ||
-    !passwordRequirements.hasSymbol
+    !allPasswordReqsMet
   );
+
+  const isNewPasswordDisabled = mode === 'newPassword' && (
+    !password ||
+    !confirmPassword ||
+    password !== confirmPassword ||
+    !allPasswordReqsMet
+  );
+
+  const getTitle = () => {
+    if (mode === 'forgot') return 'Reset your password';
+    if (mode === 'newPassword') return 'Set a new password';
+    if (mode === 'register') return 'Create your account';
+    return 'Sign in to continue';
+  };
+
+  const getButtonLabel = () => {
+    if (isSubmitting) {
+      if (mode === 'forgot') return 'Sending...';
+      if (mode === 'newPassword') return 'Updating...';
+      if (mode === 'register') return 'Creating Account...';
+      return 'Signing In...';
+    }
+    if (mode === 'forgot') return 'Send Reset Email';
+    if (mode === 'newPassword') return 'Update Password';
+    if (mode === 'register') return 'Register';
+    return 'Login';
+  };
+
+  const showPasswordFields = mode === 'register' || mode === 'newPassword';
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
       <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold mb-2 text-center">PoseVault</h1>
-        <p className="text-gray-400 text-center mb-6">
-          {isRegistering ? 'Create your account' : 'Sign in to continue'}
-        </p>
-        
+        <p className="text-gray-400 text-center mb-6">{getTitle()}</p>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-green-500/20 border border-green-500 text-green-300 px-4 py-3 rounded-lg mb-4">
+            {successMessage}
+          </div>
+        )}
+
         <div className="space-y-4">
-          {isRegistering && (
+          {/* Registration name fields */}
+          {mode === 'register' && (
             <>
               <input
                 type="text"
@@ -161,6 +228,7 @@ export default function LoginScreen({ onLogin }) {
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="First Name"
                 className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                disabled={isSubmitting}
               />
               <input
                 type="text"
@@ -168,50 +236,70 @@ export default function LoginScreen({ onLogin }) {
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Last Name"
                 className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                disabled={isSubmitting}
               />
             </>
           )}
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-          />
-          
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !isRegistering && handleAuth()}
-              placeholder="Password"
-              className="w-full bg-gray-700 text-white px-4 py-3 pr-12 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
-            >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
 
-          {isRegistering && (
+          {/* Email field (not shown on newPassword) */}
+          {mode !== 'newPassword' && (
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+              disabled={isSubmitting}
+            />
+          )}
+
+          {mode === 'forgot' && (
+            <p className="text-gray-400 text-sm -mt-2">
+              Enter your email and we'll send you a link to reset your password.
+            </p>
+          )}
+
+          {/* Password field (not shown on forgot) */}
+          {mode !== 'forgot' && (
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && mode === 'login' && !isSubmitting && handleAuth()}
+                placeholder={mode === 'newPassword' ? 'New Password' : 'Password'}
+                className="w-full bg-gray-700 text-white px-4 py-3 pr-12 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                disabled={isSubmitting}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          )}
+
+          {/* Confirm password + requirements (register & newPassword) */}
+          {showPasswordFields && (
             <>
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
+                  onKeyPress={(e) => e.key === 'Enter' && !isSubmitting && handleAuth()}
                   placeholder="Confirm Password"
                   className="w-full bg-gray-700 text-white px-4 py-3 pr-12 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  disabled={isSubmitting}
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -225,7 +313,7 @@ export default function LoginScreen({ onLogin }) {
                   <span>{password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
                 </div>
               )}
-              
+
               {password && (
                 <div className="space-y-2 -mt-2">
                   <div>
@@ -238,7 +326,7 @@ export default function LoginScreen({ onLogin }) {
                       </span>
                     </div>
                     <div className="w-full bg-gray-600 rounded-full h-2 overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full transition-all duration-300 ${
                           password.length >= 8 ? 'bg-green-500' : 'bg-purple-500'
                         }`}
@@ -269,48 +357,82 @@ export default function LoginScreen({ onLogin }) {
               )}
             </>
           )}
-          
+
+          {/* Submit Button */}
           <button
             onClick={handleAuth}
-            disabled={isRegisterDisabled}
+            disabled={isRegisterDisabled || isNewPasswordDisabled || isSubmitting}
             className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
-              isRegisterDisabled
+              isRegisterDisabled || isNewPasswordDisabled || isSubmitting
                 ? 'bg-gray-600 cursor-not-allowed opacity-50'
                 : 'bg-purple-600 hover:bg-purple-700 cursor-pointer'
             }`}
           >
-            {isRegistering ? 'Register' : 'Login'}
-          </button>
-          
-          <button
-            onClick={() => setIsRegistering(!isRegistering)}
-            className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
-          >
-            {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
-          </button>
-
-          <button
-            onClick={() => setShowGuestModal(true)}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2 cursor-pointer"
-          >
-            ⚡ Continue as Guest
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                {getButtonLabel()}
+              </span>
+            ) : (
+              getButtonLabel()
+            )}
           </button>
 
-          {/* DEBUG ONLY */}
-          <button
-            onClick={() => onLogin('debug@posevault.local', { firstName: 'Debug', lastName: 'User' })}
-            className="w-full bg-red-600 hover:bg-red-700 px-4 py-3 rounded-lg font-semibold transition-colors mt-2 text-xs cursor-pointer"
-          >
-            🚀 SKIP LOGIN (DEBUG)
-          </button>
+          {/* Forgot Password link (login mode only) */}
+          {mode === 'login' && (
+            <button
+              onClick={() => setMode('forgot')}
+              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Forgot your password?
+            </button>
+          )}
+
+          {/* Mode toggle links */}
+          {mode === 'login' && (
+            <button
+              onClick={() => setMode('register')}
+              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Don't have an account? Register
+            </button>
+          )}
+
+          {mode === 'register' && (
+            <button
+              onClick={() => setMode('login')}
+              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Already have an account? Login
+            </button>
+          )}
+
+          {mode === 'forgot' && (
+            <button
+              onClick={() => setMode('login')}
+              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Back to Login
+            </button>
+          )}
+
+          {mode === 'newPassword' && (
+            <p className="text-gray-500 text-xs text-center">
+              Choose a new password for your account. You'll be logged in automatically after updating.
+            </p>
+          )}
         </div>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-400">
             Powered by{' '}
-            <a 
-              href="http://www.dockercapphotography.com/" 
-              target="_blank" 
+            <a
+              href="http://www.dockercapphotography.com/"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-purple-400 hover:text-purple-300 transition-colors underline"
             >
@@ -319,53 +441,6 @@ export default function LoginScreen({ onLogin }) {
           </p>
         </div>
       </div>
-
-      {/* Guest Mode Warning Modal */}
-      {showGuestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-yellow-400">⚠️ Guest Mode Warning</h2>
-              <button
-                onClick={() => setShowGuestModal(false)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <div className="mb-6 space-y-3 text-gray-300">
-              <p>
-                Without an account, your data will be saved under a <strong>shared guest account</strong>.
-              </p>
-              <p className="text-yellow-300">
-                <strong>This means:</strong>
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li>Anyone using guest mode on this device will see your categories and images</li>
-                <li>Others can modify or delete your content</li>
-                <li>Your data is not private or secure</li>
-              </ul>
-              <p className="pt-2 text-purple-300">
-                For private storage, please create an account.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowGuestModal(false)}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
-              >
-                Go Back
-              </button>
-              <button
-                onClick={skipRegistration}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg transition-colors font-semibold cursor-pointer"
-              >
-                Continue Anyway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

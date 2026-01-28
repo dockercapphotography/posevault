@@ -41,7 +41,7 @@ export default function BulkEditModal({
   // Get filtered tag suggestions
   const getTagSuggestions = () => {
     if (!bulkTagInput.trim()) return [];
-    const unusedTags = allTags.filter(tag => !bulkTagsToAdd.includes(tag));
+    const unusedTags = allTags.filter(tag => !bulkTagsToAdd.includes(tag.toLowerCase()));
     return unusedTags.filter(tag => 
       tag.toLowerCase().includes(bulkTagInput.toLowerCase())
     ).slice(0, 5);
@@ -77,7 +77,10 @@ export default function BulkEditModal({
                 onChange={(e) => setBulkTagInput(e.target.value)}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && bulkTagInput.trim()) {
-                    setBulkTagsToAdd([...bulkTagsToAdd, bulkTagInput.trim()]);
+                    const normalized = bulkTagInput.trim().toLowerCase();
+                    if (!bulkTagsToAdd.includes(normalized)) {
+                      setBulkTagsToAdd([...bulkTagsToAdd, normalized]);
+                    }
                     setBulkTagInput('');
                   }
                 }}
@@ -87,7 +90,10 @@ export default function BulkEditModal({
               <button
                 onClick={() => {
                   if (bulkTagInput.trim()) {
-                    setBulkTagsToAdd([...bulkTagsToAdd, bulkTagInput.trim()]);
+                    const normalized = bulkTagInput.trim().toLowerCase();
+                    if (!bulkTagsToAdd.includes(normalized)) {
+                      setBulkTagsToAdd([...bulkTagsToAdd, normalized]);
+                    }
                     setBulkTagInput('');
                   }
                 }}
@@ -104,7 +110,10 @@ export default function BulkEditModal({
                   <button
                     key={i}
                     onClick={() => {
-                      setBulkTagsToAdd([...bulkTagsToAdd, tag]);
+                      const normalized = tag.toLowerCase();
+                      if (!bulkTagsToAdd.includes(normalized)) {
+                        setBulkTagsToAdd([...bulkTagsToAdd, normalized]);
+                      }
                       setBulkTagInput('');
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"

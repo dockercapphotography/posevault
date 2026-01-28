@@ -114,18 +114,3 @@ export const getCategoryGridColsClass = (categoryGridColumns) => {
     4: 'grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
   }[categoryGridColumns] || 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
 };
-
-export const initializeDefaultCategories = () => {
-  return [
-    { id: 1, name: "Men's Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 2, name: "Women's Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 3, name: "Couples Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 4, name: "Couples & Pet Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 5, name: "Family Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 6, name: "Siblings Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 7, name: "Engagement Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 8, name: "Maternity Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 9, name: "Newborn Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: false, privatePassword: null },
-    { id: 10, name: "Boudoir Poses", cover: null, images: [], isFavorite: false, notes: '', isPrivate: true, privatePassword: null }
-  ];
-};

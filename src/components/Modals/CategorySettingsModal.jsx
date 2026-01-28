@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Settings, FileText, Lock, AlertTriangle } from 'lucide-react';
+import { verifyPassword } from '../../utils/crypto';
 
 export default function CategorySettingsModal({ category, onClose, onSave }) {
   const [name, setName] = useState(category?.name || '');
   const [notes, setNotes] = useState(category?.notes || '');
   const [isPrivate, setIsPrivate] = useState(category?.isPrivate || false);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [passwordAction, setPasswordAction] = useState('change'); // 'change' | 'remove'
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,21 +23,25 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
     };
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       setError('Please enter a category name');
       return;
     }
 
-    // If changing password, verify current password
+    // If changing or removing password, verify current password against hash
     if (hasExistingPassword && showPasswordSection) {
-      if (currentPassword !== category.privatePassword) {
+      const isValid = await verifyPassword(currentPassword, category.privatePassword);
+      if (!isValid) {
         setError('Current password is incorrect');
         return;
       }
-      if (newPassword && newPassword !== confirmPassword) {
-        setError('New passwords do not match');
-        return;
+
+      if (passwordAction === 'change') {
+        if (newPassword && newPassword !== confirmPassword) {
+          setError('New passwords do not match');
+          return;
+        }
       }
     }
 
@@ -51,8 +57,17 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
       name: name.trim(),
       notes,
       isPrivate,
-      privatePassword: showPasswordSection && newPassword ? newPassword : category?.privatePassword || null
     };
+
+    if (showPasswordSection) {
+      if (passwordAction === 'remove') {
+        // Clear the password
+        updates.privatePassword = null;
+      } else if (newPassword) {
+        // Set or change password (plain text to be hashed by caller)
+        updates.privatePassword = newPassword;
+      }
+    }
 
     onSave(category.id, updates);
   };
@@ -138,22 +153,70 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
             </div>
 
             {!showPasswordSection && (
-              <button
-                onClick={() => setShowPasswordSection(true)}
-                className="text-sm text-purple-400 hover:text-purple-300"
-              >
-                {hasExistingPassword ? 'Change Password' : 'Set Password'}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setPasswordAction('change'); setShowPasswordSection(true); }}
+                  className="text-sm text-purple-400 hover:text-purple-300 cursor-pointer"
+                >
+                  {hasExistingPassword ? 'Change Password' : 'Set Password'}
+                </button>
+                {hasExistingPassword && (
+                  <button
+                    onClick={() => { setPasswordAction('remove'); setShowPasswordSection(true); }}
+                    className="text-sm text-red-400 hover:text-red-300 cursor-pointer"
+                  >
+                    Remove Password
+                  </button>
+                )}
+              </div>
             )}
 
-            {showPasswordSection && (
+            {showPasswordSection && passwordAction === 'remove' && (
+              <div>
+                <div className="mb-3 p-3 bg-red-900/20 border border-red-600/50 rounded-lg">
+                  <p className="text-xs text-red-200 flex items-start gap-2">
+                    <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Remove Password:</strong> Enter the current password to confirm removal. The gallery will remain private but no longer require a password to open.
+                    </span>
+                  </p>
+                </div>
+
+                <div className="mb-3">
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => {
+                      setCurrentPassword(e.target.value);
+                      setError('');
+                    }}
+                    placeholder="Current password"
+                    className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
+                  />
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowPasswordSection(false);
+                    setPasswordAction('change');
+                    setCurrentPassword('');
+                    setError('');
+                  }}
+                  className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {showPasswordSection && passwordAction === 'change' && (
               <div>
                 <div className="mb-3 p-3 bg-orange-900/20 border border-orange-600/50 rounded-lg">
                   <p className="text-xs text-orange-200 flex items-start gap-2">
                     <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
                     <span>
-                      <strong>Warning:</strong> {hasExistingPassword 
-                        ? 'You must know the current password to change it. There is no password recovery option.' 
+                      <strong>Warning:</strong> {hasExistingPassword
+                        ? 'You must know the current password to change it. There is no password recovery option.'
                         : 'Once set, you cannot change or remove the password without knowing it. There is no password recovery option.'}
                     </span>
                   </p>
@@ -205,12 +268,13 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
                 <button
                   onClick={() => {
                     setShowPasswordSection(false);
+                    setPasswordAction('change');
                     setCurrentPassword('');
                     setNewPassword('');
                     setConfirmPassword('');
                     setError('');
                   }}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
