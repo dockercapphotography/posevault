@@ -610,6 +610,7 @@ export default function PhotographyPoseGuide() {
       setViewMode('categories');
       setCurrentCategory(null);
     }
+    window.scrollTo(0, 0);
   };
 
   const handleOpenCategory = (category) => {
@@ -623,6 +624,7 @@ export default function PhotographyPoseGuide() {
     setCurrentCategory(category);
     setViewMode('grid');
     setCurrentImageIndex(0);
+    window.scrollTo(0, 0);
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -633,10 +635,11 @@ export default function PhotographyPoseGuide() {
   const handleProceedToPrivateGallery = () => {
     const category = pendingPrivateCategory;
     setPendingPrivateCategory(null);
-    
+
     setCurrentCategory(category);
     setViewMode('grid');
     setCurrentImageIndex(0);
+    window.scrollTo(0, 0);
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
