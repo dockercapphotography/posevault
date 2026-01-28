@@ -312,6 +312,7 @@ export default function PhotographyPoseGuide() {
         id: catIdx + 1,
         name: cat.name,
         cover: coverSrc,
+        coverImageUid: cat.cover_image_uid || null,
         images: localImages,
         isFavorite: cat.favorite || false,
         notes: cat.notes || '',
@@ -380,6 +381,7 @@ export default function PhotographyPoseGuide() {
         id: nextId++,
         name: cloudCat.name,
         cover: coverSrc,
+        coverImageUid: cloudCat.cover_image_uid || null,
         images: localImages,
         isFavorite: cloudCat.favorite || false,
         notes: cloudCat.notes || '',
@@ -405,6 +407,7 @@ export default function PhotographyPoseGuide() {
       if ((cloudCat.favorite || false) !== localCat.isFavorite) catUpdates.isFavorite = cloudCat.favorite || false;
       if ((cloudCat.private_gallery || false) !== localCat.isPrivate) catUpdates.isPrivate = cloudCat.private_gallery || false;
       if ((cloudCat.gallery_password || null) !== localCat.privatePassword) catUpdates.privatePassword = cloudCat.gallery_password || null;
+      if ((cloudCat.cover_image_uid || null) !== localCat.coverImageUid) catUpdates.coverImageUid = cloudCat.cover_image_uid || null;
 
       if (Object.keys(catUpdates).length > 0) {
         updatedCategories[i] = { ...localCat, ...catUpdates };
@@ -740,7 +743,10 @@ export default function PhotographyPoseGuide() {
       );
 
       if (imageResult.ok) {
-        // Link cover_image_uid on the category
+        // Store coverImageUid locally so we can filter it from gallery
+        updateCategory(categoryId, { coverImageUid: imageResult.uid });
+
+        // Link cover_image_uid on the category in Supabase
         updateCategoryInSupabase(categoryUid, { coverImageUid: imageResult.uid }, userId)
           .then(res => {
             if (res.ok) {
