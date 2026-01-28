@@ -73,7 +73,7 @@ export default function Header({
               title={isSyncing ? 'Syncing...' : isSynced ? 'Synced — tap to re-sync' : 'Sync from cloud'}
               className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 isSyncing
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? 'bg-gray-600 text-blue-400 cursor-not-allowed'
                   : isSynced
                     ? 'bg-gray-700 hover:bg-gray-600 text-green-400'
                     : 'bg-gray-700 hover:bg-gray-600 text-white'
@@ -82,7 +82,7 @@ export default function Header({
               {isSynced && !isSyncing ? (
                 <CloudCheck size={18} className="md:w-5 md:h-5" />
               ) : (
-                <CloudSync size={18} className={`md:w-5 md:h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <CloudSync size={18} className={`md:w-5 md:h-5 ${isSyncing ? 'animate-pulse text-blue-400' : ''}`} />
               )}
             </button>
           )}
