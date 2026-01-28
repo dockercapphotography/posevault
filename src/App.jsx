@@ -133,6 +133,24 @@ export default function PhotographyPoseGuide() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Handle Android/browser back button via history API
+  useEffect(() => {
+    const onPopState = (e) => {
+      const state = e.state;
+      if (state?.view === 'grid') {
+        setViewMode('grid');
+        window.scrollTo(0, 0);
+      } else if (state?.view === 'categories' || !state) {
+        setViewMode('categories');
+        setCurrentCategory(null);
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   // ==========================================
   // CROSS-DEVICE SYNC: Pull from cloud on every load and merge
   // ==========================================
@@ -604,12 +622,7 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleBack = () => {
-    if (viewMode === 'single') {
-      setViewMode('grid');
-    } else {
-      setViewMode('categories');
-      setCurrentCategory(null);
-    }
+    window.history.back();
   };
 
   const handleOpenCategory = (category) => {
@@ -623,6 +636,8 @@ export default function PhotographyPoseGuide() {
     setCurrentCategory(category);
     setViewMode('grid');
     setCurrentImageIndex(0);
+    window.scrollTo(0, 0);
+    window.history.pushState({ view: 'grid' }, '');
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -633,10 +648,12 @@ export default function PhotographyPoseGuide() {
   const handleProceedToPrivateGallery = () => {
     const category = pendingPrivateCategory;
     setPendingPrivateCategory(null);
-    
+
     setCurrentCategory(category);
     setViewMode('grid');
     setCurrentImageIndex(0);
+    window.scrollTo(0, 0);
+    window.history.pushState({ view: 'grid' }, '');
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -647,6 +664,7 @@ export default function PhotographyPoseGuide() {
   const handleOpenImage = (index) => {
     setCurrentImageIndex(index);
     setViewMode('single');
+    window.history.pushState({ view: 'single' }, '');
   };
 
   const handleCoverUpload = async (e, categoryId) => {

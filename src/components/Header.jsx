@@ -17,7 +17,7 @@ export default function Header({
   isSynced = false
 }) {
   return (
-    <div className="bg-gray-800 border-b border-gray-700 p-3 md:p-4">
+    <div className="sticky top-0 z-30 bg-gray-800 border-b border-gray-700 p-3 md:p-4">
       <div className="flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2 md:gap-3">
           {viewMode !== 'categories' && (
