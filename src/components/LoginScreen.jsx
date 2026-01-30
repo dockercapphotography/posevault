@@ -44,10 +44,15 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
     }
   }, [password, mode]);
 
-  // Clear messages when switching modes
+  // Clear messages and fields when switching modes
   useEffect(() => {
     setError('');
     setSuccessMessage('');
+    // Clear registration fields when leaving register mode
+    if (mode !== 'register') {
+      setFirstName('');
+      setLastName('');
+    }
   }, [mode]);
 
   const allPasswordReqsMet =
@@ -199,10 +204,13 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
   const showPasswordFields = mode === 'register' || mode === 'newPassword';
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full">
-        <h1 className="text-3xl font-bold mb-2 text-center">PoseVault</h1>
-        <p className="text-gray-400 text-center mb-6">{getTitle()}</p>
+    <div className="min-h-[100dvh] bg-gray-900 text-white flex items-center justify-center py-8 px-4">
+      <div className="bg-gray-800 rounded-xl p-6 sm:p-8 max-w-md w-full my-auto">
+        <img 
+          src="/logo.png" 
+          alt="PoseVault Logo" 
+          className="max-h-14 sm:max-h-16 w-auto mx-auto mb-4 sm:mb-6"
+        />
 
         {/* Error Message */}
         {error && (
@@ -226,7 +234,7 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First Name"
+                placeholder={mode === 'register' ? 'First Name *' : 'First Name'}
                 className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                 disabled={isSubmitting}
               />
@@ -234,7 +242,7 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last Name"
+                placeholder={mode === 'register' ? 'Last Name *' : 'Last Name'}
                 className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                 disabled={isSubmitting}
               />
@@ -247,7 +255,7 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
+              placeholder={mode === 'register' ? 'Email *' : 'Email'}
               className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
               disabled={isSubmitting}
             />
@@ -378,42 +386,40 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
             )}
           </button>
 
-          {/* Forgot Password link (login mode only) */}
+          {/* Forgot Password and Register buttons side-by-side (login mode only) */}
           {mode === 'login' && (
-            <button
-              onClick={() => setMode('forgot')}
-              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
-              disabled={isSubmitting}
-            >
-              Forgot your password?
-            </button>
-          )}
-
-          {/* Mode toggle links */}
-          {mode === 'login' && (
-            <button
-              onClick={() => setMode('register')}
-              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
-              disabled={isSubmitting}
-            >
-              Don't have an account? Register
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setMode('forgot')}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm cursor-pointer border border-gray-600 rounded-lg py-2 px-4"
+                disabled={isSubmitting}
+              >
+                Forgot Password?
+              </button>
+              <button
+                onClick={() => setMode('register')}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm cursor-pointer rounded-lg py-2 px-4 font-medium"
+                disabled={isSubmitting}
+              >
+                Create Account
+              </button>
+            </div>
           )}
 
           {mode === 'register' && (
             <button
               onClick={() => setMode('login')}
-              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors text-sm cursor-pointer rounded-lg py-2 px-4 font-medium"
               disabled={isSubmitting}
             >
-              Already have an account? Login
+              Have an account? Login
             </button>
           )}
 
           {mode === 'forgot' && (
             <button
               onClick={() => setMode('login')}
-              className="w-full text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+              className="w-full text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm cursor-pointer border border-gray-600 rounded-lg py-2 px-4"
               disabled={isSubmitting}
             >
               Back to Login
@@ -427,18 +433,22 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
           )}
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-400">
-            Powered by{' '}
-            <a
-              href="http://www.dockercapphotography.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-400 hover:text-purple-300 transition-colors underline"
-            >
-              Docker Cap Photography
-            </a>
+        <div className="mt-4 sm:mt-6 text-center">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+            Powered by
           </p>
+          <a
+            href="http://www.dockercapphotography.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block hover:opacity-80 transition-opacity"
+          >
+            <img 
+              src="/docker-cap-logo.svg" 
+              alt="Docker Cap Photography" 
+              className="max-h-6 sm:max-h-8 w-auto mx-auto"
+            />
+          </a>
         </div>
       </div>
     </div>

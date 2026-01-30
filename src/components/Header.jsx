@@ -28,9 +28,17 @@ export default function Header({
               <ChevronLeft size={20} className="md:w-6 md:h-6" />
             </button>
           )}
-          <h1 className="text-lg md:text-2xl font-bold truncate">
-            {viewMode === 'categories' ? 'PoseVault' : categoryName || 'Category'}
-          </h1>
+          <div className="text-lg md:text-2xl font-bold truncate">
+            {viewMode === 'categories' ? (
+              <img 
+                src="/logo.png" 
+                alt="PoseVault" 
+                className="h-8 md:h-12 w-auto"
+              />
+            ) : (
+              categoryName || 'Category'
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           {viewMode === 'categories' && (
