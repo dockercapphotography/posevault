@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+dev-dist/workbox-ca84f546.js
+dev-dist/sw.js
+dev-dist/registerSW.js

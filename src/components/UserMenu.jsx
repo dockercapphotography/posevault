@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, LogOut, WifiOff, Wifi, Download } from 'lucide-react';
+import { Menu, LogOut, WifiOff, Wifi, Download, Settings } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import StorageMeter from './StorageMeter';
 
 /**
- * User menu dropdown containing offline status, storage meter, PWA install, and logout
+ * User menu dropdown containing offline status, storage meter, PWA install, settings, and logout
  */
-export default function UserMenu({ onLogout, isUploading = false, isSaving = false }) {
+export default function UserMenu({ onLogout, onOpenSettings, userId, isUploading = false, isSaving = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showOnlineNotification, setShowOnlineNotification] = useState(false);
@@ -164,7 +164,7 @@ export default function UserMenu({ onLogout, isUploading = false, isSaving = fal
 
             {/* Storage Meter */}
             <div className="px-4 py-3 border-b border-gray-700">
-              <StorageMeter compact={false} pauseRefresh={isUploading || isSaving} />
+              <StorageMeter compact={false} pauseRefresh={isUploading || isSaving || isOpen} userId={userId} />
             </div>
 
             {/* Install PWA Button */}
@@ -189,6 +189,20 @@ export default function UserMenu({ onLogout, isUploading = false, isSaving = fal
                 </div>
               </div>
             )}
+
+            {/* Settings Button */}
+            <div className="p-2 border-b border-gray-700">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenSettings();
+                }}
+                className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Settings size={16} />
+                <span>Settings</span>
+              </button>
+            </div>
 
             {/* Logout Button */}
             <div className="p-2">

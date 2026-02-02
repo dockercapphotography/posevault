@@ -18,6 +18,7 @@ import UploadProgressModal from './components/Modals/UploadProgressModal';
 import PrivateGalleryWarning from './components/Modals/PrivateGalleryWarning';
 import PDFOptionsModal from './components/Modals/PDFOptionsModal';
 import MobileUploadModal from './components/Modals/MobileUploadModal';
+import UserSettingsModal from './components/UserSettingsModal';
 
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
@@ -28,6 +29,7 @@ import {
   getDisplayedCategories,
   getDisplayedImages
 } from './utils/helpers';
+import { getUserSetting, setUserSetting } from './utils/userSettingsSync';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
@@ -92,6 +94,7 @@ export default function PhotographyPoseGuide() {
   const [showMobileUploadModal, setShowMobileUploadModal] = useState(null); // stores categoryId when open
   const [pendingPrivateCategory, setPendingPrivateCategory] = useState(null);
   const [pdfCategory, setPdfCategory] = useState(null);
+  const [showUserSettings, setShowUserSettings] = useState(false);
 
   // Upload progress
   const [showUploadProgress, setShowUploadProgress] = useState(false);
@@ -665,6 +668,34 @@ export default function PhotographyPoseGuide() {
     hydrateAll();
   }, [session?.user?.id, categoriesLoading, categories.length]);
 
+  // Load user grid preferences from user_settings table
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const loadGridPreferences = async () => {
+      const userId = session.user.id;
+      
+      // Detect if mobile or desktop
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || window.innerWidth < 768;
+      const devicePrefix = isMobile ? 'mobile_' : 'desktop_';
+
+      // Load category grid columns for current device
+      const catResult = await getUserSetting(userId, `${devicePrefix}category_grid_columns`);
+      if (catResult.ok && catResult.value) {
+        setCategoryGridColumns(parseInt(catResult.value));
+      }
+
+      // Load image grid columns for current device
+      const imgResult = await getUserSetting(userId, `${devicePrefix}image_grid_columns`);
+      if (imgResult.ok && imgResult.value) {
+        setGridColumns(parseInt(imgResult.value));
+      }
+    };
+
+    loadGridPreferences();
+  }, [session?.user?.id]);
+
   // Handlers
 
   // Helper function to create timestamped filename for R2
@@ -687,6 +718,46 @@ export default function PhotographyPoseGuide() {
     await logout();
     setViewMode('categories');
     setCurrentCategory(null);
+  };
+
+  // Save grid preferences to user_settings
+  const handleCategoryGridChange = async (columns) => {
+    setCategoryGridColumns(columns);
+    if (session?.user?.id) {
+      // Detect if mobile or desktop
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || window.innerWidth < 768;
+      const devicePrefix = isMobile ? 'mobile_' : 'desktop_';
+      
+      await setUserSetting(session.user.id, `${devicePrefix}category_grid_columns`, columns.toString());
+    }
+  };
+
+  const handleImageGridChange = async (columns) => {
+    setGridColumns(columns);
+    if (session?.user?.id) {
+      // Detect if mobile or desktop
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || window.innerWidth < 768;
+      const devicePrefix = isMobile ? 'mobile_' : 'desktop_';
+      
+      await setUserSetting(session.user.id, `${devicePrefix}image_grid_columns`, columns.toString());
+    }
+  };
+
+  // Handle account deletion
+  const handleAccountDeleted = async () => {
+    // Clear IndexedDB
+    const dbRequest = indexedDB.deleteDatabase('PhotographyPoseGuide');
+    dbRequest.onsuccess = () => {
+      console.log('IndexedDB cleared after account deletion');
+    };
+
+    // Logout
+    await logout();
+    
+    // Redirect to login
+    window.location.href = '/';
   };
 
   const handleBack = () => {
@@ -1698,6 +1769,8 @@ export default function PhotographyPoseGuide() {
         onUploadPoses={handleImagesUpload}
         onSync={() => syncFromCloud({ isInitial: false, silent: true })}
         onLogout={handleLogout}
+        onOpenSettings={() => setShowUserSettings(true)}
+        userId={session?.user?.id}
         isUploading={showUploadProgress}
         isSaving={isSaving}
         isSyncing={isCloudSyncing}
@@ -1714,7 +1787,7 @@ export default function PhotographyPoseGuide() {
           onToggleShowFavorites={() => setShowFavoriteCategoriesOnly(!showFavoriteCategoriesOnly)}
           onToggleGridDropdown={() => setShowCategoryGridDropdown(!showCategoryGridDropdown)}
           onSetGridColumns={(cols) => {
-            setCategoryGridColumns(cols);
+            handleCategoryGridChange(cols);
             setShowCategoryGridDropdown(false);
           }}
           onOpenCategory={handleOpenCategory}
@@ -1756,7 +1829,7 @@ export default function PhotographyPoseGuide() {
           onShowBulkEdit={() => setShowBulkEditModal(true)}
           onToggleGridDropdown={() => setShowGridDropdown(!showGridDropdown)}
           onSetGridColumns={(cols) => {
-            setGridColumns(cols);
+            handleImageGridChange(cols);
             setShowGridDropdown(false);
           }}
           onImageClick={handleImageClick}
@@ -1907,6 +1980,21 @@ export default function PhotographyPoseGuide() {
           categoryId={showMobileUploadModal}
           onUpload={handleImagesUpload}
           onClose={() => setShowMobileUploadModal(null)}
+        />
+      )}
+
+      {/* User Settings Modal */}
+      {showUserSettings && (
+        <UserSettingsModal
+          onClose={() => setShowUserSettings(false)}
+          currentUser={session?.user}
+          categoryGridColumns={categoryGridColumns}
+          imageGridColumns={gridColumns}
+          onCategoryGridChange={handleCategoryGridChange}
+          onImageGridChange={handleImageGridChange}
+          onAccountDeleted={handleAccountDeleted}
+          deleteFromR2={deleteFromR2}
+          accessToken={session?.access_token}
         />
       )}
     </div>

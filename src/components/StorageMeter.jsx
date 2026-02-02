@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { HardDrive, AlertCircle, Shield } from 'lucide-react';
-import { getStorageEstimate, getStorageColor, getStorageStatus, requestPersistentStorage } from '../utils/storageEstimate';
+import { HardDrive, AlertCircle } from 'lucide-react';
+import { getUserStorageInfo, getStorageColor, getStorageStatus } from '../utils/userStorage';
 
-export default function StorageMeter({ compact = false, pauseRefresh = false }) {
+export default function StorageMeter({ compact = false, pauseRefresh = false, userId }) {
   const [storageInfo, setStorageInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
+    if (!userId) return;
+    
     loadStorageInfo();
 
     // Refresh every 30 seconds, but pause during uploads/saves to prevent conflicts
@@ -17,7 +19,8 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [pauseRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes, not on every pauseRefresh change
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -34,31 +37,63 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
   }, [showTooltip]);
 
   const loadStorageInfo = async () => {
+    if (!userId) return;
+    
     setIsLoading(true);
-    const info = await getStorageEstimate();
-    setStorageInfo(info);
+    const info = await getUserStorageInfo(userId);
+    
+    if (info.ok) {
+      console.log('Storage Info:', info);
+      setStorageInfo(info);
+    } else {
+      console.error('Failed to load storage info:', info.error);
+    }
+    
     setIsLoading(false);
   };
 
-  const handleRequestPersistentStorage = async () => {
-    const granted = await requestPersistentStorage();
-    if (granted) {
-      // Reload storage info to see if quota increased
-      await loadStorageInfo();
-    }
-  };
-
   if (isLoading || !storageInfo) {
-    return null;
+    // Show skeleton loader instead of nothing
+    if (compact) {
+      return null; // Don't show compact view while loading
+    }
+    
+    return (
+      <div className="bg-gray-800 rounded-lg p-4 animate-pulse">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-gray-700 rounded"></div>
+            <div className="h-5 w-32 bg-gray-700 rounded"></div>
+          </div>
+          <div className="h-5 w-16 bg-gray-700 rounded"></div>
+        </div>
+
+        <div className="space-y-3">
+          {/* Progress bar skeleton - matches h-3 */}
+          <div className="w-full bg-gray-700 rounded-full h-3"></div>
+
+          {/* Storage details skeleton - matches text-sm line height */}
+          <div className="flex justify-between">
+            <div className="h-5 w-16 bg-gray-700 rounded"></div>
+            <div className="h-5 w-20 bg-gray-700 rounded"></div>
+          </div>
+
+          <div className="flex justify-between">
+            <div className="h-5 w-20 bg-gray-700 rounded"></div>
+            <div className="h-5 w-24 bg-gray-700 rounded"></div>
+          </div>
+
+          <div className="flex justify-between">
+            <div className="h-5 w-12 bg-gray-700 rounded"></div>
+            <div className="h-5 w-20 bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  if (storageInfo.error) {
-    return null; // Don't show if there's an error
-  }
-
-  const percentUsed = Math.min(storageInfo.percentUsed, 100);
+  const percentUsed = storageInfo.percentUsed;
   const colorClass = getStorageColor(percentUsed);
-  const status = getStorageStatus(percentUsed);
 
   // Compact view - for header or toolbar
   if (compact) {
@@ -72,7 +107,7 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
       >
         <HardDrive size={16} className={percentUsed > 75 ? colorClass : ''} />
         <span className={percentUsed > 75 ? colorClass : ''}>
-          {storageInfo.usageMB}MB
+          {storageInfo.usedDisplay}
         </span>
 
         {/* Tooltip */}
@@ -81,7 +116,7 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
             <div className="text-xs text-gray-400 mb-2">Storage Usage</div>
             <div className="flex justify-between text-sm mb-2">
               <span className="text-white">
-                {storageInfo.usageMB}MB / {storageInfo.quotaMB}MB
+                {storageInfo.usedDisplay} / {storageInfo.maxDisplay}
               </span>
               <span className={colorClass}>{percentUsed.toFixed(1)}%</span>
             </div>
@@ -100,13 +135,7 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
               />
             </div>
             <div className="text-xs text-gray-400">
-              {storageInfo.availableMB}MB available
-              {storageInfo.estimated && ' (estimated)'}
-              {storageInfo.insecureContext && (
-                <div className="text-xs text-blue-400 mt-1">
-                  ⚠️ Use HTTPS for accurate quota
-                </div>
-              )}
+              {storageInfo.availableDisplay} available
             </div>
           </div>
         </div>
@@ -123,7 +152,7 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
           <h3 className="font-semibold">Storage Usage</h3>
         </div>
         <span className={`text-sm font-medium ${colorClass}`}>
-          {status}
+          {percentUsed.toFixed(1)}%
         </span>
       </div>
 
@@ -147,64 +176,21 @@ export default function StorageMeter({ compact = false, pauseRefresh = false }) 
         {/* Storage details */}
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Used:</span>
-          <span className="text-white font-medium">{storageInfo.usageMB}MB</span>
+          <span className="text-white font-medium">{storageInfo.usedDisplay}</span>
         </div>
 
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Available:</span>
-          <span className="text-white font-medium">{storageInfo.availableMB}MB</span>
+          <span className="text-white font-medium">{storageInfo.availableDisplay}</span>
         </div>
 
         <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Total Quota:</span>
-          <span className="text-white font-medium">
-            {storageInfo.quotaMB}MB
-            {storageInfo.estimated && ' (est.)'}
-          </span>
+          <span className="text-gray-400">Total:</span>
+          <span className="text-white font-medium">{storageInfo.maxDisplay}</span>
         </div>
-
-        <div className="flex justify-between text-sm pt-2 border-t border-gray-700">
-          <span className="text-gray-400">Percentage Used:</span>
-          <span className={`font-bold ${colorClass}`}>
-            {percentUsed.toFixed(1)}%
-          </span>
-        </div>
-
-        {/* Persistent Storage Section */}
-        {!storageInfo.estimated && (
-          <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-700">
-            <div className="flex items-center gap-2">
-              <Shield size={16} className={storageInfo.isPersisted ? 'text-green-500' : 'text-gray-500'} />
-              <span className="text-gray-400">Persistent Storage:</span>
-            </div>
-            {storageInfo.isPersisted ? (
-              <span className="text-green-500 font-medium">Enabled</span>
-            ) : (
-              <button
-                onClick={handleRequestPersistentStorage}
-                className="text-blue-500 hover:text-blue-400 font-medium transition-colors cursor-pointer"
-              >
-                Request
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Warning about insecure context */}
-        {storageInfo.insecureContext && (
-          <div className="flex items-start gap-2 p-3 bg-blue-950/30 rounded-lg border border-blue-500/30 mt-3">
-            <AlertCircle size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="text-blue-400 font-medium mb-1">Limited Storage API Access</p>
-              <p className="text-gray-400 text-xs">
-                App accessed via HTTP. Use HTTPS or localhost for accurate storage quota (typically 6-10% of device storage).
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Warning if storage is high */}
-        {percentUsed > 75 && (
+        {percentUsed > 75 && percentUsed <= 90 && (
           <div className="flex items-start gap-2 p-3 bg-gray-900 rounded-lg border border-orange-500/30 mt-3">
             <AlertCircle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm">

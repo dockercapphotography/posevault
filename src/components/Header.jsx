@@ -11,6 +11,8 @@ export default function Header({
   onUploadPoses,
   onSync,
   onLogout,
+  onOpenSettings,
+  userId,
   isUploading = false,
   isSaving = false,
   isSyncing = false,
@@ -94,7 +96,7 @@ export default function Header({
               )}
             </button>
           )}
-          <UserMenu onLogout={onLogout} isUploading={isUploading} isSaving={isSaving} />
+          <UserMenu onLogout={onLogout} onOpenSettings={onOpenSettings} userId={userId} isUploading={isUploading} isSaving={isSaving} />
         </div>
       </div>
     </div>
