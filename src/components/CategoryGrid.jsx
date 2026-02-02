@@ -35,7 +35,7 @@ export default function CategoryGrid({
           }`}
         >
           <Heart size={20} className={showFavoriteCategoriesOnly ? 'fill-white' : ''} />
-          {showFavoriteCategoriesOnly ? 'Show All Categories' : 'Favorite Categories Only'}
+          {showFavoriteCategoriesOnly ? 'Show All Galleries' : 'Favorite Galleries Only'}
         </button>
 
         <div className="relative ml-auto" ref={categoryDropdownRef}>
@@ -79,8 +79,8 @@ export default function CategoryGrid({
       {categories.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <Heart size={64} className="mx-auto mb-4 opacity-50" />
-          <p className="text-lg">No favorite categories yet</p>
-          <p className="text-sm mt-2">Click the heart icon on categories to mark them as favorites</p>
+          <p className="text-lg">No favorite galleries yet</p>
+          <p className="text-sm mt-2">Click the heart icon on galleries to mark them as favorites</p>
         </div>
       ) : (
         <div className={`grid ${categoryGridColsClass} gap-6`}>

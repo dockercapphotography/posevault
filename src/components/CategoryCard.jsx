@@ -139,7 +139,8 @@ export default function CategoryCard({
           {galleryImages.length} poses • {galleryImages.filter(img => img.isFavorite).length} favorites
         </p>
         
-        <div className="space-y-2 relative pb-10 md:pb-12">
+        <div className="flex gap-2">
+          {/* Add Images Button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -150,62 +151,43 @@ export default function CategoryCard({
           />
           <button
             onClick={handleUploadClick}
-            className="w-full text-center py-1.5 md:py-2 rounded-lg text-xs md:text-sm flex items-center justify-center gap-1.5 md:gap-2 text-white cursor-pointer"
-            style={{
-              background: 'linear-gradient(to right, #2563eb, #3b82f6)',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-              transition: 'all 0.2s ease-in-out'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, #1d4ed8, #2563eb)';
-              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, #2563eb, #3b82f6)';
-              e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-            }}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
-            <Images size={14} className="md:w-4 md:h-4" />
-            <span>Add Pose Images</span>
+            <Images size={16} />
+            <span className="hidden sm:inline">Add Images</span>
+            <span className="sm:hidden">Add</span>
           </button>
 
-          {/* Settings button with dropdown */}
-          <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2">
-            <div ref={dropdownRef}>
-              <button
-                ref={settingsButtonRef}
-                onClick={handleSettingsClick}
-                className="p-1.5 md:p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors relative z-10 cursor-pointer"
-              >
-                <Settings size={16} className="text-gray-300 md:w-5 md:h-5" />
-              </button>
+          {/* Settings Button - now inline */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              ref={settingsButtonRef}
+              onClick={handleSettingsClick}
+              className="h-full px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors cursor-pointer flex items-center"
+              aria-label="Gallery settings"
+            >
+              <Settings size={16} className="text-gray-300" />
+            </button>
 
-              {/* Dropdown menu */}
-              {showDropdown && (
-                <div className={`absolute ${
-                  dropdownAlignTop ? 'bottom-full mb-2' : 'mt-2'
-                } ${
-                  dropdownAlignRight ? 'right-0' : 'left-0'
-                } min-w-[180px] z-20`}>
-                  <CategorySettingsDropdown
-                    category={category}
-                    onEditSettings={(catId) => {
-                      onEditSettings(catId);
-                    }}
-                    onUploadCover={(e, catId) => {
-                      onUploadCover(e, catId);
-                    }}
-                    onDelete={(catId) => {
-                      onDelete(catId);
-                    }}
-                    onGeneratePDF={() => {
-                      onGeneratePDF(category);
-                    }}
-                    onClose={() => setShowDropdown(false)}
-                  />
-                </div>
-              )}
-            </div>
+            {/* Dropdown menu */}
+            {showDropdown && (
+              <div className={`absolute ${
+                dropdownAlignTop ? 'bottom-full mb-2' : 'mt-2'
+              } ${
+                dropdownAlignRight ? 'right-0' : 'left-0'
+              } min-w-[180px] z-20`}>
+                <CategorySettingsDropdown
+                  category={category}
+                  onEditSettings={(catId) => {
+                    onEditSettings(catId);
+                  }}
+                  onGeneratePDF={() => {
+                    onGeneratePDF(category);
+                  }}
+                  onClose={() => setShowDropdown(false)}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -353,7 +353,7 @@ export default function PhotographyPoseGuide() {
         );
       }
 
-      // Fetch all images for this category in parallel
+      // Fetch all images for this gallery in parallel
       const imageSrcs = await fetchImagesFromR2Parallel(catImages, accessToken, (done, total) => {
         const currentLoaded = loadedImages + done;
         if (!silent && (done % 3 === 0 || done === total)) {
@@ -495,7 +495,7 @@ export default function PhotographyPoseGuide() {
         changed = true;
       }
 
-      // Check for new images in this category from cloud
+      // Check for new images in this gallery from cloud
       const cloudImages = imagesByCategoryUid[localCat.supabaseUid] || [];
       const localImageUids = new Set(
         localCat.images.filter(img => img.supabaseUid).map(img => img.supabaseUid)
@@ -1113,7 +1113,7 @@ export default function PhotographyPoseGuide() {
                 });
                 console.log(`Supabase image created: ${supabaseResult.uid}, keeping user name: ${currentPoseName}`);
               } else {
-                // Generate friendly poseName: "Category Name - UID"
+                // Generate friendly poseName: "Gallery Name - UID"
                 const friendlyName = `${currentCategory?.name || 'Image'} - ${supabaseResult.uid}`;
 
                 // Store the Supabase UID and friendly poseName locally
@@ -1223,7 +1223,7 @@ export default function PhotographyPoseGuide() {
                   });
                   console.log(`Retry Supabase record created: ${supabaseResult.uid}, keeping user name: ${img.poseName}`);
                 } else {
-                  // Generate friendly poseName: "Category Name - UID"
+                  // Generate friendly poseName: "Gallery Name - UID"
                   const friendlyName = `${cat.name || 'Image'} - ${supabaseResult.uid}`;
 
                   updateImage(cat.id, imgIdx, {
@@ -1881,6 +1881,11 @@ export default function PhotographyPoseGuide() {
             category={cat}
             onClose={() => setEditingCategory(null)}
             onSave={handleSaveCategorySettings}
+            onUploadCover={handleCoverUpload}
+            onDelete={(catId) => {
+              setEditingCategory(null);
+              setShowDeleteConfirm(catId);
+            }}
           />
         );
       })()}

@@ -75,7 +75,7 @@ export default function NewCategoryModal({ onClose, onAdd }) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <FolderPlus size={24} className="text-green-500" />
-            New Category
+            New Gallery
           </h2>
           <button
             onClick={onClose}
@@ -85,9 +85,9 @@ export default function NewCategoryModal({ onClose, onAdd }) {
           </button>
         </div>
 
-        {/* Category Name */}
+        {/* Gallery Name */}
         <div className="mb-4">
-          <label className="block text-sm font-semibold mb-2">Category Name</label>
+          <label className="block text-sm font-semibold mb-2">Gallery Name</label>
           <input
             type="text"
             value={name}
@@ -160,7 +160,7 @@ export default function NewCategoryModal({ onClose, onAdd }) {
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add notes about this category..."
+            placeholder="Add notes about this gallery..."
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[80px] resize-none"
           />
         </div>

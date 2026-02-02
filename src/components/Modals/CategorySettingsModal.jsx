@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X, Settings, FileText, Lock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Settings, FileText, Lock, AlertTriangle, Trash2, ImagePlus } from 'lucide-react';
 import { verifyPassword } from '../../utils/crypto';
 
-export default function CategorySettingsModal({ category, onClose, onSave }) {
+export default function CategorySettingsModal({ category, onClose, onSave, onUploadCover, onDelete }) {
   const [name, setName] = useState(category?.name || '');
   const [notes, setNotes] = useState(category?.notes || '');
   const [isPrivate, setIsPrivate] = useState(category?.isPrivate || false);
@@ -12,8 +12,17 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [coverPreview, setCoverPreview] = useState(null);
+  const [hasCoverChanged, setHasCoverChanged] = useState(false);
+  const coverInputRef = useRef(null);
 
   const hasExistingPassword = category?.privatePassword;
+
+  // Initialize cover preview when category changes
+  useEffect(() => {
+    setCoverPreview(category?.cover || null);
+    setHasCoverChanged(false);
+  }, [category]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -80,7 +89,7 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Settings size={24} className="text-purple-500" />
-            Category Settings
+            Gallery Settings
           </h2>
           <button
             onClick={onClose}
@@ -90,9 +99,9 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
           </button>
         </div>
 
-        {/* Category Name */}
+        {/* Gallery Name */}
         <div className="mb-4">
-          <label className="block text-sm font-semibold mb-2">Category Name</label>
+          <label className="block text-sm font-semibold mb-2">Gallery Name</label>
           <input
             type="text"
             value={name}
@@ -104,16 +113,82 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
           />
         </div>
 
-        {/* Category Notes */}
+        {/* Cover Photo */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2 flex items-center gap-2">
+            <ImagePlus size={16} />
+            Cover Photo
+          </label>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                onUploadCover(e, category.id);
+                setHasCoverChanged(true);
+                // Update preview with the selected file immediately
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  setCoverPreview(event.target.result);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+              }
+            }}
+            className="hidden"
+          />
+          {coverPreview ? (
+            <div className="relative">
+              <img
+                src={coverPreview}
+                alt="Cover preview"
+                className="w-full h-32 object-cover rounded-lg"
+              />
+              {hasCoverChanged && (
+                <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                  Uploading...
+                </div>
+              )}
+              <div className="absolute bottom-2 right-2 flex gap-2">
+                <button
+                  onClick={() => coverInputRef.current?.click()}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs transition-colors cursor-pointer"
+                >
+                  Change
+                </button>
+                <button
+                  onClick={() => {
+                    setCoverPreview(null);
+                    setHasCoverChanged(false);
+                    // Note: Actual cover deletion would need a separate backend call
+                  }}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs transition-colors cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => coverInputRef.current?.click()}
+              className="w-full h-24 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:border-purple-500 transition-colors cursor-pointer"
+            >
+              <ImagePlus size={20} />
+              <span className="text-sm">Upload Cover Photo</span>
+            </button>
+          )}
+        </div>
+
+        {/* Gallery Notes */}
         <div className="mb-4">
           <label className="flex items-center gap-2 text-sm font-semibold mb-2">
             <FileText size={16} />
-            Category Notes
+            Gallery Notes
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add notes about this category..."
+            placeholder="Add notes about this gallery..."
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[100px]"
           />
         </div>
@@ -133,7 +208,7 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
                 <span className="font-semibold">Private Gallery</span>
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                Requires confirmation before opening. May contain NSFW content.
+                Marks the gallery as private and requires confirmation before opening. Can be combined with Password Protection for full security.
               </p>
             </div>
           </label>
@@ -217,7 +292,7 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
                     <span>
                       <strong>Warning:</strong> {hasExistingPassword
                         ? 'You must know the current password to change it. There is no password recovery option.'
-                        : 'Once set, you cannot change or remove the password without knowing it. There is no password recovery option.'}
+                        : 'Once set, you cannot change or remove the password without knowing it. There is NO password recovery option.'}
                     </span>
                   </p>
                 </div>
@@ -286,6 +361,26 @@ export default function CategorySettingsModal({ category, onClose, onSave }) {
         {error && (
           <p className="text-red-500 text-sm mb-4">{error}</p>
         )}
+
+        {/* Delete Gallery Section */}
+        <div className="mb-4 p-4 bg-red-900/20 border border-red-600/50 rounded-lg">
+          <div className="flex items-start gap-3 mb-3">
+            <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-400 mb-1">Delete Gallery</h3>
+              <p className="text-xs text-gray-400">
+                Permanently delete this gallery and all its images. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onDelete(category.id)}
+            className="w-full bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 text-white font-medium"
+          >
+            <Trash2 size={16} />
+            Delete Gallery
+          </button>
+        </div>
 
         <div className="flex gap-3">
           <button

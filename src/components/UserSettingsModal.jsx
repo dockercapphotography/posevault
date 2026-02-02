@@ -291,7 +291,7 @@ export default function UserSettingsModal({
                       Permanently delete your PoseVault account and all associated data. This action cannot be undone.
                     </p>
                     <ul className="text-gray-400 text-sm space-y-1 mb-4">
-                      <li>• All categories will be deleted</li>
+                      <li>• All galleries will be deleted</li>
                       <li>• All images will be deleted from storage</li>
                       <li>• All tags will be deleted</li>
                       <li>• Your account will be permanently removed</li>

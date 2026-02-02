@@ -5,8 +5,6 @@ import { downloadCategoryAsZip } from '../../utils/zipDownloader';
 export default function CategorySettingsDropdown({ 
   category, 
   onEditSettings, 
-  onUploadCover, 
-  onDelete,
   onGeneratePDF,
   onClose
 }) {
@@ -14,7 +12,7 @@ export default function CategorySettingsDropdown({
 
   const handleDownloadZip = async () => {
     if (category.images.length === 0) {
-      alert('No images to download in this category');
+      alert('No images to download in this gallery');
       return;
     }
 
@@ -40,24 +38,8 @@ export default function CategorySettingsDropdown({
         className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
       >
         <FileText size={16} />
-        <span>Category Settings</span>
+        <span>Gallery Settings</span>
       </button>
-      
-      <label className="block cursor-pointer hover:bg-gray-600 transition-colors">
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.gif,.heic,.heif"
-          onChange={(e) => {
-            onUploadCover(e, category.id);
-            onClose();
-          }}
-          className="hidden"
-        />
-        <div className="px-4 py-2 text-sm flex items-center gap-2">
-          <Camera size={16} />
-          <span>{category.cover ? 'Change Cover' : 'Upload Cover'}</span>
-        </div>
-      </label>
 
       <div className="border-t border-gray-600 my-1"></div>
 
@@ -100,19 +82,6 @@ export default function CategorySettingsDropdown({
             : `Download ZIP (${category.images.length})`
           }
         </span>
-      </button>
-
-      <div className="border-t border-gray-600 my-1"></div>
-
-      <button
-        onClick={() => {
-          onDelete(category.id);
-          onClose();
-        }}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 text-red-400 cursor-pointer"
-      >
-        <Trash2 size={16} />
-        <span>Delete Category</span>
       </button>
     </div>
   );
