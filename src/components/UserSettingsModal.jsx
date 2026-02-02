@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, User, Trash2, AlertTriangle, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import { updateUserProfile, updateUserEmail, updateUserPassword, deleteUserAccount } from '../utils/userSettingsSync';
 
 export default function UserSettingsModal({
@@ -11,7 +11,9 @@ export default function UserSettingsModal({
   onImageGridChange,
   onAccountDeleted,
   deleteFromR2,
-  accessToken
+  accessToken,
+  onStartTutorial,
+  onResetImageTutorial
 }) {
   const [activeTab, setActiveTab] = useState('account');
   const [isSaving, setIsSaving] = useState(false);
@@ -266,6 +268,23 @@ export default function UserSettingsModal({
                   {saveMessage}
                 </div>
               )}
+
+              {/* Show Tutorial Button */}
+              <div className="border-t border-gray-700 pt-6">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onStartTutorial();
+                    if (onResetImageTutorial) {
+                      onResetImageTutorial();
+                    }
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <HelpCircle size={18} />
+                  Show Tutorial Again
+                </button>
+              </div>
 
               <button
                 onClick={handleSaveAccountInfo}

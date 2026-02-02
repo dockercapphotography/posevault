@@ -127,7 +127,7 @@ export default function UserMenu({ onLogout, onOpenSettings, userId, isUploading
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="bg-gray-700 hover:bg-gray-600 px-2 py-2 md:px-3 md:py-2 rounded-lg flex items-center gap-2 transition-colors text-sm md:text-base cursor-pointer"
+          className="user-menu-button bg-gray-700 hover:bg-gray-600 px-2 py-2 md:px-3 md:py-2 rounded-lg flex items-center gap-2 transition-colors text-sm md:text-base cursor-pointer"
           aria-label="User menu"
         >
           <Menu size={16} className="md:w-5 md:h-5" />

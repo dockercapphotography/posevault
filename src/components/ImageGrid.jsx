@@ -92,7 +92,7 @@ export default function ImageGrid({
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="tutorial-filter-section mb-4 flex flex-wrap items-center gap-3">
         {/* Search Box */}
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -164,7 +164,7 @@ export default function ImageGrid({
 
         {/* Column selector - hidden on mobile when bulk editing */}
         <div
-          className={`relative ml-auto ${bulkSelectMode && selectedImages.length > 0 ? 'hidden md:block' : ''}`}
+          className={`tutorial-grid-columns relative ml-auto ${bulkSelectMode && selectedImages.length > 0 ? 'hidden md:block' : ''}`}
           ref={dropdownRef}
         >
           <button
@@ -205,19 +205,21 @@ export default function ImageGrid({
           {images.map((img, idx) => {
             const originalIndex = originalImages.indexOf(img);
             const isSelected = selectedImages.includes(originalIndex);
+            const isFirstImage = idx === 0;
             return (
-              <ImageCard
-                key={originalIndex}
-                image={img}
-                index={originalIndex}
-                isSelected={isSelected}
-                bulkSelectMode={bulkSelectMode}
-                onImageClick={onImageClick}
-                onToggleFavorite={onToggleFavorite}
-                onEdit={onEditImage}
-                onDelete={onDeleteImage}
-                onStartBulkSelect={onStartBulkSelect}
-              />
+              <div key={originalIndex} className={isFirstImage ? 'tutorial-image-card' : ''}>
+                <ImageCard
+                  image={img}
+                  index={originalIndex}
+                  isSelected={isSelected}
+                  bulkSelectMode={bulkSelectMode}
+                  onImageClick={onImageClick}
+                  onToggleFavorite={onToggleFavorite}
+                  onEdit={onEditImage}
+                  onDelete={onDeleteImage}
+                  onStartBulkSelect={onStartBulkSelect}
+                />
+              </div>
             );
           })}
         </div>
