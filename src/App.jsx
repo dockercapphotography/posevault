@@ -33,6 +33,11 @@ import { getUserSetting, setUserSetting } from './utils/userSettingsSync';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
+import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
+import { useTutorial } from './hooks/useTutorial';
+import { useImageTutorial } from './hooks/useImageTutorial';
+import { tutorialSteps, tutorialStyles } from './utils/tutorialSteps.jsx';
+import { imageTutorialSteps } from './utils/imageTutorialSteps.jsx';
 import {
   createCategory as createCategoryInSupabase,
   updateCategory as updateCategoryInSupabase,
@@ -95,6 +100,29 @@ export default function PhotographyPoseGuide() {
   const [pendingPrivateCategory, setPendingPrivateCategory] = useState(null);
   const [pdfCategory, setPdfCategory] = useState(null);
   const [showUserSettings, setShowUserSettings] = useState(false);
+
+  // Tutorial state
+  const {
+    runTutorial,
+    stepIndex,
+    isLoading: tutorialLoading,
+    startTutorial,
+    stopTutorial,
+    completeTutorial,
+    setStepIndex,
+  } = useTutorial(session?.user?.id);
+
+  // Image gallery tutorial state
+  const {
+    runTutorial: runImageTutorial,
+    stepIndex: imageStepIndex,
+    isLoading: imageTutorialLoading,
+    startTutorial: startImageTutorial,
+    resetTutorial: resetImageTutorial,
+    stopTutorial: stopImageTutorial,
+    completeTutorial: completeImageTutorial,
+    setStepIndex: setImageStepIndex,
+  } = useImageTutorial(session?.user?.id, viewMode === 'grid');
 
   // Upload progress
   const [showUploadProgress, setShowUploadProgress] = useState(false);
@@ -758,6 +786,32 @@ export default function PhotographyPoseGuide() {
     
     // Redirect to login
     window.location.href = '/';
+  };
+
+  // Tutorial callback handler
+  const handleJoyrideCallback = (data) => {
+    const { action, index, status, type } = data;
+
+    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
+      // Update step index
+      setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
+    } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      // Tutorial completed or skipped
+      completeTutorial();
+    }
+  };
+
+  // Image tutorial callback handler
+  const handleImageJoyrideCallback = (data) => {
+    const { action, index, status, type } = data;
+
+    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
+      // Update step index
+      setImageStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
+    } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      // Tutorial completed or skipped
+      completeImageTutorial();
+    }
   };
 
   const handleBack = () => {
@@ -2000,6 +2054,64 @@ export default function PhotographyPoseGuide() {
           onAccountDeleted={handleAccountDeleted}
           deleteFromR2={deleteFromR2}
           accessToken={session?.access_token}
+          onStartTutorial={startTutorial}
+          onResetImageTutorial={resetImageTutorial}
+        />
+      )}
+
+      {/* Tutorial Overlay */}
+      {!tutorialLoading && (
+        <Joyride
+          steps={tutorialSteps}
+          run={runTutorial}
+          stepIndex={stepIndex}
+          continuous
+          showProgress
+          showSkipButton
+          disableScrolling={false}
+          disableScrollParentFix
+          scrollToFirstStep
+          scrollOffset={100}
+          spotlightPadding={10}
+          disableOverlayClose
+          hideCloseButton
+          callback={handleJoyrideCallback}
+          styles={tutorialStyles}
+          locale={{
+            back: 'Back',
+            close: 'Close',
+            last: 'Finish',
+            next: 'Next',
+            skip: 'Skip Tutorial',
+          }}
+        />
+      )}
+
+      {/* Image Gallery Tutorial Overlay */}
+      {!imageTutorialLoading && (
+        <Joyride
+          steps={imageTutorialSteps}
+          run={runImageTutorial}
+          stepIndex={imageStepIndex}
+          continuous
+          showProgress
+          showSkipButton
+          disableScrolling={false}
+          disableScrollParentFix
+          scrollToFirstStep
+          scrollOffset={100}
+          spotlightPadding={10}
+          disableOverlayClose
+          hideCloseButton
+          callback={handleImageJoyrideCallback}
+          styles={tutorialStyles}
+          locale={{
+            back: 'Back',
+            close: 'Close',
+            last: 'Finish',
+            next: 'Next',
+            skip: 'Skip Tutorial',
+          }}
         />
       )}
     </div>

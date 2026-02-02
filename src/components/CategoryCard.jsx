@@ -75,7 +75,7 @@ export default function CategoryCard({
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-shadow relative">
+    <div className="tutorial-gallery-card bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-shadow relative">
       {category.cover ? (
         <>
           <button
@@ -163,7 +163,7 @@ export default function CategoryCard({
             <button
               ref={settingsButtonRef}
               onClick={handleSettingsClick}
-              className="h-full px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors cursor-pointer flex items-center"
+              className="tutorial-settings-button h-full px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors cursor-pointer flex items-center"
               aria-label="Gallery settings"
             >
               <Settings size={16} className="text-gray-300" />

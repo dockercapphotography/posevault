@@ -161,7 +161,7 @@ export default function ImageCard({
                 }
                 setShowMenu(!showMenu);
               }}
-              className="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
+              className="tutorial-image-settings p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
             >
               <MoreVertical size={20} className="text-white" />
             </button>
