@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, FolderPlus, Lock, AlertTriangle, FileText, ImagePlus } from 'lucide-react';
+import { X, FolderPlus, Lock, AlertTriangle, FileText, ImagePlus, Tag, Plus } from 'lucide-react';
 import { convertToWebP } from '../../utils/imageOptimizer';
 
-export default function NewCategoryModal({ onClose, onAdd }) {
+export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }) {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
   const [cover, setCover] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -59,6 +61,7 @@ export default function NewCategoryModal({ onClose, onAdd }) {
       isPrivate,
       privatePassword: isPrivate && privatePassword ? privatePassword : null,
       notes: notes.trim(),
+      tags,
       cover,
     });
   };
@@ -162,7 +165,96 @@ export default function NewCategoryModal({ onClose, onAdd }) {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add notes about this gallery..."
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 min-h-[80px] resize-none"
+            autoComplete="one-time-code"
           />
+        </div>
+
+        {/* Gallery Tags */}
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-sm font-semibold mb-2">
+            <Tag size={16} />
+            Tags (Optional)
+          </label>
+          <div className="relative">
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && tagInput.trim()) {
+                    e.preventDefault();
+                    const normalized = tagInput.trim().toLowerCase();
+                    if (!tags.includes(normalized)) {
+                      setTags([...tags, normalized]);
+                    }
+                    setTagInput('');
+                  }
+                }}
+                placeholder="Add a tag (press Enter)"
+                className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                autoComplete="one-time-code"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (tagInput.trim()) {
+                    const normalized = tagInput.trim().toLowerCase();
+                    if (!tags.includes(normalized)) {
+                      setTags([...tags, normalized]);
+                    }
+                    setTagInput('');
+                  }
+                }}
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+
+            {/* Autocomplete Suggestions Dropdown */}
+            {tagInput && allGalleryTags.filter(t =>
+              t.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(t.toLowerCase())
+            ).length > 0 && (
+              <div className="absolute z-10 w-full bg-gray-700 rounded-lg shadow-xl border border-gray-600 max-h-48 overflow-y-auto mb-2">
+                {allGalleryTags.filter(t =>
+                  t.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(t.toLowerCase())
+                ).slice(0, 5).map((tag, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      const normalized = tag.toLowerCase();
+                      if (!tags.includes(normalized)) {
+                        setTags([...tags, normalized]);
+                      }
+                      setTagInput('');
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Tag size={14} className="text-purple-400" />
+                    <span>{tag}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Current tags */}
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag, i) => (
+              <span key={i} className="bg-purple-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => setTags(tags.filter((_, idx) => idx !== i))}
+                  className="hover:bg-purple-700 rounded-full p-0.5 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Private Gallery Toggle */}

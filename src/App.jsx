@@ -1538,6 +1538,12 @@ export default function PhotographyPoseGuide() {
               if (addedCat.cover && session?.access_token) {
                 uploadCoverAndLink(addedCat.cover, addedCat.id, name);
               }
+
+              // Sync tags if any were provided
+              if (addedCat.tags && addedCat.tags.length > 0) {
+                syncCategoryTags(result.uid, addedCat.tags, userId)
+                  .catch(err => console.error('Category tag sync error:', err));
+              }
             }
             console.log(`Category created in Supabase: ${result.uid}`);
           } else {
@@ -2200,6 +2206,7 @@ export default function PhotographyPoseGuide() {
       {showNewCategoryModal && (
         <NewCategoryModal
           onClose={() => setShowNewCategoryModal(false)}
+          allGalleryTags={allGalleryTags}
           onAdd={(name, privateSettings) => {
             addCategoryWithSync(name, privateSettings);
             setShowNewCategoryModal(false);

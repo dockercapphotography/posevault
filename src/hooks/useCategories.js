@@ -115,6 +115,7 @@ export const useCategories = (currentUser) => {
         images: [],
         isFavorite: false,
         notes: privateSettings.notes || '',
+        tags: privateSettings.tags || [],
         isPrivate: privateSettings.isPrivate || false,
         privatePassword: privateSettings.privatePassword || null,
       }];
