@@ -88,7 +88,6 @@ export default function PhotographyPoseGuide() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // UI state
-  const [showFavoriteCategoriesOnly, setShowFavoriteCategoriesOnly] = useState(false);
   const [categoryGridColumns, setCategoryGridColumns] = useState(
     typeof window !== 'undefined' && window.innerWidth < 768 ? 2 : 3
   );
@@ -155,7 +154,7 @@ export default function PhotographyPoseGuide() {
   const [gallerySearchTerm, setGallerySearchTerm] = useState('');
   const [selectedGalleryTagFilters, setSelectedGalleryTagFilters] = useState([]);
   const [galleryTagFilterMode, setGalleryTagFilterMode] = useState('include');
-  const [gallerySortBy, setGallerySortBy] = useState('favorites');
+  const [gallerySortBy, setGallerySortBy] = useState('nameAZ');
   const [showGalleryFilterModal, setShowGalleryFilterModal] = useState(false);
 
   // Gallery bulk selection
@@ -743,7 +742,7 @@ export default function PhotographyPoseGuide() {
         setGridColumns(parseInt(imgResult.value));
       }
       
-      // Load filter preferences
+      // Load filter preferences (for images)
       const sortByResult = await getUserSetting(userId, 'filter_sort_by');
       if (sortByResult?.ok && sortByResult.value) {
         setSortBy(sortByResult.value);
@@ -751,10 +750,16 @@ export default function PhotographyPoseGuide() {
           setShowFavoritesOnly(true);
         }
       }
-      
+
       const tagFilterModeResult = await getUserSetting(userId, 'filter_tag_mode');
       if (tagFilterModeResult?.ok && tagFilterModeResult.value) {
         setTagFilterMode(tagFilterModeResult.value);
+      }
+
+      // Load gallery filter preferences
+      const gallerySortResult = await getUserSetting(userId, 'gallery_sort_by');
+      if (gallerySortResult?.ok && gallerySortResult.value) {
+        setGallerySortBy(gallerySortResult.value);
       }
     };
 
@@ -1847,9 +1852,18 @@ export default function PhotographyPoseGuide() {
     }
   };
 
+  const handleSetGallerySortBy = async (value) => {
+    setGallerySortBy(value);
+
+    // Save preference
+    if (session?.user?.id) {
+      await setUserSetting(session.user.id, 'gallery_sort_by', value);
+    }
+  };
+
   const handleClearGalleryFilters = () => {
     setSelectedGalleryTagFilters([]);
-    setGallerySortBy('favorites');
+    setGallerySortBy('nameAZ');
     setGallerySearchTerm('');
   };
 
@@ -1988,7 +2002,6 @@ export default function PhotographyPoseGuide() {
 
   // Get displayed categories with filtering
   const displayedCategories = getDisplayedCategories(categories, {
-    showFavoriteCategoriesOnly,
     searchTerm: gallerySearchTerm,
     selectedTagFilters: selectedGalleryTagFilters,
     tagFilterMode: galleryTagFilterMode,
@@ -2073,11 +2086,9 @@ export default function PhotographyPoseGuide() {
       {viewMode === 'categories' && (
         <CategoryGrid
           categories={displayedCategories}
-          showFavoriteCategoriesOnly={showFavoriteCategoriesOnly}
           categoryGridColumns={categoryGridColumns}
           showCategoryGridDropdown={showCategoryGridDropdown}
           categoryDropdownRef={categoryDropdownRef}
-          onToggleShowFavorites={() => setShowFavoriteCategoriesOnly(!showFavoriteCategoriesOnly)}
           onToggleGridDropdown={() => setShowCategoryGridDropdown(!showCategoryGridDropdown)}
           onSetGridColumns={(cols) => {
             handleCategoryGridChange(cols);
@@ -2284,7 +2295,7 @@ export default function PhotographyPoseGuide() {
           allGalleryTags={allGalleryTags}
           selectedTagFilters={selectedGalleryTagFilters}
           tagFilterMode={galleryTagFilterMode}
-          onSetSortBy={setGallerySortBy}
+          onSetSortBy={handleSetGallerySortBy}
           onSetFilterMode={setGalleryTagFilterMode}
           onToggleTag={handleGalleryTagToggle}
           onClearFilters={handleClearGalleryFilters}

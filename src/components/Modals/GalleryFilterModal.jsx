@@ -33,9 +33,10 @@ export default function GalleryFilterModal({
             onChange={(e) => onSetSortBy(e.target.value)}
             className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 cursor-pointer"
           >
-            <option value="favorites">Favorites First</option>
             <option value="nameAZ">Name A-Z</option>
             <option value="nameZA">Name Z-A</option>
+            <option value="favorites">Favorites First</option>
+            <option value="favoritesOnly">Favorites Only</option>
           </select>
         </div>
 

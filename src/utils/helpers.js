@@ -55,11 +55,10 @@ export const getDisplayedCategories = (categories, filters) => {
 
   // New filters object
   const {
-    showFavoriteCategoriesOnly = false,
     searchTerm = '',
     selectedTagFilters = [],
     tagFilterMode = 'include',
-    sortBy = 'favorites'
+    sortBy = 'nameAZ'
   } = filters || {};
 
   let filtered = [...categories];
@@ -97,18 +96,23 @@ export const getDisplayedCategories = (categories, filters) => {
     }
   }
 
-  // Filter by favorites only
-  if (showFavoriteCategoriesOnly) {
+  // Filter by favorites only if sortBy is 'favoritesOnly'
+  if (sortBy === 'favoritesOnly') {
     filtered = filtered.filter(cat => cat.isFavorite);
   }
 
   // Sort based on selected option
-  if (sortBy === 'favorites') {
-    filtered.sort((a, b) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return 0;
-    });
+  if (sortBy === 'favorites' || sortBy === 'favoritesOnly') {
+    // For favoritesOnly, just sort by name since all are favorites
+    if (sortBy === 'favoritesOnly') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      filtered.sort((a, b) => {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return 0;
+      });
+    }
   } else if (sortBy === 'nameAZ') {
     filtered.sort((a, b) => a.name.localeCompare(b.name));
   } else if (sortBy === 'nameZA') {
