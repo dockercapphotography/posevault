@@ -56,12 +56,12 @@ export default function PrivateGalleryWarning({
               Private Gallery Warning
             </h3>
             <p className="text-gray-400 text-sm">
-              This gallery may contain private or not suitable for work images.
+              This gallery may include content not suitable for work or public viewing. Viewer discretion is advised.
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 hover:bg-gray-700 rounded transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -75,6 +75,7 @@ export default function PrivateGalleryWarning({
             </label>
             <input
               type="password"
+			  autocomplete="one-time-code"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);

@@ -29,14 +29,17 @@ export default function SingleImageView({
 
   if (!image || !category?.images) return null;
 
+  // Filter out cover images
+  const galleryImages = category.images.filter(img => !img.isCover);
+
   // Generate pose name - use custom name or create default based on category
   const getDisplayPoseName = (idx) => {
-    const img = category.images[idx];
+    const img = galleryImages[idx];
     return img?.poseName || `${categoryName} - ${String(idx + 1).padStart(2, '0')}`;
   };
 
   const displayPoseName = getDisplayPoseName(activeIndex);
-  const currentImage = category.images[activeIndex];
+  const currentImage = galleryImages[activeIndex];
 
   // Sync Swiper with external currentIndex changes
   useEffect(() => {
@@ -64,13 +67,6 @@ export default function SingleImageView({
   const handleSlideChange = (swiper) => {
     const newIndex = swiper.activeIndex;
     setActiveIndex(newIndex);
-    
-    // Notify parent of the change
-    if (newIndex > activeIndex) {
-      onNext();
-    } else if (newIndex < activeIndex) {
-      onPrevious();
-    }
   };
 
   const handleStartEditName = () => {
@@ -135,7 +131,7 @@ export default function SingleImageView({
               </h2>
             )}
             <p className="text-sm text-gray-400">
-              Pose {activeIndex + 1} of {totalImages}
+              Pose {activeIndex + 1} of {galleryImages.length}
             </p>
           </div>
 
@@ -172,7 +168,7 @@ export default function SingleImageView({
             speed={300}
             className="h-full"
           >
-            {category.images.map((img, idx) => (
+            {category.images.filter(img => !img.isCover).map((img, idx) => (
               <SwiperSlide key={idx} className="h-full">
                 <div className="h-full w-full flex items-center justify-center">
                   <img
@@ -187,12 +183,16 @@ export default function SingleImageView({
 
           {/* Custom Navigation Arrows - hidden on mobile */}
           <button
-            className="swiper-button-prev-custom absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex"
+            className={`swiper-button-prev-custom absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex ${
+              activeIndex === 0 ? 'opacity-0 pointer-events-none' : ''
+            }`}
           >
             <ChevronLeft size={24} />
           </button>
           <button
-            className="swiper-button-next-custom absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex"
+            className={`swiper-button-next-custom absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex ${
+              activeIndex >= galleryImages.length - 1 ? 'opacity-0 pointer-events-none' : ''
+            }`}
           >
             <ChevronRight size={24} />
           </button>
@@ -237,7 +237,8 @@ export default function SingleImageView({
                         ? new Date(currentImage.dateAdded).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
-                            year: 'numeric'
+                            year: 'numeric',
+                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
                           })
                         : 'N/A'}
                     </span>

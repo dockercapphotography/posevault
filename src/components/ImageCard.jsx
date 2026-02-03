@@ -4,6 +4,7 @@ import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag } from 'lucide
 export default function ImageCard({
   image,
   index,
+  originalIndex,
   isSelected,
   bulkSelectMode,
   onImageClick,
@@ -48,7 +49,7 @@ export default function ImageCard({
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
-      onStartBulkSelect(index);
+      onStartBulkSelect(originalIndex);
     }, 500); // 500ms long press
   };
 
@@ -137,7 +138,7 @@ export default function ImageCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onToggleFavorite(index);
+              onToggleFavorite(originalIndex);
             }}
             className="absolute top-2 left-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
           >
@@ -187,7 +188,7 @@ export default function ImageCard({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEdit(index);
+                    onEdit(originalIndex);
                     setShowMenu(false);
                   }}
                   className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-white"
@@ -237,7 +238,7 @@ export default function ImageCard({
               </button>
               <button
                 onClick={() => {
-                  onDelete(index);
+                  onDelete(originalIndex);
                   setShowDeleteConfirm(false);
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"

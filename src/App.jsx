@@ -30,6 +30,7 @@ import {
   getDisplayedImages
 } from './utils/helpers';
 import { getUserSetting, setUserSetting } from './utils/userSettingsSync';
+import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
@@ -38,6 +39,7 @@ import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
 import { tutorialSteps, tutorialStyles } from './utils/tutorialSteps.jsx';
 import { imageTutorialSteps } from './utils/imageTutorialSteps.jsx';
+import StorageLimitModal from './components/StorageLimitModal';
 import {
   createCategory as createCategoryInSupabase,
   updateCategory as updateCategoryInSupabase,
@@ -128,6 +130,10 @@ export default function PhotographyPoseGuide() {
   const [showUploadProgress, setShowUploadProgress] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [uploadComplete, setUploadComplete] = useState(false);
+  
+  // Storage limit modal
+  const [showStorageLimitModal, setShowStorageLimitModal] = useState(false);
+  const [storageLimitInfo, setStorageLimitInfo] = useState(null);
 
   // Image filtering and sorting
   const [sortBy, setSortBy] = useState('dateAdded');
@@ -719,6 +725,20 @@ export default function PhotographyPoseGuide() {
       if (imgResult.ok && imgResult.value) {
         setGridColumns(parseInt(imgResult.value));
       }
+      
+      // Load filter preferences
+      const sortByResult = await getUserSetting(userId, 'filter_sort_by');
+      if (sortByResult?.ok && sortByResult.value) {
+        setSortBy(sortByResult.value);
+        if (sortByResult.value === 'favoritesOnly') {
+          setShowFavoritesOnly(true);
+        }
+      }
+      
+      const tagFilterModeResult = await getUserSetting(userId, 'filter_tag_mode');
+      if (tagFilterModeResult?.ok && tagFilterModeResult.value) {
+        setTagFilterMode(tagFilterModeResult.value);
+      }
     };
 
     loadGridPreferences();
@@ -987,6 +1007,36 @@ export default function PhotographyPoseGuide() {
   const handleImagesUpload = async (e, categoryId) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
+
+    // Check storage before upload
+    if (session?.user?.id) {
+      // Calculate total size of files to upload
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+      const totalMB = totalBytes / (1024 * 1024);
+      
+      // Get current storage info
+      const storageInfo = await getUserStorageInfo(session.user.id);
+      
+      if (storageInfo.ok) {
+        const availableMB = storageInfo.availableMB;
+        
+        // Check if upload would exceed storage limit
+        if (totalMB > availableMB) {
+          // Show storage limit modal
+          setStorageLimitInfo({
+            requiredMB: totalMB,
+            availableMB: availableMB,
+            usedDisplay: storageInfo.usedDisplay,
+            maxDisplay: storageInfo.maxDisplay
+          });
+          setShowStorageLimitModal(true);
+          
+          // Clear the file input
+          e.target.value = '';
+          return;
+        }
+      }
+    }
 
     // Reset and show upload progress modal
     setUploadProgress({ current: 0, total: files.length });
@@ -1601,13 +1651,27 @@ export default function PhotographyPoseGuide() {
     setEditingCategory(null);
   };
 
-  const handleSetSortBy = (value) => {
+  const handleSetSortBy = async (value) => {
     if (value === 'favoritesOnly') {
       setSortBy('favorites');
       setShowFavoritesOnly(true);
     } else {
       setSortBy(value);
       setShowFavoritesOnly(false);
+    }
+    
+    // Save preference
+    if (session?.user?.id) {
+      await setUserSetting(session.user.id, 'filter_sort_by', value);
+    }
+  };
+
+  const handleSetFilterMode = async (mode) => {
+    setTagFilterMode(mode);
+    
+    // Save preference
+    if (session?.user?.id) {
+      await setUserSetting(session.user.id, 'filter_tag_mode', mode);
     }
   };
 
@@ -1821,6 +1885,7 @@ export default function PhotographyPoseGuide() {
         onBack={handleBack}
         onAddCategory={() => setShowNewCategoryModal(true)}
         onUploadPoses={handleImagesUpload}
+        onShowMobileUpload={(categoryId) => setShowMobileUploadModal(categoryId)}
         onSync={() => syncFromCloud({ isInitial: false, silent: true })}
         onLogout={handleLogout}
         onOpenSettings={() => setShowUserSettings(true)}
@@ -1902,20 +1967,34 @@ export default function PhotographyPoseGuide() {
         />
       )}
 
-      {viewMode === 'single' && category && category.images.length > 0 && (
-        <SingleImageView
-          image={category.images[currentImageIndex]}
-          currentIndex={currentImageIndex}
-          totalImages={category.images.length}
-          categoryName={category.name}
-          category={category}
-          onClose={() => window.history.back()}
-          onToggleFavorite={() => handleToggleFavorite(category.id, currentImageIndex)}
-          onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
-          onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
-          onUpdateImage={updateImageWithSync}
-        />
-      )}
+      {viewMode === 'single' && category && category.images.length > 0 && (() => {
+        // Create a category with sorted images for the viewer
+        const sortedCategory = { ...category, images: displayedImages };
+        return (
+          <SingleImageView
+            image={displayedImages[currentImageIndex]}
+            currentIndex={currentImageIndex}
+            totalImages={displayedImages.length}
+            categoryName={category.name}
+            category={sortedCategory}
+            onClose={() => window.history.back()}
+            onToggleFavorite={() => {
+              // Find original index of the current sorted image
+              const currentImage = displayedImages[currentImageIndex];
+              const originalIndex = category.images.indexOf(currentImage);
+              handleToggleFavorite(category.id, originalIndex);
+            }}
+            onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
+            onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
+            onUpdateImage={(catId, imgIndex, updates) => {
+              // Find original index for the update
+              const currentImage = displayedImages[imgIndex];
+              const originalIndex = category.images.indexOf(currentImage);
+              updateImageWithSync(catId, originalIndex, updates);
+            }}
+          />
+        );
+      })()}
 
       {/* Modals */}
       {showNewCategoryModal && (
@@ -1986,7 +2065,7 @@ export default function PhotographyPoseGuide() {
           selectedTagFilters={selectedTagFilters}
           tagFilterMode={tagFilterMode}
           onSetSortBy={handleSetSortBy}
-          onSetFilterMode={setTagFilterMode}
+          onSetFilterMode={handleSetFilterMode}
           onToggleTag={handleToggleTag}
           onClearFilters={() => {
             setSelectedTagFilters([]);
@@ -2039,6 +2118,20 @@ export default function PhotographyPoseGuide() {
           categoryId={showMobileUploadModal}
           onUpload={handleImagesUpload}
           onClose={() => setShowMobileUploadModal(null)}
+        />
+      )}
+
+      {/* Storage Limit Modal */}
+      {showStorageLimitModal && storageLimitInfo && (
+        <StorageLimitModal
+          requiredMB={storageLimitInfo.requiredMB}
+          availableMB={storageLimitInfo.availableMB}
+          usedDisplay={storageLimitInfo.usedDisplay}
+          maxDisplay={storageLimitInfo.maxDisplay}
+          onClose={() => {
+            setShowStorageLimitModal(false);
+            setStorageLimitInfo(null);
+          }}
         />
       )}
 

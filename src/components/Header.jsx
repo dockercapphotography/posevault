@@ -9,6 +9,7 @@ export default function Header({
   onBack,
   onAddCategory,
   onUploadPoses,
+  onShowMobileUpload,
   onSync,
   onLogout,
   onOpenSettings,
@@ -54,7 +55,7 @@ export default function Header({
             </button>
           )}
           {viewMode === 'grid' && onUploadPoses && (
-            <label className="cursor-pointer tutorial-add-poses-button">
+            <>
               <input
                 type="file"
                 multiple
@@ -63,18 +64,25 @@ export default function Header({
                 className="hidden"
                 id="header-upload-poses"
               />
-              <div
+              <button
                 onClick={(e) => {
                   e.preventDefault();
-                  const input = document.getElementById('header-upload-poses');
-                  if (input) input.click();
+                  // Detect mobile device
+                  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+                  
+                  if (isMobile && onShowMobileUpload) {
+                    onShowMobileUpload(categoryId);
+                  } else {
+                    const input = document.getElementById('header-upload-poses');
+                    if (input) input.click();
+                  }
                 }}
-                className="bg-blue-600 hover:bg-blue-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
+                className="tutorial-add-poses-button bg-blue-600 hover:bg-blue-700 px-2 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm md:text-base cursor-pointer"
               >
                 <Upload size={16} className="md:w-5 md:h-5" />
                 <span className="hidden md:inline">Add</span>
-              </div>
-            </label>
+              </button>
+            </>
           )}
           {onSync && (
             <button

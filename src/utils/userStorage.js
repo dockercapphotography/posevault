@@ -21,19 +21,19 @@ export async function getUserStorageInfo(userId) {
       return {
         ok: true,
         currentStorage: 0,
-        maxStorage: 5 * 1024 * 1024 * 1024, // Default 5GB in bytes
+        maxStorage: 1 * 1024 * 1024 * 1024, // Default 1GB in bytes
         usedMB: 0,
-        maxMB: 5120,
-        availableMB: 5120,
+        maxMB: 1024,
+        availableMB: 1024,
         usedDisplay: '0.00MB',
-        maxDisplay: '5.00GB',
-        availableDisplay: '5.00GB',
+        maxDisplay: '1.00GB',
+        availableDisplay: '1.00GB',
         percentUsed: 0
       };
     }
 
     const currentStorage = data.current_storage || 0;
-    const maxStorage = data.maximum_storage || (5 * 1024 * 1024 * 1024); // 5GB default
+    const maxStorage = data.maximum_storage || (1 * 1024 * 1024 * 1024); // 1GB default
 
     // Calculate MB - use decimals for small values
     const usedMB = currentStorage / (1024 * 1024);
@@ -47,12 +47,16 @@ export async function getUserStorageInfo(userId) {
         // Show as GB
         const gb = mb / 1024;
         return gb < 10 ? `${gb.toFixed(2)}GB` : `${gb.toFixed(1)}GB`;
-      } else if (mb < 1) {
-        // Show decimals for small MB values
-        return `${mb.toFixed(2)}MB`;
-      } else {
+      } else if (mb >= 1) {
         // Show whole MB
         return `${Math.round(mb)}MB`;
+      } else if (mb >= 0.01) {
+        // Show decimals for small MB values (10KB+)
+        return `${mb.toFixed(2)}MB`;
+      } else {
+        // Show as KB for very small values
+        const kb = mb * 1024;
+        return kb < 1 ? `${kb.toFixed(2)}KB` : `${Math.round(kb)}KB`;
       }
     };
 

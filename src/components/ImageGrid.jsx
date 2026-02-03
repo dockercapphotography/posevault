@@ -210,7 +210,8 @@ export default function ImageGrid({
               <div key={originalIndex} className={isFirstImage ? 'tutorial-image-card' : ''}>
                 <ImageCard
                   image={img}
-                  index={originalIndex}
+                  index={idx}
+                  originalIndex={originalIndex}
                   isSelected={isSelected}
                   bulkSelectMode={bulkSelectMode}
                   onImageClick={onImageClick}
