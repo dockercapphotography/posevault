@@ -192,7 +192,11 @@ export default function NewCategoryModal({ onClose, onAdd }) {
 
         {/* Password Protection (Optional) */}
         {isPrivate && (
-          <div className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+            {/* Hidden fields to prevent Chrome password manager */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex={-1} />
+            <input type="password" name="prevent_autofill_pass" style={{ display: 'none' }} tabIndex={-1} />
+
             <label className="flex items-center gap-2 text-sm font-semibold mb-3">
               <Lock size={16} />
               Password Protection (Optional)
@@ -234,7 +238,7 @@ export default function NewCategoryModal({ onClose, onAdd }) {
                 data-form-type="other"
               />
             )}
-          </div>
+          </form>
         )}
 
         {error && (

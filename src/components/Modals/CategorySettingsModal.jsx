@@ -316,7 +316,11 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
 
         {/* Password Protection */}
         {isPrivate && (
-          <div className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+            {/* Hidden fields to prevent Chrome password manager */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex={-1} />
+            <input type="password" name="prevent_autofill_pass" style={{ display: 'none' }} tabIndex={-1} />
+
             <div className="flex items-center justify-between mb-3">
               <label className="flex items-center gap-2 text-sm font-semibold">
                 <Lock size={16} />
@@ -330,6 +334,7 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
             {!showPasswordSection && (
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => { setPasswordAction('change'); setShowPasswordSection(true); }}
                   className="text-sm text-purple-400 hover:text-purple-300 cursor-pointer"
                 >
@@ -337,6 +342,7 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
                 </button>
                 {hasExistingPassword && (
                   <button
+                    type="button"
                     onClick={() => { setPasswordAction('remove'); setShowPasswordSection(true); }}
                     className="text-sm text-red-400 hover:text-red-300 cursor-pointer"
                   >
@@ -373,6 +379,7 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordSection(false);
                     setPasswordAction('change');
@@ -449,6 +456,7 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
                 )}
 
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordSection(false);
                     setPasswordAction('change');
@@ -463,7 +471,7 @@ export default function CategorySettingsModal({ category, onClose, onSave, onUpl
                 </button>
               </div>
             )}
-          </div>
+          </form>
         )}
 
         {error && (

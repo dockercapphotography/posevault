@@ -68,7 +68,11 @@ export default function PrivateGalleryWarning({
         </div>
 
         {requiresPassword && (
-          <div className="mb-4">
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); handleProceed(); }} className="mb-4">
+            {/* Hidden fields to prevent Chrome password manager */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex={-1} />
+            <input type="password" name="prevent_autofill_pass" style={{ display: 'none' }} tabIndex={-1} />
+
             <label className="flex items-center gap-2 text-sm font-semibold mb-2 text-gray-300">
               <Lock size={16} />
               Password Required
@@ -90,7 +94,7 @@ export default function PrivateGalleryWarning({
             {error && (
               <p className="text-red-500 text-sm mt-2">{error}</p>
             )}
-          </div>
+          </form>
         )}
 
         <div className="flex gap-3 justify-end">
