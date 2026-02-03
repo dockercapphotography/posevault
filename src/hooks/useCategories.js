@@ -206,6 +206,42 @@ export const useCategories = (currentUser) => {
     ));
   };
 
+  // Bulk update categories (for gallery bulk edit)
+  const bulkUpdateCategories = (categoryIds, updates) => {
+    setCategories(prev => prev.map(cat => {
+      if (!categoryIds.includes(cat.id)) return cat;
+
+      let updatedCat = { ...cat };
+
+      // Handle tags - merge with existing
+      if (updates.tags && updates.tags.length > 0) {
+        const existingTags = cat.tags || [];
+        updatedCat.tags = [...new Set([...existingTags, ...updates.tags])];
+      }
+
+      // Handle notes
+      if (updates.notes !== undefined && updates.notes.trim()) {
+        if (updates.notesMode === 'append') {
+          updatedCat.notes = cat.notes ? `${cat.notes}\n${updates.notes}` : updates.notes;
+        } else if (updates.notesMode === 'replace') {
+          updatedCat.notes = updates.notes;
+        }
+      }
+
+      // Handle favorites
+      if (updates.isFavorite !== undefined) {
+        updatedCat.isFavorite = updates.isFavorite;
+      }
+
+      return updatedCat;
+    }));
+  };
+
+  // Bulk delete categories (for gallery bulk edit)
+  const bulkDeleteCategories = (categoryIds) => {
+    setCategories(prev => prev.filter(cat => !categoryIds.includes(cat.id)));
+  };
+
   // Replace all categories (used by cloud sync to populate local state)
   const replaceAllCategories = (newCategories) => {
     setCategories(newCategories);
@@ -237,6 +273,8 @@ export const useCategories = (currentUser) => {
     deleteImage,
     bulkUpdateImages,
     bulkDeleteImages,
+    bulkUpdateCategories,
+    bulkDeleteCategories,
     replaceAllCategories,
     forceSave
   };

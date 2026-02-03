@@ -24,16 +24,98 @@ export const getCategoryTags = (categories, categoryId) => {
   return Array.from(tags).sort();
 };
 
-export const getDisplayedCategories = (categories, showFavoriteCategoriesOnly) => {
-  // Sort: favorites first, then others
-  const sorted = [...categories].sort((a, b) => {
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
-    return 0;
+// Get all unique tags assigned directly to galleries (not image tags)
+export const getAllGalleryTags = (categories) => {
+  const allTags = new Set();
+  categories.forEach(cat => {
+    if (cat.tags) {
+      cat.tags.forEach(tag => allTags.add(tag));
+    }
   });
+  return Array.from(allTags).sort();
+};
 
-  // Filter if showing favorites only
-  return showFavoriteCategoriesOnly ? sorted.filter(cat => cat.isFavorite) : sorted;
+// Get tags for a specific gallery
+export const getGalleryTags = (category) => {
+  if (!category || !category.tags) return [];
+  return [...category.tags].sort();
+};
+
+export const getDisplayedCategories = (categories, filters) => {
+  // Handle legacy boolean parameter (showFavoriteCategoriesOnly)
+  if (typeof filters === 'boolean') {
+    const showFavoriteCategoriesOnly = filters;
+    const sorted = [...categories].sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return 0;
+    });
+    return showFavoriteCategoriesOnly ? sorted.filter(cat => cat.isFavorite) : sorted;
+  }
+
+  // New filters object
+  const {
+    showFavoriteCategoriesOnly = false,
+    searchTerm = '',
+    selectedTagFilters = [],
+    tagFilterMode = 'include',
+    sortBy = 'favorites'
+  } = filters || {};
+
+  let filtered = [...categories];
+
+  // Filter by search term
+  if (searchTerm && searchTerm.trim()) {
+    const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    filtered = filtered.filter(cat => {
+      // Search in gallery name
+      if (cat.name && cat.name.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
+      // Search in gallery tags
+      if (cat.tags && cat.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))) {
+        return true;
+      }
+      // Search in gallery notes
+      if (cat.notes && cat.notes.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  // Filter by tags if any are selected
+  if (selectedTagFilters.length > 0) {
+    if (tagFilterMode === 'include') {
+      filtered = filtered.filter(cat =>
+        cat.tags && selectedTagFilters.every(tag => cat.tags.includes(tag))
+      );
+    } else {
+      filtered = filtered.filter(cat =>
+        !cat.tags || !selectedTagFilters.some(tag => cat.tags.includes(tag))
+      );
+    }
+  }
+
+  // Filter by favorites only
+  if (showFavoriteCategoriesOnly) {
+    filtered = filtered.filter(cat => cat.isFavorite);
+  }
+
+  // Sort based on selected option
+  if (sortBy === 'favorites') {
+    filtered.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return 0;
+    });
+  } else if (sortBy === 'nameAZ') {
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sortBy === 'nameZA') {
+    filtered.sort((a, b) => b.name.localeCompare(a.name));
+  }
+
+  return filtered;
 };
 
 export const getDisplayedImages = (category, filters) => {
