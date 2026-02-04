@@ -33,6 +33,7 @@ import {
   getDisplayedImages
 } from './utils/helpers';
 import { getUserSetting, setUserSetting } from './utils/userSettingsSync';
+import { buildSampleGallery } from './data/sampleGallery';
 import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
@@ -239,13 +240,13 @@ export default function PhotographyPoseGuide() {
 
       if (cloudData.categories.length === 0) {
         console.log('No cloud data found for this user');
-        
+
         // Still run cleanup even if no active categories exist
         // This handles the case where all categories are soft-deleted
         console.log('🧹 Running cleanup (no active categories)...');
         const cleanupResult = await runCleanup(userId, accessToken, deleteFromR2);
         console.log('🧹 Cleanup result:', cleanupResult);
-        
+
         if (cleanupResult.ok) {
           const { deletedImages, deletedCategories, freedBytes, errors } = cleanupResult;
           if (deletedImages > 0 || deletedCategories > 0) {
@@ -262,7 +263,84 @@ export default function PhotographyPoseGuide() {
         } else {
           console.error('Cleanup failed:', cleanupResult.errors || cleanupResult.error);
         }
-        
+
+        // Check if this is a new user who should get the sample gallery
+        const tutorialResult = await getUserSetting(userId, 'tutorial_completed');
+        const tutorialCompleted = tutorialResult?.ok ? tutorialResult.value : null;
+
+        if (tutorialCompleted === null || tutorialCompleted === 'false' || tutorialCompleted === false) {
+          // New user - seed the sample gallery
+          console.log('🎨 New user detected, seeding sample gallery...');
+          if (!silent) {
+            setCloudSyncProgress('Creating sample gallery for tutorial...');
+          }
+
+          try {
+            const sampleGallery = await buildSampleGallery();
+
+            if (sampleGallery && sampleGallery.images.length > 0) {
+              // Create category locally
+              const localSettings = {
+                cover: sampleGallery.cover,
+                notes: sampleGallery.notes,
+                tags: sampleGallery.tags,
+                isPrivate: sampleGallery.isPrivate,
+              };
+              addCategory(sampleGallery.name, localSettings);
+
+              // Create category in Supabase
+              const categoryData = {
+                name: sampleGallery.name,
+                notes: sampleGallery.notes,
+                isFavorite: sampleGallery.isFavorite,
+                isPrivate: sampleGallery.isPrivate,
+                galleryPassword: null,
+              };
+
+              const supabaseResult = await createCategoryInSupabase(categoryData, userId);
+
+              if (supabaseResult.ok) {
+                // Find the local category and update with supabaseUid
+                // Need to wait a tick for React state to update
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                const addedCat = categoriesRef.current.find(c => c.name === sampleGallery.name && !c.supabaseUid);
+                if (addedCat) {
+                  updateCategory(addedCat.id, { supabaseUid: supabaseResult.uid });
+
+                  // Sync category tags
+                  if (sampleGallery.tags && sampleGallery.tags.length > 0) {
+                    syncCategoryTags(supabaseResult.uid, sampleGallery.tags, userId);
+                  }
+
+                  // Add images locally
+                  addImages(addedCat.id, sampleGallery.images);
+
+                  // Wait for state to update before uploading
+                  await new Promise(resolve => setTimeout(resolve, 100));
+
+                  // Generate filenames for R2 upload
+                  const filenames = sampleGallery.images.map((img, idx) =>
+                    `sample-family-pose-${String(idx + 1).padStart(2, '0')}.webp`
+                  );
+
+                  // Upload images to R2 in background
+                  if (accessToken) {
+                    console.log('🎨 Uploading sample gallery images to cloud...');
+                    uploadImagesToR2InBackground(addedCat.id, sampleGallery.images, filenames, 0);
+                  }
+
+                  console.log('🎨 Sample gallery created successfully');
+                }
+              } else {
+                console.error('Failed to create sample gallery in Supabase:', supabaseResult.error);
+              }
+            }
+          } catch (sampleError) {
+            console.error('Failed to seed sample gallery:', sampleError);
+          }
+        }
+
         setHasSyncedOnce(true);
         setIsCloudSyncing(false);
         if (!silent) {
@@ -1255,6 +1333,12 @@ export default function PhotographyPoseGuide() {
 
               // Update user storage tracking
               updateUserStorage(userId, result.size);
+
+              // Sync image tags if present
+              if (images[i].tags && images[i].tags.length > 0) {
+                syncImageTags(supabaseResult.uid, images[i].tags, userId)
+                  .catch(err => console.error('Image tag sync error:', err));
+              }
             } else {
               console.error('Supabase image create failed:', supabaseResult.error);
             }

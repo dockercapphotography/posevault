@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
+import LinkifiedText from './LinkifiedText';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -277,7 +278,9 @@ export default function SingleImageView({
                 </div>
               </div>
               <div className="bg-gray-700 rounded-lg p-4 mb-6">
-                <p className="text-gray-300 whitespace-pre-wrap">{currentImage.notes}</p>
+                <p className="text-gray-300 whitespace-pre-wrap">
+                  <LinkifiedText text={currentImage.notes} />
+                </p>
               </div>
               <button
                 onClick={() => setShowNotesModal(false)}
