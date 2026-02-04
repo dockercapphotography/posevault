@@ -213,7 +213,9 @@ export default function PhotographyPoseGuide() {
     try {
       // Check if sample gallery has already been created for this user
       const sampleGalleryResult = await getUserSetting(userId, 'sample_gallery_created');
+      console.log('[SampleGallery] Flag check result:', sampleGalleryResult);
       const sampleGalleryCreated = sampleGalleryResult?.ok ? sampleGalleryResult.value : null;
+      console.log('[SampleGallery] sample_gallery_created value:', sampleGalleryCreated, 'type:', typeof sampleGalleryCreated);
 
       if (sampleGalleryCreated === 'true' || sampleGalleryCreated === true) {
         console.log('[SampleGallery] Sample gallery already created, skipping');
@@ -286,7 +288,8 @@ export default function PhotographyPoseGuide() {
           }
 
           // Mark sample gallery as created so we don't create it again
-          await setUserSetting(userId, 'sample_gallery_created', 'true');
+          const setResult = await setUserSetting(userId, 'sample_gallery_created', 'true');
+          console.log('[SampleGallery] Flag set result:', setResult);
           console.log('🎨 Sample gallery created successfully');
         }
       } else {
