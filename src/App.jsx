@@ -1761,7 +1761,11 @@ export default function PhotographyPoseGuide() {
 
     // Delete locally
     deleteCategory(categoryId);
-    
+
+    // Wait for React state update and ref to sync before saving
+    // Without this delay, forceSave() uses stale ref data and the deletion isn't persisted
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Force save to IndexedDB to persist the deletion
     await forceSave();
     console.log(`Category ${categoryId} deleted and saved to IndexedDB`);
@@ -2103,6 +2107,10 @@ export default function PhotographyPoseGuide() {
 
     // Delete locally
     bulkDeleteCategories(selectedGalleries);
+
+    // Wait for React state update and ref to sync before saving
+    // Without this delay, forceSave() uses stale ref data and the deletion isn't persisted
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Force save
     await forceSave();
