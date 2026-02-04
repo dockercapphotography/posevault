@@ -247,9 +247,23 @@ export default function PhotographyPoseGuide() {
         images: sampleGallery.images,
       });
 
-      // Wait for React state to update before continuing
+      // Poll until the gallery appears in state (more reliable than fixed delay)
       // This ensures the gallery is visible before the tutorial starts
-      await new Promise(resolve => setTimeout(resolve, 150));
+      let attempts = 0;
+      const maxAttempts = 20; // 20 * 50ms = 1 second max wait
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const found = categoriesRef.current.find(c => c.name === sampleGallery.name);
+        if (found) {
+          console.log(`[SampleGallery] Gallery appeared in state after ${(attempts + 1) * 50}ms`);
+          break;
+        }
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('[SampleGallery] Gallery did not appear in state within timeout');
+      }
 
       // Create category in Supabase (don't block on this for the UI)
       const categoryData = {
@@ -263,10 +277,8 @@ export default function PhotographyPoseGuide() {
       const supabaseResult = await createCategoryInSupabase(categoryData, userId);
 
       if (supabaseResult.ok) {
-        // Wait for React state to update
-        await new Promise(resolve => setTimeout(resolve, 100));
-
         // Find the local category and update with supabaseUid
+        // (we already polled for it to appear above)
         const addedCat = categoriesRef.current.find(c => c.name === sampleGallery.name && !c.supabaseUid);
         if (addedCat) {
           updateCategory(addedCat.id, { supabaseUid: supabaseResult.uid });
