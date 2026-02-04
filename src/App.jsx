@@ -261,9 +261,11 @@ export default function PhotographyPoseGuide() {
         if (addedCat) {
           updateCategory(addedCat.id, { supabaseUid: supabaseResult.uid });
 
-          // Sync category tags
+          // Sync category tags (await to ensure they're created)
           if (sampleGallery.tags && sampleGallery.tags.length > 0) {
-            syncCategoryTags(supabaseResult.uid, sampleGallery.tags, userId);
+            console.log('[SampleGallery] Syncing category tags:', sampleGallery.tags);
+            const tagResult = await syncCategoryTags(supabaseResult.uid, sampleGallery.tags, userId);
+            console.log('[SampleGallery] Category tags sync result:', tagResult);
           }
 
           // Add images locally
@@ -1354,7 +1356,9 @@ export default function PhotographyPoseGuide() {
 
               // Sync image tags if present
               if (images[i].tags && images[i].tags.length > 0) {
+                console.log(`[Upload] Syncing tags for image ${supabaseResult.uid}:`, images[i].tags);
                 syncImageTags(supabaseResult.uid, images[i].tags, userId)
+                  .then(result => console.log(`[Upload] Image ${supabaseResult.uid} tags sync result:`, result))
                   .catch(err => console.error('Image tag sync error:', err));
               }
             } else {
