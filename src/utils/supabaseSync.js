@@ -511,6 +511,7 @@ export async function updateUserStorage(userId, bytesAdded) {
         .from('user_storage')
         .update({
           current_storage: current.current_storage + bytesAdded,
+          updated_at: new Date().toISOString(),
         })
         .eq('uid', current.uid);
 
@@ -527,6 +528,8 @@ export async function updateUserStorage(userId, bytesAdded) {
           current_storage: bytesAdded,
           maximum_storage: 1 * 1024 * 1024 * 1024, // 1GB default
           storage_tier: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
 
       if (error) {
@@ -898,7 +901,10 @@ export async function runCleanup(userId, accessToken, deleteR2File) {
         const newStorage = Math.max(0, (storageData.current_storage || 0) - freedBytes);
         await supabase
           .from('user_storage')
-          .update({ current_storage: newStorage })
+          .update({
+            current_storage: newStorage,
+            updated_at: new Date().toISOString(),
+          })
           .eq('uid', storageData.uid);
 
         console.log(`Cleanup: reclaimed ${freedBytes} bytes, new storage: ${newStorage}`);
