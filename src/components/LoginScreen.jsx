@@ -207,7 +207,7 @@ export default function LoginScreen({ onLogin, onRegister, onResetPassword, onUp
     <div className="min-h-[100dvh] bg-gray-900 text-white flex items-center justify-center py-8 px-4">
       <div className="bg-gray-800 rounded-xl p-6 sm:p-8 max-w-md w-full my-auto">
         <img 
-          src="/logo.png" 
+          src="/posevault-logo-white.svg" 
           alt="PoseVault Logo" 
           className="max-h-14 sm:max-h-16 w-auto mx-auto mb-4 sm:mb-6"
         />

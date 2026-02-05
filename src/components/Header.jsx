@@ -34,7 +34,7 @@ export default function Header({
           <div className="text-lg md:text-2xl font-bold truncate">
             {viewMode === 'categories' ? (
               <img 
-                src="/logo.png" 
+                src="/posevault-logo-white.svg" 
                 alt="PoseVault" 
                 className="h-8 md:h-12 w-auto"
               />
