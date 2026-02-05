@@ -1,6 +1,7 @@
 // Tutorial step definitions for PoseVault onboarding
 
 export const tutorialSteps = [
+  // Step 0: Welcome
   {
     target: 'body',
     content: (
@@ -9,39 +10,86 @@ export const tutorialSteps = [
         <p className="text-gray-300 mb-3">
           Let's take a quick tour to help you get started using PoseVault to organize your photography pose references.
         </p>
-		<p className="text-sm text-gray-400">
-		  Tip: PoseVault syncs your data both locally and to the cloud, so you always have access to your images.
-		</p>
+        <p className="text-sm text-gray-400">
+          Tip: PoseVault syncs your data both locally and to the cloud, so you always have access to your images.
+        </p>
       </div>
     ),
     placement: 'center',
     disableBeacon: true,
   },
+  
+  // Step 1: Click Add Gallery button (only if no galleries exist)
   {
     target: '.add-gallery-button',
     content: (
       <div>
         <h3 className="text-lg font-bold mb-2">Create Your First Gallery</h3>
         <p className="text-gray-300">
-          Click here to create galleries for different types of shoots like "Portaits", "Engagement", or "Cosplay".
+          Click here to create galleries for different types of shoots like "Portraits", "Engagement", or "Cosplay".
         </p>
       </div>
     ),
     placement: 'bottom',
+    spotlightClicks: true
   },
+  
+  // Step 2: Fill out gallery form (only if modal is open)
+  {
+    target: '.new-gallery-modal',
+    content: (
+      <div>
+        <h3 className="text-lg font-bold mb-2">Add Gallery Details</h3>
+        <p className="text-gray-300">
+          Add your Gallery Details below and click Create to continue, or click Next to skip.
+        </p>
+      </div>
+    ),
+    placement: 'top',
+    disableOverlay: true,
+    spotlightClicks: true,
+    disableBeacon: true,
+    floaterProps: {
+      disableAnimation: true,
+    },
+  },
+  
+  // Step 3: Upload images to gallery
   {
     target: '.tutorial-gallery-card',
     content: (
       <div>
         <h3 className="text-lg font-bold mb-2">Upload Pose Images</h3>
         <p className="text-gray-300">
-          Add reference photos to your galleries. Click "Add Images" to upload a single or multiple photos as once.
+          Add reference photos to your galleries. Click "Add Images" to upload a single or multiple photos at once.
         </p>
       </div>
     ),
     placement: 'top',
     spotlightClicks: true,
   },
+  
+  // Step 4: Gallery List Organize Tools
+  {
+    target: '.tutorial-gallery-toolbar',
+    content: (
+      <div>
+        <h3 className="text-lg font-bold mb-2">Organize Your Galleries</h3>
+        <p className="text-gray-300 mb-3">
+          Use these tools to find and manage your galleries:
+        </p>
+        <ul className="text-sm text-gray-300 space-y-1">
+          <li>• <span className="font-semibold">Search</span> - Find galleries by name</li>
+          <li>• <span className="font-semibold">Filter & Sort</span> - Filter by tags and sort your galleries</li>
+          <li>• <span className="font-semibold">Bulk Select</span> - Edit or delete multiple galleries at once</li>
+          <li>• <span className="font-semibold">Grid Columns</span> - Adjust how many galleries appear per row</li>
+        </ul>
+      </div>
+    ),
+    placement: 'bottom',
+  },
+  
+  // Step 5: Gallery settings
   {
     target: '.tutorial-settings-button',
     content: (
@@ -54,6 +102,8 @@ export const tutorialSteps = [
     ),
     placement: 'left',
   },
+  
+  // Step 6: Account & Storage menu
   {
     target: '.user-menu-button',
     content: (
@@ -62,23 +112,42 @@ export const tutorialSteps = [
         <p className="text-gray-300 mb-3">
           View your storage usage, manage account settings and logout.
         </p>
-		<p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-400">
           Tip: You can also find the link to install PoseVault on your device here.
         </p>
       </div>
     ),
     placement: 'bottom-end',
   },
+  
+  // Step 7: Sync icon
+  {
+    target: '.tutorial-sync-button',
+    content: (
+      <div>
+        <h3 className="text-lg font-bold mb-2">Cloud Sync</h3>
+        <p className="text-gray-300 mb-3">
+          This icon shows your sync status. Click it to manually sync your data to the cloud.
+        </p>
+        <p className="text-sm text-gray-400">
+          Tip: When synced, you'll see a green checkmark. Your data is automatically synced in the background.
+        </p>
+      </div>
+    ),
+    placement: 'bottom',
+  },
+  
+  // Step 8: Complete
   {
     target: 'body',
     content: (
       <div>
         <h2 className="text-xl font-bold mb-2">You're All Set! 🎉</h2>
         <p className="text-gray-300 mb-3">
-          Ready to get started? Try creating a new Gallery and uploading some images and then click into the Gallery to see how to navigate your Images.
+          Ready to get started? Try creating a new Gallery and uploading some images, then click into the Gallery to see how to navigate your Images.
         </p>
         <p className="text-sm text-gray-400">
-          Tip: Need help? You can find "Show Tutorial" in your User Settings to view this tutorial again.
+          Tip: Need help? You can find "Show Tutorial Again" in your User Settings to view this tutorial again.
         </p>
       </div>
     ),

@@ -89,7 +89,7 @@ export default function Header({
               onClick={onSync}
               disabled={isSyncing}
               title={isSyncing ? 'Syncing...' : isSynced ? 'Synced — tap to re-sync' : 'Sync from cloud'}
-              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+              className={`tutorial-sync-button p-2 rounded-lg transition-colors cursor-pointer ${
                 isSyncing
                   ? 'bg-gray-600 text-blue-400 cursor-not-allowed'
                   : isSynced

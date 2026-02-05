@@ -149,7 +149,7 @@ export default function CategoryCard({
 
           <div
             onClick={handleCardClick}
-            className={`aspect-[4/3] bg-gray-700 relative group ${hasGalleryImages || bulkSelectMode ? 'cursor-pointer' : ''}`}
+            className={`aspect-[4/3] bg-gray-700 rounded-xl relative group ${hasGalleryImages || bulkSelectMode ? 'cursor-pointer' : ''}`}
           >
             <img
               src={category.cover}

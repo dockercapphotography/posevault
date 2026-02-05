@@ -21,7 +21,8 @@ export default function MobileUploadModal({ categoryId, onUpload, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end sm:items-center justify-center z-50">
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end sm:items-center justify-center z-40">
       <div className="bg-gray-800 rounded-t-xl sm:rounded-xl w-full sm:max-w-sm sm:mx-4 animate-slide-up">
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold">Upload Images</h2>
@@ -72,25 +73,26 @@ export default function MobileUploadModal({ categoryId, onUpload, onClose }) {
             Cancel
           </button>
         </div>
-
-        {/* Hidden file inputs */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileChange}
-          className="hidden"
-        />
       </div>
     </div>
+
+    {/* Hidden file inputs - outside modal so they persist after close */}
+    <input
+      ref={cameraInputRef}
+      type="file"
+      accept="image/*"
+      capture="environment"
+      onChange={handleFileChange}
+      className="hidden"
+    />
+    <input
+      ref={galleryInputRef}
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={handleFileChange}
+      className="hidden"
+    />
+    </>
   );
 }

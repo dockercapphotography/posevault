@@ -835,13 +835,65 @@ export default function PhotographyPoseGuide() {
     const { action, index, status, type } = data;
 
     if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
-      // Update step index
-      setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
+      const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
+      
+      if (action === ACTIONS.NEXT) {
+        // Special handling for step 1
+        if (index === 1) {
+          // User clicked Next on step 1 (Add Gallery button)
+          if (showNewCategoryModal) {
+            // Modal is open - go to step 2 (will be auto-advanced by useEffect)
+            setStepIndex(2);
+          } else {
+            // Modal not open - skip to step 3 (upload images)
+            setStepIndex(3);
+          }
+        } else {
+          // Normal progression for all other steps
+          setStepIndex(nextIndex);
+        }
+      } else {
+        // Going backward - normal progression
+        setStepIndex(nextIndex);
+      }
+    } else if (type === EVENTS.TARGET_NOT_FOUND) {
+      // Target not found, just move to next step
+      setStepIndex(index + 1);
     } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       // Tutorial completed or skipped
       completeTutorial();
     }
   };
+
+  // Auto-advance to step 2 when Add Gallery modal opens during step 1
+  useEffect(() => {
+    if (runTutorial && stepIndex === 1 && showNewCategoryModal) {
+      console.log('[Tutorial] Modal opened, advancing to step 2');
+      setTimeout(() => setStepIndex(2), 300);
+    }
+  }, [showNewCategoryModal, runTutorial, stepIndex]);
+
+  // Auto-advance to step 3 when modal closes after step 2
+  useEffect(() => {
+    if (runTutorial && stepIndex === 2 && !showNewCategoryModal) {
+      console.log('[Tutorial] Modal closed, advancing to step 3');
+      setTimeout(() => setStepIndex(3), 300);
+    }
+  }, [showNewCategoryModal, runTutorial, stepIndex]);
+
+  // Lower tutorial tooltip z-index when mobile upload modal is open (lets picker appear on top)
+  // User can still see and click the Next button
+  useEffect(() => {
+    const joyrideTooltip = document.querySelector('.react-joyride__tooltip');
+    const joyrideOverlay = document.querySelector('.react-joyride__overlay');
+    if (showMobileUploadModal && runTutorial && stepIndex === 3) {
+      if (joyrideTooltip) joyrideTooltip.style.zIndex = '1';
+      if (joyrideOverlay) joyrideOverlay.style.zIndex = '1';
+    } else {
+      if (joyrideTooltip) joyrideTooltip.style.zIndex = '';
+      if (joyrideOverlay) joyrideOverlay.style.zIndex = '';
+    }
+  }, [showMobileUploadModal, runTutorial, stepIndex]);
 
   // Image tutorial callback handler
   const handleImageJoyrideCallback = (data) => {
@@ -2017,7 +2069,7 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
-  // Get displayed images
+  // Get displayed images (already includes _originalIndex from helpers.js)
   const displayedImages = category ? getDisplayedImages(category, {
     selectedTagFilters,
     tagFilterMode,
@@ -2025,6 +2077,9 @@ export default function PhotographyPoseGuide() {
     sortBy,
     searchTerm
   }) : [];
+
+  // Extract mapping array for backward compatibility
+  const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);
 
   // Get all tags
   const allTags = getAllTags(categories);
@@ -2133,6 +2188,7 @@ export default function PhotographyPoseGuide() {
           category={category}
           images={displayedImages}
           originalImages={category.images}
+          displayedToOriginalIndex={displayedToOriginalIndex}
           gridColumns={gridColumns}
           showGridDropdown={showGridDropdown}
           sortBy={sortBy}
@@ -2185,17 +2241,17 @@ export default function PhotographyPoseGuide() {
             category={sortedCategory}
             onClose={() => window.history.back()}
             onToggleFavorite={() => {
-              // Find original index of the current sorted image
+              // Use embedded original index from displayed image
               const currentImage = displayedImages[currentImageIndex];
-              const originalIndex = category.images.indexOf(currentImage);
+              const originalIndex = currentImage._originalIndex;
               handleToggleFavorite(category.id, originalIndex);
             }}
             onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
             onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
             onUpdateImage={(catId, imgIndex, updates) => {
-              // Find original index for the update
+              // Use embedded original index from displayed image
               const currentImage = displayedImages[imgIndex];
-              const originalIndex = category.images.indexOf(currentImage);
+              const originalIndex = currentImage._originalIndex;
               updateImageWithSync(catId, originalIndex, updates);
             }}
           />
@@ -2382,7 +2438,15 @@ export default function PhotographyPoseGuide() {
           onAccountDeleted={handleAccountDeleted}
           deleteFromR2={deleteFromR2}
           accessToken={session?.access_token}
-          onStartTutorial={startTutorial}
+          onStartTutorial={async () => {
+            // Clear tutorial completion flag
+            if (session?.user?.id) {
+              await setUserSetting(session.user.id, 'tutorial_completed', 'false');
+            }
+            
+            // Just start from the beginning
+            startTutorial();
+          }}
           onResetImageTutorial={resetImageTutorial}
         />
       )}

@@ -36,7 +36,7 @@ export default function CategoryGrid({
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Single-line toolbar with search and filter buttons */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="tutorial-gallery-toolbar mb-4 flex flex-wrap items-center gap-3">
         {/* Search Box */}
         {onSearchChange && (
           <div className="relative flex-1 min-w-[200px] max-w-xs">

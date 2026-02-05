@@ -7,6 +7,7 @@ export default function ImageGrid({
   category,
   images,
   originalImages,
+  displayedToOriginalIndex,
   gridColumns,
   showGridDropdown,
   sortBy,
@@ -203,7 +204,7 @@ export default function ImageGrid({
       ) : (
         <div className={`grid ${gridColsClass} gap-4`}>
           {images.map((img, idx) => {
-            const originalIndex = originalImages.indexOf(img);
+            const originalIndex = displayedToOriginalIndex ? displayedToOriginalIndex[idx] : originalImages.indexOf(img);
             const isSelected = selectedImages.includes(originalIndex);
             const isFirstImage = idx === 0;
             return (
