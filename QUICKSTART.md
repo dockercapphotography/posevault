@@ -1,79 +1,56 @@
-# 🚀 Quick Start - Push to GitHub
+# Quick Start
 
-## Step 1: Download the Package
-Download the entire `posevault-package` folder to your computer.
+Get PoseVault running locally in under 5 minutes. This assumes you already have the Supabase project and Cloudflare R2 bucket configured — if not, see [SETUP.md](SETUP.md) for the full walkthrough.
 
-## Step 2: Navigate to the Folder
+## 1. Clone and Install
+
 ```bash
-cd path/to/posevault-package
-```
-
-## Step 3: Initialize Git and Push
-```bash
-# Initialize git
-git init
-
-# Add all files
-git add .
-
-# Commit
-git commit -m "Initial commit: Modular component structure"
-
-# Add remote (your GitHub repo)
-git remote add origin https://github.com/dockercapphotogeaphy/posevault.git
-
-# Push to GitHub
-git branch -M main
-git push -u origin main
-```
-
-## ✅ Done!
-
-Your code is now on GitHub at:
-https://github.com/dockercapphotogeaphy/posevault
-
-## 🎯 Next Steps
-
-### Option A: Run Locally (Optional)
-```bash
+git clone https://github.com/dockercapphotogeaphy/posevault.git
+cd posevault
 npm install
+```
+
+## 2. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key-here
+```
+
+## 3. Run
+
+```bash
 npm run dev
 ```
-Then open http://localhost:5173
 
-### Option B: Deploy to GitHub Pages
-1. Go to repo Settings > Pages
-2. Select `main` branch
-3. Click Save
-4. Your app will be live at: https://dockercapphotogeaphy.github.io/posevault
+Open [http://localhost:5173](http://localhost:5173) — the app is accessible from other devices on your network too.
 
-## 📦 What's Included
+## 4. Build for Production
 
-✅ All 20 modular components
-✅ Complete project configuration (Vite + React + Tailwind)
-✅ .gitignore for clean commits
-✅ package.json with dependencies
-✅ README with full documentation
-✅ SETUP.md with detailed instructions
-
-## 🔧 Troubleshooting
-
-**Authentication Error?**
 ```bash
-# Use GitHub CLI
-gh auth login
-
-# Or use Personal Access Token when prompted
+npm run build
 ```
 
-**Branch already exists?**
-```bash
-# Just push to existing branch
-git push origin main
-```
+Static output goes to `dist/`, ready to deploy anywhere (Cloudflare Pages, Vercel, Netlify, etc.).
 
-**Need help?** Check SETUP.md for detailed troubleshooting!
+## What's Included
 
----
+| Area | Details |
+|------|---------|
+| **Frontend** | React 18 + Tailwind CSS v4 + Vite 7 |
+| **Auth** | Supabase Auth (email/password) |
+| **Database** | Supabase (PostgreSQL) with RLS |
+| **Image Storage** | Cloudflare R2 via Worker proxy |
+| **PWA** | Installable on mobile and desktop, offline-capable |
+| **Onboarding** | Sample gallery + interactive tutorial for new users |
 
-**🎉 Your PoseVault is ready to go live!**
+## Need More?
+
+- **Full setup from scratch** (database tables, R2, Edge Functions) → [SETUP.md](SETUP.md)
+- **Feature overview and project structure** → [README.md](README.md)

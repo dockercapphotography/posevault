@@ -1,134 +1,303 @@
-# PoseVault Setup Instructions
+# PoseVault — Setup Guide
 
-## 🚀 Quick Start
+This guide walks through everything needed to run PoseVault locally and configure the cloud services it depends on.
 
-### 1. Push to GitHub
+## Prerequisites
 
-Navigate to this directory in your terminal and run:
+- **Node.js** 18+ and npm
+- A **Supabase** account (free tier works)
+- A **Cloudflare** account with R2 enabled (free tier works)
 
-```bash
-# Initialize git (if not already initialized)
-git init
-
-# Add all files
-git add .
-
-# Commit with descriptive message
-git commit -m "Initial commit: Modular component structure
-
-- Refactored from 1500+ line monolith to 20 focused modules
-- Added category notes feature
-- Improved maintainability and testability
-- Added proper separation of concerns"
-
-# Add your remote (if not already added)
-git remote add origin https://github.com/dockercapphotogeaphy/posevault.git
-
-# Push to GitHub
-git push -u origin main
-```
-
-If `main` branch doesn't exist yet, you might need:
-```bash
-git branch -M main
-git push -u origin main
-```
-
-### 2. Install Dependencies (Optional - if you want to run locally)
+## 1. Clone and Install
 
 ```bash
+git clone https://github.com/dockercapphotogeaphy/posevault.git
+cd posevault
 npm install
 ```
 
-### 3. Run Development Server (Optional)
+## 2. Supabase Setup
+
+### Create a Project
+
+1. Go to [supabase.com](https://supabase.com) and create a new project
+2. Note your **Project URL** and **anon (public) key** from Project Settings → API
+
+### Database Tables
+
+Run the following SQL in the Supabase SQL Editor to create the required tables:
+
+```sql
+-- Categories
+CREATE TABLE categories (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  name VARCHAR NOT NULL,
+  notes TEXT DEFAULT '',
+  favorite BOOLEAN DEFAULT FALSE,
+  private_gallery BOOLEAN DEFAULT FALSE,
+  gallery_password TEXT,
+  cover_image_uid BIGINT,
+  user_id UUID NOT NULL REFERENCES auth.users(id)
+);
+
+-- Images
+CREATE TABLE images (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  name VARCHAR DEFAULT '',
+  notes TEXT DEFAULT '',
+  favorite BOOLEAN DEFAULT FALSE,
+  cover_image BOOLEAN DEFAULT FALSE,
+  r2_key TEXT,
+  image_size BIGINT DEFAULT 0,
+  category_uid BIGINT NOT NULL REFERENCES categories(uid),
+  user_id UUID NOT NULL REFERENCES auth.users(id)
+);
+
+-- Tags
+CREATE TABLE tags (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  name VARCHAR NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  UNIQUE(name, user_id)
+);
+
+-- Image-Tag junction
+CREATE TABLE image_tags (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  image_uid BIGINT NOT NULL REFERENCES images(uid),
+  tag_uid BIGINT NOT NULL REFERENCES tags(uid),
+  UNIQUE(image_uid, tag_uid)
+);
+
+-- Category-Tag junction
+CREATE TABLE category_tags (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  category_uid BIGINT NOT NULL REFERENCES categories(uid),
+  tag_uid BIGINT NOT NULL REFERENCES tags(uid),
+  UNIQUE(category_uid, tag_uid)
+);
+
+-- User settings (grid preferences, tutorial state, etc.)
+CREATE TABLE user_settings (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  key VARCHAR NOT NULL,
+  value TEXT,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  UNIQUE(key, user_id)
+);
+
+-- User storage tracking
+CREATE TABLE user_storage (
+  uid BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) UNIQUE,
+  current_storage BIGINT DEFAULT 0,
+  maximum_storage BIGINT DEFAULT 1073741824  -- 1 GB
+);
+```
+
+### Row Level Security (RLS)
+
+Enable RLS on all tables and add policies so users can only access their own data:
+
+```sql
+-- Enable RLS
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE image_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE category_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_storage ENABLE ROW LEVEL SECURITY;
+
+-- Categories policy
+CREATE POLICY "Users can manage own categories"
+  ON categories FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Images policy
+CREATE POLICY "Users can manage own images"
+  ON images FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Tags policy
+CREATE POLICY "Users can manage own tags"
+  ON tags FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Image tags policy (join through image ownership)
+CREATE POLICY "Users can manage own image tags"
+  ON image_tags FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM images WHERE images.uid = image_tags.image_uid AND images.user_id = auth.uid())
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM images WHERE images.uid = image_tags.image_uid AND images.user_id = auth.uid())
+  );
+
+-- Category tags policy (join through category ownership)
+CREATE POLICY "Users can manage own category tags"
+  ON category_tags FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM categories WHERE categories.uid = category_tags.category_uid AND categories.user_id = auth.uid())
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM categories WHERE categories.uid = category_tags.category_uid AND categories.user_id = auth.uid())
+  );
+
+-- User settings policy
+CREATE POLICY "Users can manage own settings"
+  ON user_settings FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- User storage policy
+CREATE POLICY "Users can manage own storage"
+  ON user_storage FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+### Auto-Create Storage Record on Sign Up
+
+Create a trigger so each new user automatically gets a storage record:
+
+```sql
+CREATE OR REPLACE FUNCTION create_user_storage()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO user_storage (user_id, current_storage, maximum_storage)
+  VALUES (NEW.id, 0, 1073741824);  -- 1 GB default
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_user_storage();
+```
+
+## 3. Cloudflare R2 Setup
+
+### Create a Bucket
+
+1. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com) → R2
+2. Create a bucket (e.g. `posevault-images`)
+
+### Create an R2 API Token
+
+1. In R2 → Manage R2 API Tokens → Create API Token
+2. Give it **Object Read & Write** permissions
+3. Save the **Access Key ID** and **Secret Access Key** (shown only once)
+
+### Deploy the R2 Worker
+
+The `r2-worker/` directory contains a Cloudflare Worker that proxies upload, fetch, and delete requests to R2 with JWT authentication.
+
+```bash
+cd r2-worker
+npm install
+```
+
+Edit `wrangler.jsonc` with your bucket name and account details, then deploy:
+
+```bash
+npx wrangler deploy
+```
+
+Note the deployed worker URL (e.g. `https://r2-worker.your-subdomain.workers.dev`).
+
+### Supabase Edge Function for Account Deletion
+
+When a user deletes their account, a Supabase Edge Function handles bulk R2 file cleanup in the background. Create this in the Supabase Dashboard under Edge Functions:
+
+**Function name:** `delete-user-r2-files`
+
+The function needs these secrets set in its configuration:
+
+| Secret | Description |
+|--------|-------------|
+| `R2_ACCOUNT_ID` | Your Cloudflare account ID (from the dashboard URL) |
+| `R2_ACCESS_KEY_ID` | R2 API token access key |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret key |
+| `R2_BUCKET_NAME` | Your bucket name (e.g. `posevault-images`) |
+
+The function uses AWS SigV4 signing to authenticate deletion requests directly to R2.
+
+## 4. Environment Variables
+
+Copy the example file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+```env
+# Supabase — from Project Settings → API
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key-here
+```
+
+The R2 Worker URL is configured in `src/utils/r2Upload.js`.
+
+## 5. Run Locally
 
 ```bash
 npm run dev
 ```
 
-## 📁 Project Structure
+The app will be available at `http://localhost:5173` (Vite default). The `server.host: true` config allows access from other devices on your network, useful for testing on phones.
 
-```
-posevault/
-├── src/
-│   ├── App.jsx                      # Main application
-│   ├── components/
-│   │   ├── LoginScreen.jsx
-│   │   ├── Header.jsx
-│   │   ├── CategoryCard.jsx
-│   │   ├── CategoryGrid.jsx
-│   │   ├── ImageCard.jsx
-│   │   ├── ImageGrid.jsx
-│   │   ├── SingleImageView.jsx
-│   │   └── Modals/
-│   │       ├── CategorySettingsModal.jsx
-│   │       ├── NewCategoryModal.jsx
-│   │       ├── ImageEditModal.jsx
-│   │       ├── BulkEditModal.jsx
-│   │       ├── TagFilterModal.jsx
-│   │       ├── DeleteConfirmModal.jsx
-│   │       └── CategorySettingsDropdown.jsx
-│   ├── hooks/
-│   │   ├── useAuth.js
-│   │   └── useCategories.js
-│   └── utils/
-│       ├── storage.js
-│       └── helpers.js
-├── README.md
-├── package.json
-├── .gitignore
-└── SETUP.md (this file)
+## 6. Build for Production
+
+```bash
+npm run build
 ```
 
-## 🎯 What's New
+Output goes to `dist/`. This is a static site and can be deployed to any hosting provider (Cloudflare Pages, Vercel, Netlify, etc.).
 
-### Modular Architecture
-- **20 focused files** instead of 1 monolith
-- Each component has a single responsibility
-- Easy to find, modify, and test
+## 7. PWA Installation
 
-### New Features
-- ✅ Category notes (like image notes)
-- ✅ Better state management with custom hooks
-- ✅ Cleaner separation of concerns
+The app is configured as a Progressive Web App via `vite-plugin-pwa`. After deploying to a production URL with HTTPS:
 
-### Improved Maintainability
-- Components are reusable
-- Logic is separated from UI
-- Easy to add new features
+- **Mobile:** Visit the site in your browser → tap "Add to Home Screen"
+- **Desktop:** Look for the install icon in the browser address bar
 
-## 📝 Next Steps
+The service worker caches static assets for offline use. Image data is cached locally in IndexedDB.
 
-After pushing to GitHub:
+## Troubleshooting
 
-1. **Enable GitHub Pages** (optional)
-   - Go to repo Settings > Pages
-   - Select branch and /root folder
-   - Your app will be live!
+**Images not loading after upload**
+Check that your R2 Worker is deployed and the URL in `r2Upload.js` matches the worker URL. Verify the worker has R2 bucket bindings configured in `wrangler.jsonc`.
 
-2. **Set up CI/CD** (optional)
-   - GitHub Actions for automated testing
-   - Automatic deployment
+**Cloud sync not working**
+Verify your `.env` values are correct. Check the browser console for Supabase errors. Ensure RLS policies are in place — without them, all queries return empty results.
 
-3. **Invite collaborators** (optional)
-   - Share repo with team members
-   - Set up branch protection rules
+**Tutorial not appearing for new users**
+The tutorial checks the `tutorial_completed` key in `user_settings`. If you're testing with an existing account, go to Settings → Show Tutorial Again, or delete the row from `user_settings` in Supabase.
 
-## 🐛 Troubleshooting
+**Sample gallery keeps reappearing after deletion**
+This was a known issue with IndexedDB persistence. Ensure you have the latest `useCategories.js` which saves empty arrays (the fix was removing the `categories.length > 0` guard on the debounced save).
 
-**Git push fails with "permission denied"**
-- Make sure you're authenticated with GitHub
-- Try: `gh auth login` (if using GitHub CLI)
-- Or use Personal Access Token
-
-**"main" branch doesn't exist**
-- Run: `git branch -M main`
-- Then: `git push -u origin main`
-
-**Need help?**
-- Check the README.md for detailed documentation
-- Review individual component files for inline comments
+**Account deletion fails**
+Check that the `delete-user-r2-files` Edge Function is deployed and its secrets are configured. Look at the Edge Function logs in Supabase for errors.
 
 ---
 
-**Made with ❤️ by Docker Cap Photography**
+**Made with ❤️ by [Docker Cap Photography](https://github.com/dockercapphotogeaphy)**
