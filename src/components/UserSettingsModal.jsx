@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Trash2, AlertTriangle, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import { X, User, Trash2, AlertTriangle, Eye, EyeOff, HelpCircle, CheckCircle, LogIn, Loader2, XCircle } from 'lucide-react';
 import { updateUserProfile, updateUserEmail, updateUserPassword, deleteUserAccount } from '../utils/userSettingsSync';
 
 export default function UserSettingsModal({
@@ -34,6 +34,10 @@ export default function UserSettingsModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  // 'idle' | 'deleting' | 'success' | 'error'
+  const [deleteStatus, setDeleteStatus] = useState('idle');
+  const [deleteResult, setDeleteResult] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const handleSaveAccountInfo = async () => {
     setIsSaving(true);
@@ -106,6 +110,7 @@ export default function UserSettingsModal({
     }
 
     setIsDeleting(true);
+    setDeleteStatus('deleting');
 
     try {
       const result = await deleteUserAccount(
@@ -115,19 +120,118 @@ export default function UserSettingsModal({
       );
 
       if (!result.ok) {
-        alert(`Account deletion failed. Errors: ${result.errors.join(', ')}`);
+        setDeleteStatus('error');
+        setDeleteError(result.errors.join(', '));
         setIsDeleting(false);
         return;
       }
 
-      // Account deleted successfully
-      alert('Your account has been permanently deleted.');
-      onAccountDeleted();
+      setDeleteResult(result);
+      setDeleteStatus('success');
+      setIsDeleting(false);
     } catch (err) {
-      alert(`Error deleting account: ${err.message}`);
+      setDeleteStatus('error');
+      setDeleteError(err.message);
       setIsDeleting(false);
     }
   };
+
+  const handleReturnToLogin = async () => {
+    onClose();
+    await onAccountDeleted();
+  };
+
+  // If we're showing the post-delete result screen, render that instead of the normal modal
+  if (deleteStatus === 'success' || deleteStatus === 'deleting') {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-800 rounded-lg max-w-md w-full shadow-2xl border border-gray-700 overflow-hidden">
+          {deleteStatus === 'deleting' ? (
+            // Deleting in progress
+            <div className="p-8 text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-red-900/30 flex items-center justify-center">
+                  <Loader2 size={32} className="text-red-400 animate-spin" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                Deleting Your Account
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Removing your data and cleaning up storage. This may take a moment...
+              </p>
+            </div>
+          ) : (
+            // Deletion successful
+            <div className="p-8 text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-green-900/30 flex items-center justify-center">
+                  <CheckCircle size={32} className="text-green-400" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                Account Deleted
+              </h3>
+              <p className="text-gray-400 text-sm mb-2">
+                Your account has been permanently deleted.
+              </p>
+              {deleteResult?.imageCount > 0 && (
+                <p className="text-gray-500 text-xs mb-6">
+                  {deleteResult.imageCount} image{deleteResult.imageCount !== 1 ? 's are' : ' is'} being removed from storage in the background.
+                </p>
+              )}
+              {(!deleteResult?.imageCount || deleteResult.imageCount === 0) && (
+                <div className="mb-6" />
+              )}
+              <button
+                onClick={handleReturnToLogin}
+                className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogIn size={18} />
+                Return to Login
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Error overlay after failed deletion
+  if (deleteStatus === 'error') {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-800 rounded-lg max-w-md w-full shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="p-8 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-red-900/30 flex items-center justify-center">
+                <XCircle size={32} className="text-red-400" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Deletion Failed
+            </h3>
+            <p className="text-gray-400 text-sm mb-2">
+              Something went wrong while deleting your account.
+            </p>
+            <p className="text-red-400 text-xs bg-red-900/20 rounded-lg p-3 mb-6 break-words">
+              {deleteError}
+            </p>
+            <button
+              onClick={() => {
+                setDeleteStatus('idle');
+                setDeleteError('');
+                setDeleteConfirmText('');
+              }}
+              className="w-full bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

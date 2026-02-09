@@ -141,7 +141,6 @@ export async function updateUserPassword(newPassword) {
  */
 export async function deleteUserAccount(userId, accessToken, deleteFromR2) {
   const errors = [];
-  let deletedImages = 0;
   let deletedCategories = 0;
 
   try {
@@ -155,19 +154,45 @@ export async function deleteUserAccount(userId, accessToken, deleteFromR2) {
       errors.push('Failed to fetch images: ' + imgError.message);
     }
 
-    // Step 2: Delete all images from R2
-    if (images && deleteFromR2) {
-      for (const img of images) {
-        if (img.r2_key) {
-          const result = await deleteFromR2(img.r2_key, accessToken);
-          if (!result.ok) {
-            errors.push(`R2 delete failed for ${img.r2_key}: ${result.error}`);
-          } else {
-            deletedImages++;
-          }
-        }
-      }
-    }
+	// Step 2: Trigger background R2 deletion via Edge Function
+	if (images?.length) {
+	  const r2Keys = images.map(img => img.r2_key).filter(Boolean);
+
+	  if (r2Keys.length) {
+		try {
+		  // 1️. Get current user's JWT
+		  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+		  if (sessionError) throw sessionError;
+		  if (!session?.access_token) throw new Error('User not logged in');
+
+		  const jwt = session.access_token;
+
+		  // 2️. Call the Edge Function with JWT in headers
+		  const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
+			'delete-user-r2-files',
+			{
+			  body: { r2Keys },
+			  headers: {
+				Authorization: `Bearer ${jwt}`,       // JWT for authentication
+				'Content-Type': 'application/json',   // Ensure JSON is sent
+			  },
+			}
+		  );
+
+		  // 3️. Handle the response
+		  if (functionError) {
+			console.error('Failed to trigger R2 deletion:', functionError);
+			errors.push('Failed to start background R2 deletion');
+		  } else {
+			console.log('Background R2 deletion started:', functionResponse?.message);
+		  }
+
+		} catch (err) {
+		  console.error('Error calling edge function:', err);
+		  errors.push('Failed to call background deletion service');
+		}
+	  }
+	}
 
     // Step 3: Delete all database records (in order to respect foreign keys)
     
@@ -259,19 +284,18 @@ export async function deleteUserAccount(userId, accessToken, deleteFromR2) {
       errors.push('Failed to delete user account: ' + deleteUserError.message);
     }
 
-    console.log(`Account deletion complete: ${deletedImages} images from R2, ${deletedCategories} categories, ${errors.length} errors`);
+    console.log(`Account deletion complete: ${deletedCategories} categories deleted, ${errors.length} errors. R2 cleanup running in background.`);
 
     return {
       ok: errors.length === 0,
-      deletedImages,
       deletedCategories,
-      errors
+      errors,
+      imageCount: images?.length || 0
     };
   } catch (err) {
     console.error('Account deletion exception:', err);
     return {
       ok: false,
-      deletedImages,
       deletedCategories,
       errors: [...errors, err.message]
     };

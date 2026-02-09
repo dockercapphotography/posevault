@@ -817,17 +817,36 @@ export default function PhotographyPoseGuide() {
 
   // Handle account deletion
   const handleAccountDeleted = async () => {
-    // Clear IndexedDB
-    const dbRequest = indexedDB.deleteDatabase('PhotographyPoseGuide');
-    dbRequest.onsuccess = () => {
-      console.log('IndexedDB cleared after account deletion');
-    };
+    try {
+      // Clear IndexedDB properly with Promise
+      await new Promise((resolve, reject) => {
+        const dbRequest = indexedDB.deleteDatabase('PhotographyPoseGuide');
+        dbRequest.onsuccess = () => {
+          console.log('IndexedDB cleared after account deletion');
+          resolve();
+        };
+        dbRequest.onerror = () => {
+          console.error('Failed to clear IndexedDB');
+          reject(new Error('Failed to clear IndexedDB'));
+        };
+        dbRequest.onblocked = () => {
+          console.warn('IndexedDB deletion blocked');
+          // Still resolve - blocked usually means it will clear eventually
+          resolve();
+        };
+      });
 
-    // Logout
-    await logout();
-    
-    // Redirect to login
-    window.location.href = '/';
+      // Logout
+      await logout();
+      
+      // Redirect to login
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Error in handleAccountDeleted:', err);
+      // Even if there's an error, still logout and redirect
+      await logout();
+      window.location.href = '/';
+    }
   };
 
   // Tutorial callback handler
