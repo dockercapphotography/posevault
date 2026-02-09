@@ -25,6 +25,7 @@ import UserSettingsModal from './components/UserSettingsModal';
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
 import { useCategories } from './hooks/useCategories';
+import { createSampleGallery } from './utils/sampleGallery';
 import {
   getAllTags,
   getCategoryTags,
@@ -169,6 +170,10 @@ export default function PhotographyPoseGuide() {
   const [hasSyncedOnce, setHasSyncedOnce] = useState(false); // true after first successful sync
   const cloudSyncAttemptedRef = useRef(false);
 
+  // First-time setup state (gates tutorial until sample gallery is ready)
+  const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
+  const [firstTimeSetupComplete, setFirstTimeSetupComplete] = useState(false);
+
   // Refs
   const dropdownRef = useRef(null);
   const categoryDropdownRef = useRef(null);
@@ -239,6 +244,36 @@ export default function PhotographyPoseGuide() {
 
       if (cloudData.categories.length === 0) {
         console.log('No cloud data found for this user');
+        
+        // Check if this is a brand new user (no local data either) — inject sample gallery
+        // Only do this if user has never had data before (check user setting to avoid re-injecting)
+        if (!hasLocalData) {
+          const localStorageKey = `sample_gallery_shown_${userId}`;
+          const shownLocally = localStorage.getItem(localStorageKey) === 'true';
+          
+          let shownInDb = false;
+          try {
+            const sampleShown = await getUserSetting(userId, 'sample_gallery_shown');
+            shownInDb = sampleShown?.ok && sampleShown.value === 'true';
+          } catch (err) {
+            console.warn('Failed to check sample_gallery_shown setting:', err);
+          }
+
+          if (!shownLocally && !shownInDb) {
+            console.log('🎉 New user detected — injecting sample gallery');
+            setIsFirstTimeSetup(true);
+            setCloudSyncProgress('Setting up your profile...');
+            
+            const sampleGallery = createSampleGallery();
+            replaceAllCategories([sampleGallery]);
+            
+            // Mark that sample gallery has been shown (both localStorage and DB for reliability)
+            localStorage.setItem(localStorageKey, 'true');
+            await setUserSetting(userId, 'sample_gallery_shown', 'true');
+            
+            console.log('✅ Sample gallery injected');
+          }
+        }
         
         // Still run cleanup even if no active categories exist
         // This handles the case where all categories are soft-deleted
@@ -347,6 +382,24 @@ export default function PhotographyPoseGuide() {
 
     syncFromCloud({ silent: true });
   }, [session?.user?.id, categoriesLoading]);
+
+  // First-time setup: wait for sample gallery to be in state, then complete setup and start tutorial
+  useEffect(() => {
+    if (!isFirstTimeSetup || firstTimeSetupComplete) return;
+    
+    // Check if sample gallery has been loaded into categories state
+    const hasSampleGallery = categories.some(c => c.isSample);
+    if (hasSampleGallery) {
+      console.log('✅ Sample gallery confirmed in state — completing first-time setup');
+      // Small delay to ensure DOM has rendered the gallery card (for tutorial targeting)
+      setTimeout(() => {
+        setFirstTimeSetupComplete(true);
+        setIsFirstTimeSetup(false);
+        setCloudSyncProgress('');
+        // Tutorial will auto-start via useTutorial hook (checks tutorial_completed setting)
+      }, 500);
+    }
+  }, [isFirstTimeSetup, firstTimeSetupComplete, categories]);
 
   // Fetch multiple images from R2 in parallel batches
   const fetchImagesFromR2Parallel = async (images, accessToken, onProgress) => {
@@ -2130,6 +2183,20 @@ export default function PhotographyPoseGuide() {
     );
   }
 
+  // First-time setup loading screen (shown while sample gallery is being injected)
+  if (isFirstTimeSetup && !firstTimeSetupComplete) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="text-5xl mb-4">📸</div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-lg font-semibold mb-2">Setting up your profile...</p>
+          <p className="text-gray-400 text-sm">Preparing your sample gallery and getting things ready.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Login screen (also shown during password recovery flow)
   if (!isAuthenticated || isPasswordRecovery) {
     return (
@@ -2474,7 +2541,7 @@ export default function PhotographyPoseGuide() {
       {!tutorialLoading && (
         <Joyride
           steps={tutorialSteps}
-          run={runTutorial}
+          run={runTutorial && !isFirstTimeSetup}
           stepIndex={stepIndex}
           continuous
           showProgress

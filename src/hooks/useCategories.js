@@ -5,6 +5,7 @@ export const useCategories = (currentUser) => {
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const saveTimeoutRef = useRef(null);
   const pendingSaveRef = useRef(null);
   const latestCategoriesRef = useRef(categories);
@@ -22,7 +23,7 @@ export const useCategories = (currentUser) => {
 
   // Debounced save - prevents multiple rapid saves during uploads
   useEffect(() => {
-    if (!isLoading && categories.length > 0 && currentUser) {
+    if (!isLoading && currentUser) {
       // Clear any pending save
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -73,17 +74,16 @@ export const useCategories = (currentUser) => {
   };
 
   const saveToStorage = async (categoriesToSave) => {
-    if (isSaving) {
-      console.log('Save already in progress, queuing this save...');
+    if (isSavingRef.current) {
       // Queue this save to run after the current one completes
       pendingSaveRef.current = categoriesToSave;
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       await storage.set(`categories:${currentUser}`, JSON.stringify(categoriesToSave));
-      console.log('Data saved successfully');
     } catch (error) {
       console.error('Failed to save data:', error);
 
@@ -92,11 +92,11 @@ export const useCategories = (currentUser) => {
         console.error('Storage quota exceeded! Consider deleting unused images.');
       }
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
 
       // If there was a pending save queued, execute it now
       if (pendingSaveRef.current) {
-        console.log('Executing queued save...');
         const queuedData = pendingSaveRef.current;
         pendingSaveRef.current = null;
         // Use setTimeout to avoid synchronous recursion
@@ -254,6 +254,20 @@ export const useCategories = (currentUser) => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
+    }
+
+    // Clear any queued pending save so stale data can't overwrite after we finish
+    pendingSaveRef.current = null;
+
+    // If a save is currently in progress, wait for it to finish first
+    if (isSavingRef.current) {
+      await new Promise(resolve => {
+        const check = () => {
+          if (!isSavingRef.current) return resolve();
+          setTimeout(check, 50);
+        };
+        check();
+      });
     }
 
     // Use ref to get the absolute latest categories, even if state hasn't updated yet
