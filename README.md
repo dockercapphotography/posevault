@@ -149,8 +149,8 @@ The app ships with PWA screenshots in `/public/` for app store-style install pro
 
 ## License
 
-Private — Docker Cap Photography
+Copyright © 2025-2026 Docker Cap Photography. All rights reserved.
 
----
+This software and its source code are proprietary and confidential. No part of this project may be reproduced, distributed, modified, or used in any form without the express written permission of Docker Cap Photography.
 
-**Made with ❤️ by [Docker Cap Photography](https://github.com/dockercapphotogeaphy)**
+Unauthorized use, copying, or distribution of this software is strictly prohibited.
