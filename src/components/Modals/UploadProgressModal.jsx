@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Upload, CheckCircle } from 'lucide-react';
+import { Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function UploadProgressModal({
   isVisible,
   currentImage,
   totalImages,
-  isComplete
+  isComplete,
+  rejectedFiles,
+  onContinueUpload
 }) {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
-    if (!isVisible || isComplete) {
+    if (!isVisible || isComplete || rejectedFiles) {
       setElapsedTime(0);
       return;
     }
@@ -21,11 +23,70 @@ export default function UploadProgressModal({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isVisible, isComplete]);
+  }, [isVisible, isComplete, rejectedFiles]);
 
   if (!isVisible) return null;
 
   const progress = totalImages > 0 ? Math.round((currentImage / totalImages) * 100) : 0;
+
+  // Show rejected files warning before upload starts
+  if (rejectedFiles && rejectedFiles.length > 0) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 mb-4 rounded-full bg-yellow-500/20 flex items-center justify-center">
+              <AlertTriangle size={32} className="text-yellow-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Unsupported Files Skipped</h2>
+            <p className="text-gray-400 text-center mb-4">
+              {rejectedFiles.length === 1
+                ? 'The following file is not a supported image format and will be skipped:'
+                : `The following ${rejectedFiles.length} files are not supported image formats and will be skipped:`}
+            </p>
+            <div className="w-full bg-gray-700 rounded-lg p-3 mb-4 max-h-32 overflow-y-auto">
+              {rejectedFiles.slice(0, 10).map((name, i) => (
+                <p key={i} className="text-sm text-yellow-400 truncate">
+                  {name}
+                </p>
+              ))}
+              {rejectedFiles.length > 10 && (
+                <p className="text-sm text-gray-400 mt-1">
+                  ...and {rejectedFiles.length - 10} more
+                </p>
+              )}
+            </div>
+            <p className="text-gray-400 text-sm text-center mb-5">
+              {totalImages > 0
+                ? `${totalImages} supported ${totalImages === 1 ? 'image' : 'images'} will be uploaded.`
+                : 'No supported images to upload.'}
+            </p>
+            <button
+              onClick={onContinueUpload}
+              className="w-full px-4 py-3 rounded-lg text-white font-semibold cursor-pointer transition-colors"
+              style={{
+                background: totalImages > 0
+                  ? 'linear-gradient(to right, #2563eb, #3b82f6)'
+                  : 'linear-gradient(to right, #4b5563, #6b7280)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = totalImages > 0
+                  ? 'linear-gradient(to right, #1d4ed8, #2563eb)'
+                  : 'linear-gradient(to right, #374151, #4b5563)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = totalImages > 0
+                  ? 'linear-gradient(to right, #2563eb, #3b82f6)'
+                  : 'linear-gradient(to right, #4b5563, #6b7280)';
+              }}
+            >
+              {totalImages > 0 ? 'Continue Upload' : 'Close'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">

@@ -133,6 +133,8 @@ export default function PhotographyPoseGuide() {
 
   // Upload progress
   const [showUploadProgress, setShowUploadProgress] = useState(false);
+  const [rejectedFiles, setRejectedFiles] = useState(null);
+  const [pendingUpload, setPendingUpload] = useState(null);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [uploadComplete, setUploadComplete] = useState(false);
   
@@ -1113,9 +1115,66 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleImagesUpload = async (e, categoryId) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    const rawFiles = Array.from(e.target.files);
+    if (rawFiles.length === 0) return;
 
+    // Filter to only valid image types
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.heic', '.heif'];
+
+    const files = [];
+    const rejected = [];
+
+    for (const file of rawFiles) {
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (allowedTypes.includes(file.type) || allowedExtensions.includes(ext)) {
+        files.push(file);
+      } else {
+        rejected.push(file.name);
+      }
+    }
+
+    // If all files were rejected, show warning and bail
+    if (files.length === 0) {
+      setRejectedFiles(rejected);
+      setUploadProgress({ current: 0, total: 0 });
+      setShowUploadProgress(true);
+      setPendingUpload(null);
+      e.target.value = '';
+      return;
+    }
+
+    // Reset file input early
+    e.target.value = '';
+
+    // If there are rejected files, show warning first and wait for Continue
+    if (rejected.length > 0) {
+      setRejectedFiles(rejected);
+      setUploadProgress({ current: 0, total: files.length });
+      setShowUploadProgress(true);
+      setPendingUpload({ files, categoryId });
+      return;
+    }
+
+    // No rejected files — proceed directly
+    await processUpload(files, categoryId);
+  };
+
+  // Continue upload after user acknowledges rejected files
+  const handleContinueUpload = async () => {
+    if (!pendingUpload) {
+      setShowUploadProgress(false);
+      setRejectedFiles(null);
+      return;
+    }
+    const { files, categoryId } = pendingUpload;
+    setRejectedFiles(null);
+    setPendingUpload(null);
+    await processUpload(files, categoryId);
+  };
+
+  // Core upload processing logic
+  const processUpload = async (files, categoryId) => {
     // Check storage before upload
     if (session?.user?.id) {
       // Calculate total size of files to upload
@@ -1138,9 +1197,7 @@ export default function PhotographyPoseGuide() {
             maxDisplay: storageInfo.maxDisplay
           });
           setShowStorageLimitModal(true);
-          
-          // Clear the file input
-          e.target.value = '';
+          setShowUploadProgress(false);
           return;
         }
       }
@@ -1236,9 +1293,6 @@ export default function PhotographyPoseGuide() {
         alert('Upload failed. Please try again with fewer images.');
       }
     }
-
-    // Reset file input
-    e.target.value = '';
   };
 
   // Background R2 upload function
@@ -2454,6 +2508,8 @@ export default function PhotographyPoseGuide() {
         currentImage={uploadProgress.current}
         totalImages={uploadProgress.total}
         isComplete={uploadComplete}
+        rejectedFiles={rejectedFiles}
+        onContinueUpload={handleContinueUpload}
       />
 
       {/* Private Gallery Warning Modal */}
@@ -2576,6 +2632,7 @@ export default function PhotographyPoseGuide() {
           }}
         />
       )}
+
     </div>
   );
 }
