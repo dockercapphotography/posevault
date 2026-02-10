@@ -133,6 +133,8 @@ export default function PhotographyPoseGuide() {
 
   // Upload progress
   const [showUploadProgress, setShowUploadProgress] = useState(false);
+  const [rejectedFiles, setRejectedFiles] = useState(null);
+  const [pendingUpload, setPendingUpload] = useState(null);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [uploadComplete, setUploadComplete] = useState(false);
   
@@ -908,57 +910,19 @@ export default function PhotographyPoseGuide() {
 
     if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-      
-      if (action === ACTIONS.NEXT) {
-        // Special handling for step 1
-        if (index === 1) {
-          // User clicked Next on step 1 (Add Gallery button)
-          if (showNewCategoryModal) {
-            // Modal is open - go to step 2 (will be auto-advanced by useEffect)
-            setStepIndex(2);
-          } else {
-            // Modal not open - skip to step 3 (upload images)
-            setStepIndex(3);
-          }
-        } else {
-          // Normal progression for all other steps
-          setStepIndex(nextIndex);
-        }
-      } else {
-        // Going backward - normal progression
-        setStepIndex(nextIndex);
-      }
-    } else if (type === EVENTS.TARGET_NOT_FOUND) {
-      // Target not found, just move to next step
-      setStepIndex(index + 1);
+      setStepIndex(nextIndex);
     } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       // Tutorial completed or skipped
       completeTutorial();
     }
   };
 
-  // Auto-advance to step 2 when Add Gallery modal opens during step 1
-  useEffect(() => {
-    if (runTutorial && stepIndex === 1 && showNewCategoryModal) {
-      console.log('[Tutorial] Modal opened, advancing to step 2');
-      setTimeout(() => setStepIndex(2), 300);
-    }
-  }, [showNewCategoryModal, runTutorial, stepIndex]);
-
-  // Auto-advance to step 3 when modal closes after step 2
-  useEffect(() => {
-    if (runTutorial && stepIndex === 2 && !showNewCategoryModal) {
-      console.log('[Tutorial] Modal closed, advancing to step 3');
-      setTimeout(() => setStepIndex(3), 300);
-    }
-  }, [showNewCategoryModal, runTutorial, stepIndex]);
-
   // Lower tutorial tooltip z-index when mobile upload modal is open (lets picker appear on top)
   // User can still see and click the Next button
   useEffect(() => {
     const joyrideTooltip = document.querySelector('.react-joyride__tooltip');
     const joyrideOverlay = document.querySelector('.react-joyride__overlay');
-    if (showMobileUploadModal && runTutorial && stepIndex === 3) {
+    if (showMobileUploadModal && runTutorial && stepIndex === 2) {
       if (joyrideTooltip) joyrideTooltip.style.zIndex = '1';
       if (joyrideOverlay) joyrideOverlay.style.zIndex = '1';
     } else {
@@ -1151,9 +1115,66 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleImagesUpload = async (e, categoryId) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    const rawFiles = Array.from(e.target.files);
+    if (rawFiles.length === 0) return;
 
+    // Filter to only valid image types
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.heic', '.heif'];
+
+    const files = [];
+    const rejected = [];
+
+    for (const file of rawFiles) {
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (allowedTypes.includes(file.type) || allowedExtensions.includes(ext)) {
+        files.push(file);
+      } else {
+        rejected.push(file.name);
+      }
+    }
+
+    // If all files were rejected, show warning and bail
+    if (files.length === 0) {
+      setRejectedFiles(rejected);
+      setUploadProgress({ current: 0, total: 0 });
+      setShowUploadProgress(true);
+      setPendingUpload(null);
+      e.target.value = '';
+      return;
+    }
+
+    // Reset file input early
+    e.target.value = '';
+
+    // If there are rejected files, show warning first and wait for Continue
+    if (rejected.length > 0) {
+      setRejectedFiles(rejected);
+      setUploadProgress({ current: 0, total: files.length });
+      setShowUploadProgress(true);
+      setPendingUpload({ files, categoryId });
+      return;
+    }
+
+    // No rejected files — proceed directly
+    await processUpload(files, categoryId);
+  };
+
+  // Continue upload after user acknowledges rejected files
+  const handleContinueUpload = async () => {
+    if (!pendingUpload) {
+      setShowUploadProgress(false);
+      setRejectedFiles(null);
+      return;
+    }
+    const { files, categoryId } = pendingUpload;
+    setRejectedFiles(null);
+    setPendingUpload(null);
+    await processUpload(files, categoryId);
+  };
+
+  // Core upload processing logic
+  const processUpload = async (files, categoryId) => {
     // Check storage before upload
     if (session?.user?.id) {
       // Calculate total size of files to upload
@@ -1176,9 +1197,7 @@ export default function PhotographyPoseGuide() {
             maxDisplay: storageInfo.maxDisplay
           });
           setShowStorageLimitModal(true);
-          
-          // Clear the file input
-          e.target.value = '';
+          setShowUploadProgress(false);
           return;
         }
       }
@@ -1274,9 +1293,6 @@ export default function PhotographyPoseGuide() {
         alert('Upload failed. Please try again with fewer images.');
       }
     }
-
-    // Reset file input
-    e.target.value = '';
   };
 
   // Background R2 upload function
@@ -2331,7 +2347,28 @@ export default function PhotographyPoseGuide() {
               const idx = swiperIndex !== undefined ? swiperIndex : currentImageIndex;
               const currentImage = displayedImages[idx];
               const originalIndex = currentImage._originalIndex;
+              const imageId = currentImage.id;
               handleToggleFavorite(category.id, originalIndex);
+              
+              // After favoriting, the sort order may change (e.g. "Favorites First").
+              // We need to follow the image to its new position so the viewer
+              // doesn't jump to a different image.
+              // Use a microtask to let the state update propagate first.
+              setTimeout(() => {
+                const updatedCat = categoriesRef.current.find(c => c.id === category.id);
+                if (!updatedCat) return;
+                const newDisplayed = getDisplayedImages(updatedCat, {
+                  selectedTagFilters,
+                  tagFilterMode,
+                  showFavoritesOnly,
+                  sortBy,
+                  searchTerm
+                });
+                const newIdx = newDisplayed.findIndex(img => img.id === imageId);
+                if (newIdx !== -1 && newIdx !== idx) {
+                  setCurrentImageIndex(newIdx);
+                }
+              }, 0);
             }}
             onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
             onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
@@ -2471,6 +2508,8 @@ export default function PhotographyPoseGuide() {
         currentImage={uploadProgress.current}
         totalImages={uploadProgress.total}
         isComplete={uploadComplete}
+        rejectedFiles={rejectedFiles}
+        onContinueUpload={handleContinueUpload}
       />
 
       {/* Private Gallery Warning Modal */}
@@ -2593,6 +2632,7 @@ export default function PhotographyPoseGuide() {
           }}
         />
       )}
+
     </div>
   );
 }
