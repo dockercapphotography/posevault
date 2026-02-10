@@ -908,57 +908,19 @@ export default function PhotographyPoseGuide() {
 
     if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-      
-      if (action === ACTIONS.NEXT) {
-        // Special handling for step 1
-        if (index === 1) {
-          // User clicked Next on step 1 (Add Gallery button)
-          if (showNewCategoryModal) {
-            // Modal is open - go to step 2 (will be auto-advanced by useEffect)
-            setStepIndex(2);
-          } else {
-            // Modal not open - skip to step 3 (upload images)
-            setStepIndex(3);
-          }
-        } else {
-          // Normal progression for all other steps
-          setStepIndex(nextIndex);
-        }
-      } else {
-        // Going backward - normal progression
-        setStepIndex(nextIndex);
-      }
-    } else if (type === EVENTS.TARGET_NOT_FOUND) {
-      // Target not found, just move to next step
-      setStepIndex(index + 1);
+      setStepIndex(nextIndex);
     } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       // Tutorial completed or skipped
       completeTutorial();
     }
   };
 
-  // Auto-advance to step 2 when Add Gallery modal opens during step 1
-  useEffect(() => {
-    if (runTutorial && stepIndex === 1 && showNewCategoryModal) {
-      console.log('[Tutorial] Modal opened, advancing to step 2');
-      setTimeout(() => setStepIndex(2), 300);
-    }
-  }, [showNewCategoryModal, runTutorial, stepIndex]);
-
-  // Auto-advance to step 3 when modal closes after step 2
-  useEffect(() => {
-    if (runTutorial && stepIndex === 2 && !showNewCategoryModal) {
-      console.log('[Tutorial] Modal closed, advancing to step 3');
-      setTimeout(() => setStepIndex(3), 300);
-    }
-  }, [showNewCategoryModal, runTutorial, stepIndex]);
-
   // Lower tutorial tooltip z-index when mobile upload modal is open (lets picker appear on top)
   // User can still see and click the Next button
   useEffect(() => {
     const joyrideTooltip = document.querySelector('.react-joyride__tooltip');
     const joyrideOverlay = document.querySelector('.react-joyride__overlay');
-    if (showMobileUploadModal && runTutorial && stepIndex === 3) {
+    if (showMobileUploadModal && runTutorial && stepIndex === 2) {
       if (joyrideTooltip) joyrideTooltip.style.zIndex = '1';
       if (joyrideOverlay) joyrideOverlay.style.zIndex = '1';
     } else {

@@ -34,34 +34,14 @@ export const tutorialSteps = [
     spotlightClicks: true
   },
   
-  // Step 2: Fill out gallery form (only if modal is open)
-  {
-    target: '.new-gallery-modal',
-    content: (
-      <div>
-        <h3 className="text-lg font-bold mb-2">Add Gallery Details</h3>
-        <p className="text-gray-300">
-          Add your Gallery Details below and click Create to continue, or click Next to skip.
-        </p>
-      </div>
-    ),
-    placement: 'top',
-    disableOverlay: true,
-    spotlightClicks: true,
-    disableBeacon: true,
-    floaterProps: {
-      disableAnimation: true,
-    },
-  },
-  
-  // Step 3: Upload images to gallery
+  // Step 2: Upload images to gallery
   {
     target: '.tutorial-gallery-card',
     content: (
       <div>
-        <h3 className="text-lg font-bold mb-2">Upload Pose Images</h3>
+        <h3 className="text-lg font-bold mb-2">View your Galleries</h3>
         <p className="text-gray-300">
-          Add reference photos to your galleries. Click "Add Images" to upload a single or multiple photos at once.
+          Click "Add Images" to upload a single or multiple photos at once. Tap the heart icon to mark a Gallery as a Favorite.
         </p>
       </div>
     ),
@@ -69,7 +49,7 @@ export const tutorialSteps = [
     spotlightClicks: true,
   },
   
-  // Step 4: Gallery List Organize Tools
+  // Step 3: Gallery List Organize Tools
   {
     target: '.tutorial-gallery-toolbar',
     content: (
@@ -84,12 +64,15 @@ export const tutorialSteps = [
           <li>• <span className="font-semibold">Bulk Select</span> - Edit or delete multiple galleries at once</li>
           <li>• <span className="font-semibold">Grid Columns</span> - Adjust how many galleries appear per row</li>
         </ul>
+		<p className="text-sm text-gray-400">
+          Tip: Press and hold on a Gallery to enter Bulk Select mode when on a touchscreen device.
+        </p>
       </div>
     ),
     placement: 'bottom',
   },
   
-  // Step 5: Gallery settings
+  // Step 4: Gallery settings
   {
     target: '.tutorial-settings-button',
     content: (
@@ -103,7 +86,7 @@ export const tutorialSteps = [
     placement: 'left',
   },
   
-  // Step 6: Account & Storage menu
+  // Step 5: Account & Storage menu
   {
     target: '.user-menu-button',
     content: (
@@ -120,7 +103,7 @@ export const tutorialSteps = [
     placement: 'bottom-end',
   },
   
-  // Step 7: Sync icon
+  // Step 6: Sync icon
   {
     target: '.tutorial-sync-button',
     content: (
@@ -137,7 +120,7 @@ export const tutorialSteps = [
     placement: 'bottom',
   },
   
-  // Step 8: Complete
+  // Step 7: Complete
   {
     target: 'body',
     content: (
