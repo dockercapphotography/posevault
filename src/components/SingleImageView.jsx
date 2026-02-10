@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote } from 'lucide-react';
+import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote, Maximize } from 'lucide-react';
+import FullscreenViewer from './FullscreenViewer';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
 
@@ -24,8 +25,10 @@ export default function SingleImageView({
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const swiperRef = useRef(null);
   const nameInputRef = useRef(null);
+  const lastTapRef = useRef(0);
 
   if (!image || !category?.images) return null;
 
@@ -92,6 +95,18 @@ export default function SingleImageView({
       handleSaveName();
     } else if (e.key === 'Escape') {
       handleCancelEditName();
+    }
+  };
+
+  const handleImageDoubleTap = (e) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapRef.current;
+    lastTapRef.current = now;
+
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      e.preventDefault();
+      setIsFullscreen(true);
+      lastTapRef.current = 0;
     }
   };
 
@@ -170,12 +185,26 @@ export default function SingleImageView({
           >
             {category.images.filter(img => !img.isCover).map((img, idx) => (
               <SwiperSlide key={idx} className="h-full">
-                <div className="h-full w-full flex items-center justify-center">
+                <div
+                  className="h-full w-full flex items-center justify-center relative"
+                  onClick={handleImageDoubleTap}
+                >
                   <img
                     src={img.src}
                     alt={`Pose ${idx + 1}`}
                     className="max-w-full max-h-full object-contain"
                   />
+                  {/* Fullscreen expand button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsFullscreen(true);
+                    }}
+                    className="absolute bottom-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-80 p-2 rounded-full transition-colors cursor-pointer z-10"
+                    aria-label="View fullscreen"
+                  >
+                    <Maximize size={20} className="text-white" />
+                  </button>
                 </div>
               </SwiperSlide>
             ))}
@@ -327,6 +356,15 @@ export default function SingleImageView({
               </button>
             </div>
           </div>
+        )}
+
+        {/* Fullscreen Viewer Overlay */}
+        {isFullscreen && currentImage && (
+          <FullscreenViewer
+            src={currentImage.src}
+            alt={`${categoryName} - Pose ${activeIndex + 1}`}
+            onClose={() => setIsFullscreen(false)}
+          />
         )}
       </div>
     </div>
