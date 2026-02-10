@@ -2326,17 +2326,18 @@ export default function PhotographyPoseGuide() {
             categoryName={category.name}
             category={sortedCategory}
             onClose={() => window.history.back()}
-            onToggleFavorite={() => {
-              // Use embedded original index from displayed image
-              const currentImage = displayedImages[currentImageIndex];
+            onToggleFavorite={(swiperIndex) => {
+              // swiperIndex comes from SingleImageView's activeIndex (the actual visible slide)
+              const idx = swiperIndex !== undefined ? swiperIndex : currentImageIndex;
+              const currentImage = displayedImages[idx];
               const originalIndex = currentImage._originalIndex;
               handleToggleFavorite(category.id, originalIndex);
             }}
             onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
             onNext={() => setCurrentImageIndex(currentImageIndex + 1)}
-            onUpdateImage={(catId, imgIndex, updates) => {
-              // Use embedded original index from displayed image
-              const currentImage = displayedImages[imgIndex];
+            onUpdateImage={(catId, swiperIndex, updates) => {
+              // swiperIndex comes from SingleImageView's activeIndex
+              const currentImage = displayedImages[swiperIndex];
               const originalIndex = currentImage._originalIndex;
               updateImageWithSync(catId, originalIndex, updates);
             }}
