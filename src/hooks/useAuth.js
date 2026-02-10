@@ -17,6 +17,11 @@ export const useAuth = () => {
         setIsAuthenticated(true);
       }
       setIsLoading(false);
+    }).catch(() => {
+      setSession(null);
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -79,13 +84,13 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    // Use global scope to invalidate all sessions server-side
-    // This prevents stale refresh tokens from causing issues
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
+    // Use local scope — clears this browser's session without a server call.
+    // The server-side session/refresh token will expire naturally.
+    // This avoids 403 errors when the session was already invalidated
+    // (e.g. logged out from another tab or device).
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) {
-      console.error('Logout error (global):', error);
-      // Fallback: at minimum, clear local session
-      await supabase.auth.signOut({ scope: 'local' });
+      console.error('Logout error:', error);
     }
   };
 
