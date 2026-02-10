@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, Plus, Upload, CloudSync, CloudCheck } from 'lucide-react';
 import UserMenu from './UserMenu';
+import TruncatedName from './TruncatedName';
 
 export default function Header({
   viewMode,
@@ -39,7 +40,7 @@ export default function Header({
                 className="h-8 md:h-12 w-auto"
               />
             ) : (
-              categoryName || 'Category'
+              <TruncatedName name={categoryName || 'Category'} maxLength={30} />
             )}
           </div>
         </div>
