@@ -2347,28 +2347,7 @@ export default function PhotographyPoseGuide() {
               const idx = swiperIndex !== undefined ? swiperIndex : currentImageIndex;
               const currentImage = displayedImages[idx];
               const originalIndex = currentImage._originalIndex;
-              const imageId = currentImage.id;
               handleToggleFavorite(category.id, originalIndex);
-              
-              // After favoriting, the sort order may change (e.g. "Favorites First").
-              // We need to follow the image to its new position so the viewer
-              // doesn't jump to a different image.
-              // Use a microtask to let the state update propagate first.
-              setTimeout(() => {
-                const updatedCat = categoriesRef.current.find(c => c.id === category.id);
-                if (!updatedCat) return;
-                const newDisplayed = getDisplayedImages(updatedCat, {
-                  selectedTagFilters,
-                  tagFilterMode,
-                  showFavoritesOnly,
-                  sortBy,
-                  searchTerm
-                });
-                const newIdx = newDisplayed.findIndex(img => img.id === imageId);
-                if (newIdx !== -1 && newIdx !== idx) {
-                  setCurrentImageIndex(newIdx);
-                }
-              }, 0);
             }}
             onPrevious={() => setCurrentImageIndex(currentImageIndex - 1)}
             onNext={() => setCurrentImageIndex(currentImageIndex + 1)}

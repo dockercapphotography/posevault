@@ -36,7 +36,6 @@ export default function FilterModal({
           >
             <option value="dateAdded">Newest First</option>
             <option value="dateAddedOldest">Oldest First</option>
-            <option value="favorites">Favorites First</option>
             <option value="favoritesOnly">Favorites Only</option>
           </select>
         </div>
