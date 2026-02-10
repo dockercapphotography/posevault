@@ -88,7 +88,7 @@ export default function ImageCard({
       <img
         src={image.src}
         alt={`Pose ${index + 1}`}
-        onClick={() => onImageClick(index)}
+        onClick={() => onImageClick(bulkSelectMode ? originalIndex : index)}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
