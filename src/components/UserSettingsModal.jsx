@@ -29,6 +29,13 @@ export default function UserSettingsModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasLowercase: false,
+    hasUppercase: false,
+    hasNumber: false,
+    hasSymbol: false
+  });
   
   // Account Deletion State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -38,6 +45,24 @@ export default function UserSettingsModal({
   const [deleteStatus, setDeleteStatus] = useState('idle');
   const [deleteResult, setDeleteResult] = useState(null);
   const [deleteError, setDeleteError] = useState('');
+
+  // Track password requirements in real time
+  useEffect(() => {
+    setPasswordRequirements({
+      minLength: newPassword.length >= 8,
+      hasLowercase: /[a-z]/.test(newPassword),
+      hasUppercase: /[A-Z]/.test(newPassword),
+      hasNumber: /[0-9]/.test(newPassword),
+      hasSymbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)
+    });
+  }, [newPassword]);
+
+  const allPasswordReqsMet =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasLowercase &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    passwordRequirements.hasSymbol;
 
   const handleSaveAccountInfo = async () => {
     setIsSaving(true);
@@ -78,8 +103,8 @@ export default function UserSettingsModal({
           return;
         }
         
-        if (newPassword.length < 6) {
-          setSaveMessage('Password must be at least 6 characters');
+        if (!allPasswordReqsMet) {
+          setSaveMessage('Password does not meet all requirements');
           setIsSaving(false);
           return;
         }
@@ -360,6 +385,59 @@ export default function UserSettingsModal({
                       </button>
                     </div>
                   </div>
+
+                  {/* Password match indicator */}
+                  {confirmPassword && (
+                    <div className={`text-xs flex items-center gap-2 ${
+                      newPassword === confirmPassword ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      <span className="w-4">{newPassword === confirmPassword ? '✓' : '✗'}</span>
+                      <span>{newPassword === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
+                    </div>
+                  )}
+
+                  {/* Password requirements */}
+                  {newPassword && (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className={newPassword.length >= 8 ? 'text-green-400' : 'text-gray-400'}>
+                            Character Count
+                          </span>
+                          <span className={newPassword.length >= 8 ? 'text-green-400' : 'text-gray-400'}>
+                            {newPassword.length}/8
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-600 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              newPassword.length >= 8 ? 'bg-green-500' : 'bg-purple-500'
+                            }`}
+                            style={{ width: `${Math.min((newPassword.length / 8) * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs">
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasLowercase ? 'text-green-400' : 'text-gray-400'}`}>
+                          <span className="w-4">{passwordRequirements.hasLowercase ? '✓' : '○'}</span>
+                          <span>Lowercase letter (a-z)</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasUppercase ? 'text-green-400' : 'text-gray-400'}`}>
+                          <span className="w-4">{passwordRequirements.hasUppercase ? '✓' : '○'}</span>
+                          <span>Uppercase letter (A-Z)</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasNumber ? 'text-green-400' : 'text-gray-400'}`}>
+                          <span className="w-4">{passwordRequirements.hasNumber ? '✓' : '○'}</span>
+                          <span>Number (0-9)</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasSymbol ? 'text-green-400' : 'text-gray-400'}`}>
+                          <span className="w-4">{passwordRequirements.hasSymbol ? '✓' : '○'}</span>
+                          <span>Symbol (!@#$%...)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

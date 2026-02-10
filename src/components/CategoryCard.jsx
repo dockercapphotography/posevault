@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Heart, Camera, Images, Settings, Check } from 'lucide-react';
 import CategorySettingsDropdown from './Modals/CategorySettingsDropdown';
+import TruncatedName from './TruncatedName';
 
 export default function CategoryCard({
   category,
@@ -107,7 +108,7 @@ export default function CategoryCard({
   return (
     <div
       className={`tutorial-gallery-card bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-shadow relative ${
-        isSelected ? 'ring-2 ring-purple-500' : ''
+        isSelected ? 'ring-2 ring-green-500' : ''
       }`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -122,7 +123,7 @@ export default function CategoryCard({
           }}
           className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center z-20 cursor-pointer transition-colors ${
             isSelected
-              ? 'bg-purple-600 border-purple-600'
+              ? 'bg-green-600 border-green-600'
               : 'bg-gray-800/75 border-white'
           }`}
         >
@@ -174,7 +175,7 @@ export default function CategoryCard({
       <div className="p-3 md:p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-bold text-sm md:text-lg truncate pr-2">
-            {category.name}
+            <TruncatedName name={category.name} maxLength={30} />
           </h3>
           {!category.cover && !bulkSelectMode && (
             <button

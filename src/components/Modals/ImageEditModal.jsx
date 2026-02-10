@@ -109,6 +109,7 @@ export default function ImageEditModal({
             value={localPoseName}
             onChange={(e) => setLocalPoseName(e.target.value)}
             placeholder="Enter a name for this pose (e.g., Standing Profile, Action Shot)"
+            maxLength={256}
             className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
           />
         </div>

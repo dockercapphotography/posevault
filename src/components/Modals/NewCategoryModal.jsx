@@ -100,6 +100,7 @@ export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }
             }}
             onKeyDown={handleKeyDown}
             placeholder="e.g., Wedding Poses, Portraits"
+            maxLength={256}
             className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
             autoFocus
           />
