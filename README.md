@@ -20,7 +20,7 @@ Built as a Progressive Web App (PWA) — install it on your phone or tablet for 
 - Upload images with automatic WebP conversion and optimization
 - Per-image pose names, tags, and notes
 - Favorite individual poses
-- Full-screen image viewer with swipe navigation
+- Full-screen image viewer with swipe navigation and full-screen zoom
 - Bulk select, edit, tag, and delete operations
 
 ### Tagging and Filtering
