@@ -274,6 +274,9 @@ export default function PhotographyPoseGuide() {
             await setUserSetting(userId, 'sample_gallery_shown', 'true');
             
             console.log('✅ Sample gallery injected');
+
+            // Promote sample gallery to cloud in background (don't await — let UI render first)
+            setTimeout(() => promoteSampleGallery(), 2000);
           }
         }
         
@@ -1442,6 +1445,8 @@ export default function PhotographyPoseGuide() {
 
         // Skip images that are already uploaded or have no local data to upload
         if (!img.src || img.r2Status === 'uploaded' || img.r2Status === 'uploading') continue;
+        // Skip sample images — these are promoted separately by promoteSampleGallery
+        if (img.r2Status === 'sample') continue;
         // Only retry images that failed or are still pending (have src but no r2Key)
         if (img.r2Key) continue;
 
@@ -1523,6 +1528,152 @@ export default function PhotographyPoseGuide() {
       console.log(`Retry cycle complete: ${retried} images attempted`);
     }
     return retried;
+  };
+
+  // Promote sample gallery to cloud — fetches local sample images, creates Supabase category,
+  // uploads images to R2, syncs tags, and flips isSample off so it behaves like a regular gallery.
+  const promoteSampleGallery = async () => {
+    const userId = session?.user?.id;
+    const accessToken = session?.access_token;
+    if (!userId || !accessToken) {
+      console.warn('Cannot promote sample gallery: no session');
+      return;
+    }
+
+    // Find the sample gallery in current state
+    const sampleCat = categoriesRef.current.find(c => c.isSample);
+    if (!sampleCat) {
+      console.log('No sample gallery found to promote');
+      return;
+    }
+
+    console.log('🚀 Promoting sample gallery to cloud...');
+
+    try {
+      // Step 1: Create the category in Supabase
+      const categoryData = {
+        name: sampleCat.name,
+        notes: sampleCat.notes || '',
+        isFavorite: sampleCat.isFavorite || false,
+        isPrivate: sampleCat.isPrivate || false,
+        galleryPassword: sampleCat.privatePassword || null,
+      };
+
+      const catResult = await createCategoryInSupabase(categoryData, userId);
+      if (!catResult.ok) {
+        console.error('Failed to create sample category in Supabase:', catResult.error);
+        return;
+      }
+
+      const categoryUid = catResult.uid;
+      updateCategory(sampleCat.id, { supabaseUid: categoryUid });
+      console.log(`Sample category created in Supabase: ${categoryUid}`);
+
+      // Sync category tags
+      if (sampleCat.tags && sampleCat.tags.length > 0) {
+        syncCategoryTags(categoryUid, sampleCat.tags, userId)
+          .catch(err => console.error('Sample category tag sync error:', err));
+      }
+
+      // Step 2: Fetch each sample image from public folder and upload to R2
+      for (let i = 0; i < sampleCat.images.length; i++) {
+        const img = sampleCat.images[i];
+
+        try {
+          // Fetch the local sample image and convert to data URL
+          const response = await fetch(img.src);
+          if (!response.ok) {
+            console.warn(`Failed to fetch sample image: ${img.src}`);
+            updateImage(sampleCat.id, i, { r2Status: 'failed' });
+            continue;
+          }
+
+          const blob = await response.blob();
+          const dataURL = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('FileReader failed'));
+            reader.readAsDataURL(blob);
+          });
+
+          // Upload to R2
+          const filename = createTimestampedFilename(`sample-pose-${String(i + 1).padStart(2, '0')}.webp`);
+          updateImage(sampleCat.id, i, { r2Status: 'uploading' });
+
+          const r2Result = await uploadSingleToR2WithRetry(dataURL, filename, accessToken);
+          if (!r2Result.ok) {
+            console.error(`Sample image R2 upload failed (${i + 1}):`, r2Result.error);
+            updateImage(sampleCat.id, i, { r2Status: 'failed' });
+            continue;
+          }
+
+          // Update local state with R2 key
+          updateImage(sampleCat.id, i, {
+            r2Key: r2Result.key,
+            r2Status: 'uploaded',
+            size: r2Result.size || 0,
+            src: dataURL, // Replace relative path with actual data URL
+          });
+
+          // Create image record in Supabase
+          const supabaseResult = await createImageInSupabase(
+            {
+              r2Key: r2Result.key,
+              size: r2Result.size,
+              poseName: img.poseName,
+              notes: img.notes || '',
+              isFavorite: img.isFavorite || false,
+            },
+            categoryUid,
+            userId
+          );
+
+          if (supabaseResult.ok) {
+            updateImage(sampleCat.id, i, { supabaseUid: supabaseResult.uid });
+            console.log(`Sample image ${i + 1} synced: ${supabaseResult.uid}`);
+
+            // Sync image tags
+            if (img.tags && img.tags.length > 0) {
+              syncImageTags(supabaseResult.uid, img.tags, userId)
+                .catch(err => console.error(`Sample image ${i + 1} tag sync error:`, err));
+            }
+
+            // Update user storage tracking
+            updateUserStorage(userId, r2Result.size);
+          } else {
+            console.error(`Sample image ${i + 1} Supabase create failed:`, supabaseResult.error);
+          }
+        } catch (err) {
+          console.error(`Sample image ${i + 1} promotion error:`, err);
+          updateImage(sampleCat.id, i, { r2Status: 'failed' });
+        }
+      }
+
+      // Step 3: Upload cover image
+      try {
+        const coverResponse = await fetch(sampleCat.cover);
+        if (coverResponse.ok) {
+          const coverBlob = await coverResponse.blob();
+          const coverDataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('FileReader failed'));
+            reader.readAsDataURL(coverBlob);
+          });
+          await uploadCoverAndLink(coverDataUrl, sampleCat.id, 'sample-cover.webp');
+        }
+      } catch (err) {
+        console.error('Failed to promote sample cover:', err);
+      }
+
+      // Step 4: Flip isSample off so it's treated as a regular gallery
+      updateCategory(sampleCat.id, { isSample: false });
+      forceSave();
+
+      console.log('✅ Sample gallery promoted to cloud');
+    } catch (err) {
+      console.error('Sample gallery promotion failed:', err);
+    }
   };
 
   // Wrapper that updates locally AND syncs to Supabase
