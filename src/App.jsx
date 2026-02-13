@@ -497,6 +497,7 @@ export default function PhotographyPoseGuide() {
         name: cat.name,
         cover: coverSrc,
         coverImageUid: cat.cover_image_uid || null,
+        coverPositionY: cat.cover_position_y ?? 50,
         images: localImages,
         isFavorite: cat.favorite || false,
         notes: cat.notes || '',
@@ -571,6 +572,7 @@ export default function PhotographyPoseGuide() {
         name: cloudCat.name,
         cover: coverSrc,
         coverImageUid: cloudCat.cover_image_uid || null,
+        coverPositionY: cloudCat.cover_position_y ?? 50,
         images: localImages,
         isFavorite: cloudCat.favorite || false,
         notes: cloudCat.notes || '',
@@ -597,6 +599,7 @@ export default function PhotographyPoseGuide() {
       if ((cloudCat.private_gallery || false) !== localCat.isPrivate) catUpdates.isPrivate = cloudCat.private_gallery || false;
       if ((cloudCat.gallery_password || null) !== localCat.privatePassword) catUpdates.privatePassword = cloudCat.gallery_password || null;
       if ((cloudCat.cover_image_uid || null) !== localCat.coverImageUid) catUpdates.coverImageUid = cloudCat.cover_image_uid || null;
+      if ((cloudCat.cover_position_y ?? 50) !== (localCat.coverPositionY ?? 50)) catUpdates.coverPositionY = cloudCat.cover_position_y ?? 50;
 
       if (Object.keys(catUpdates).length > 0) {
         updatedCategories[i] = { ...localCat, ...catUpdates };

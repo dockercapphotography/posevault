@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Settings, FileText, Lock, AlertTriangle, Trash2, ImagePlus, Tag, Plus } from 'lucide-react';
+import { X, Settings, FileText, Lock, AlertTriangle, Trash2, ImagePlus, Tag, Plus, Move } from 'lucide-react';
 import { verifyPassword } from '../../utils/crypto';
 
 export default function CategorySettingsModal({ category, allGalleryTags = [], onClose, onSave, onUploadCover, onDelete }) {
@@ -17,6 +17,15 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
   const [coverPreview, setCoverPreview] = useState(null);
   const [hasCoverChanged, setHasCoverChanged] = useState(false);
   const coverInputRef = useRef(null);
+
+  // Cover reposition state
+  const [isRepositioning, setIsRepositioning] = useState(false);
+  const [coverPositionY, setCoverPositionY] = useState(category?.coverPositionY ?? 50);
+  const [tempPositionY, setTempPositionY] = useState(category?.coverPositionY ?? 50);
+  const repositionContainerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const dragStartPositionRef = useRef(50);
 
   const hasExistingPassword = category?.privatePassword;
 
@@ -69,6 +78,7 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
       notes,
       tags,
       isPrivate,
+      coverPositionY,
     };
 
     if (showPasswordSection) {
@@ -147,6 +157,7 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
                 src={coverPreview}
                 alt="Cover preview"
                 className="w-full h-32 object-cover rounded-lg"
+                style={{ objectPosition: `center ${coverPositionY}%` }}
               />
               {hasCoverChanged && (
                 <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
@@ -154,6 +165,16 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
                 </div>
               )}
               <div className="absolute bottom-2 right-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    setTempPositionY(coverPositionY);
+                    setIsRepositioning(true);
+                  }}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Move size={12} />
+                  Reposition
+                </button>
                 <button
                   onClick={() => coverInputRef.current?.click()}
                   className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs transition-colors cursor-pointer"
@@ -164,7 +185,7 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
                   onClick={() => {
                     setCoverPreview(null);
                     setHasCoverChanged(false);
-                    // Note: Actual cover deletion would need a separate backend call
+                    setCoverPositionY(50);
                   }}
                   className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs transition-colors cursor-pointer"
                 >
@@ -493,6 +514,109 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
           </button>
         </div>
       </div>
+
+      {/* Cover Reposition Overlay */}
+      {isRepositioning && coverPreview && (
+        <div className="fixed inset-0 bg-black/90 z-[60] flex flex-col">
+          {/* Header */}
+          <div className="p-4 bg-gray-900/80">
+            <div className="flex items-center justify-between max-w-2xl mx-auto">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <Move size={18} />
+                Reposition Cover Photo
+              </h3>
+              <p className="text-gray-400 text-sm hidden sm:block">Drag the image up or down</p>
+            </div>
+          </div>
+
+          {/* Drag area */}
+          <div
+            ref={repositionContainerRef}
+            className="flex-1 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none px-4"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              isDraggingRef.current = true;
+              dragStartYRef.current = e.clientY;
+              dragStartPositionRef.current = tempPositionY;
+            }}
+            onMouseMove={(e) => {
+              if (!isDraggingRef.current) return;
+              const container = repositionContainerRef.current;
+              if (!container) return;
+              const deltaY = e.clientY - dragStartYRef.current;
+              const containerHeight = container.clientHeight;
+              // Moving mouse down = image moves up = position % increases
+              const deltaPercent = (deltaY / containerHeight) * 100;
+              const newPosition = Math.max(0, Math.min(100, dragStartPositionRef.current + deltaPercent));
+              setTempPositionY(Math.round(newPosition));
+            }}
+            onMouseUp={() => { isDraggingRef.current = false; }}
+            onMouseLeave={() => { isDraggingRef.current = false; }}
+            onTouchStart={(e) => {
+              isDraggingRef.current = true;
+              dragStartYRef.current = e.touches[0].clientY;
+              dragStartPositionRef.current = tempPositionY;
+            }}
+            onTouchMove={(e) => {
+              if (!isDraggingRef.current) return;
+              e.preventDefault();
+              const container = repositionContainerRef.current;
+              if (!container) return;
+              const deltaY = e.touches[0].clientY - dragStartYRef.current;
+              const containerHeight = container.clientHeight;
+              const deltaPercent = (deltaY / containerHeight) * 100;
+              const newPosition = Math.max(0, Math.min(100, dragStartPositionRef.current + deltaPercent));
+              setTempPositionY(Math.round(newPosition));
+            }}
+            onTouchEnd={() => { isDraggingRef.current = false; }}
+          >
+            <div className="w-full max-w-2xl aspect-[4/3] rounded-xl overflow-hidden border-2 border-white/20">
+              <img
+                src={coverPreview}
+                alt="Reposition cover"
+                className="w-full h-full object-cover pointer-events-none"
+                style={{ objectPosition: `center ${tempPositionY}%` }}
+                draggable={false}
+              />
+            </div>
+          </div>
+
+          {/* Hint text for mobile */}
+          <p className="text-gray-400 text-sm text-center py-2 sm:hidden">Drag the image up or down</p>
+
+          {/* Footer buttons */}
+          <div className="p-4 bg-gray-900/80">
+            <div className="flex gap-3 max-w-2xl mx-auto">
+            <button
+              onClick={() => {
+                setTempPositionY(coverPositionY);
+                setIsRepositioning(false);
+              }}
+              className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setTempPositionY(50);
+              }}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors cursor-pointer text-sm"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => {
+                setCoverPositionY(tempPositionY);
+                setIsRepositioning(false);
+              }}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+            >
+              Apply
+            </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

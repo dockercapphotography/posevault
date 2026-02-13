@@ -156,6 +156,7 @@ export default function CategoryCard({
               src={category.cover}
               alt={category.name}
               className="w-full h-full object-cover rounded-t-xl"
+              style={{ objectPosition: `center ${category.coverPositionY ?? 50}%` }}
             />
             {(hasGalleryImages || bulkSelectMode) && (
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
