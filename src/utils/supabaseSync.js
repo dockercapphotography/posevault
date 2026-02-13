@@ -20,6 +20,7 @@ export async function createCategory(categoryData, userId) {
         favorite: categoryData.isFavorite || false,
         private_gallery: categoryData.isPrivate || false,
         gallery_password: categoryData.galleryPassword || null,
+        cover_position_y: categoryData.coverPositionY ?? 50,
         user_id: userId,
       })
       .select('uid')
@@ -57,6 +58,7 @@ export async function updateCategory(categoryUid, updates, userId) {
     if (updates.isPrivate !== undefined) supabaseUpdates.private_gallery = updates.isPrivate;
     if (updates.galleryPassword !== undefined) supabaseUpdates.gallery_password = updates.galleryPassword;
     if (updates.coverImageUid !== undefined) supabaseUpdates.cover_image_uid = updates.coverImageUid;
+    if (updates.coverPositionY !== undefined) supabaseUpdates.cover_position_y = updates.coverPositionY;
 
     const { data, error } = await supabase
       .from('categories')
