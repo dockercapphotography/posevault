@@ -301,7 +301,7 @@ export default function ShareConfigModal({ category, userId, onClose }) {
                 onClick={handleToggleActive}
                 className="w-full flex items-center justify-between cursor-pointer"
               >
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-sm">Link Active</p>
                   <p className="text-xs text-gray-400">
                     {shareConfig.is_active ? 'Viewers can access this gallery' : 'Link is disabled — viewers will see an error'}
