@@ -44,11 +44,11 @@ export default function ShareConfigModal({ category, userId, onClose }) {
   // Load existing share config
   useEffect(() => {
     loadShareConfig();
-  }, [category?.id]);
+  }, [category?.supabaseUid]);
 
   async function loadShareConfig() {
     setLoading(true);
-    const result = await getShareConfig(category.id);
+    const result = await getShareConfig(category.supabaseUid);
     if (result.ok && result.data) {
       setShareConfig(result.data);
       // Set expiration choice based on existing config
@@ -62,7 +62,7 @@ export default function ShareConfigModal({ category, userId, onClose }) {
   async function handleCreateLink() {
     setError('');
     setLoading(true);
-    const result = await createShareLink(category.id, userId);
+    const result = await createShareLink(category.supabaseUid, userId);
     if (result.ok) {
       setShareConfig(result.data);
     } else {
@@ -178,6 +178,31 @@ export default function ShareConfigModal({ category, userId, onClose }) {
 
   const isExpired = shareConfig?.expires_at && new Date(shareConfig.expires_at) < new Date();
   const hasPassword = !!shareConfig?.password_hash;
+
+  // Guard: gallery must be synced to cloud before sharing
+  if (!category?.supabaseUid) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full shadow-2xl border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Share2 size={22} className="text-blue-400" />
+              Share Gallery
+            </h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer">
+              <X size={24} />
+            </button>
+          </div>
+          <p className="text-gray-400 text-sm mb-4">
+            This gallery hasn't synced to the cloud yet. Please wait for the sync to complete, then try again.
+          </p>
+          <button onClick={onClose} className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
