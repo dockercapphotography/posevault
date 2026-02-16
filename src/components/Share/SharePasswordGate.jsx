@@ -14,7 +14,7 @@ export default function SharePasswordGate({ galleryName, onSubmit, error: extern
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+    <div className="h-dvh bg-gray-900 text-white flex items-center justify-center p-4 overflow-hidden">
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-4">

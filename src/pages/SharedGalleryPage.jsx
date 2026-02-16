@@ -131,7 +131,7 @@ export default function SharedGalleryPage({ token }) {
   // Loading
   if (stage === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="h-dvh bg-gray-900 text-white flex items-center justify-center overflow-hidden">
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-400 mx-auto mb-4"></div>
           <p className="text-gray-400">Loading shared gallery...</p>
@@ -203,7 +203,7 @@ function ErrorScreen({ error }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+    <div className="h-dvh bg-gray-900 text-white flex items-center justify-center p-4 overflow-hidden">
       <div className="text-center max-w-sm">
         <div className="mb-4 flex justify-center">{icon}</div>
         <h1 className="text-2xl font-bold mb-2">{title}</h1>
