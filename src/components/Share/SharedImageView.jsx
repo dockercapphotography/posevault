@@ -1,34 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Tag } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight, StickyNote, Maximize } from 'lucide-react';
+import FullscreenViewer from '../FullscreenViewer';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Keyboard } from 'swiper/modules';
 import { getShareImageUrl } from '../../utils/shareApi';
 
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/navigation';
+
 export default function SharedImageView({ token, images, currentIndex, onClose, onNavigate }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-  const containerRef = useRef(null);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(currentIndex);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const swiperRef = useRef(null);
+  const lastTapRef = useRef(0);
 
-  const image = images[currentIndex];
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < images.length - 1;
+  const currentImage = images[activeIndex];
 
-  // Reset zoom/pan on image change
+  const getDisplayPoseName = (idx) => {
+    const img = images[idx];
+    return img?.name || `Pose ${idx + 1}`;
+  };
+
+  const displayPoseName = getDisplayPoseName(activeIndex);
+
+  // Sync Swiper with external currentIndex changes
   useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (swiperRef.current && activeIndex !== currentIndex) {
+      swiperRef.current.slideTo(currentIndex, 0);
+      setActiveIndex(currentIndex);
+    }
   }, [currentIndex]);
 
-  // Keyboard navigation
+  // Reset modals when image changes
   useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
-      if (e.key === 'ArrowRight' && hasNext) onNavigate(currentIndex + 1);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [currentIndex, hasPrev, hasNext, onClose, onNavigate]);
+    setShowNotesModal(false);
+    setShowTagsModal(false);
+  }, [activeIndex]);
 
   // Prevent body scroll
   useEffect(() => {
@@ -36,168 +46,241 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
     return () => { document.body.style.overflow = 'unset'; };
   }, []);
 
-  const handleZoomIn = () => setZoom(z => Math.min(z * 1.5, 5));
-  const handleZoomOut = () => {
-    setZoom(z => {
-      const newZoom = Math.max(z / 1.5, 1);
-      if (newZoom === 1) setPan({ x: 0, y: 0 });
-      return newZoom;
-    });
+  const handleSlideChange = (swiper) => {
+    const newIndex = swiper.activeIndex;
+    setActiveIndex(newIndex);
+    if (onNavigate) onNavigate(newIndex);
   };
 
-  const handleMouseDown = (e) => {
-    if (zoom <= 1) return;
-    e.preventDefault();
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
-  };
+  const handleImageDoubleTap = (e) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapRef.current;
+    lastTapRef.current = now;
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
-    setPan({ x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy });
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  // Touch handlers for mobile swipe
-  const touchStartRef = useRef(null);
-
-  const handleTouchStart = (e) => {
-    if (zoom > 1) {
-      // Pan mode
-      setIsDragging(true);
-      dragStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        panX: pan.x,
-        panY: pan.y,
-      };
-    } else {
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      e.preventDefault();
+      setIsFullscreen(true);
+      lastTapRef.current = 0;
     }
   };
 
-  const handleTouchMove = (e) => {
-    if (isDragging && zoom > 1) {
-      const dx = e.touches[0].clientX - dragStartRef.current.x;
-      const dy = e.touches[0].clientY - dragStartRef.current.y;
-      setPan({ x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy });
-    }
-  };
-
-  const handleTouchEnd = (e) => {
-    setIsDragging(false);
-
-    if (zoom <= 1 && touchStartRef.current) {
-      const endX = e.changedTouches[0].clientX;
-      const diff = endX - touchStartRef.current.x;
-      if (Math.abs(diff) > 50) {
-        if (diff > 0 && hasPrev) onNavigate(currentIndex - 1);
-        if (diff < 0 && hasNext) onNavigate(currentIndex + 1);
-      }
-      touchStartRef.current = null;
-    }
-  };
+  if (!currentImage) return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed inset-0 bg-black z-50 flex flex-col select-none"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 z-10">
-        <div className="min-w-0 flex-1">
-          {image.name && <p className="text-sm font-medium truncate">{image.name}</p>}
-          <p className="text-xs text-gray-400">
-            {currentIndex + 1} of {images.length}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 ml-3">
-          <button
-            onClick={handleZoomOut}
-            disabled={zoom <= 1}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ZoomOut size={18} />
-          </button>
-          <button
-            onClick={handleZoomIn}
-            disabled={zoom >= 5}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ZoomIn size={18} />
-          </button>
+    <div className="fixed inset-0 bg-black z-50">
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
+
+          <div className="text-center flex-1 mx-4">
+            <h2 className="text-lg font-semibold">
+              {displayPoseName}
+            </h2>
+            <p className="text-sm text-gray-400">
+              Pose {activeIndex + 1} of {images.length}
+            </p>
+          </div>
+
+          {/* Spacer to keep title centered */}
+          <div className="w-10" />
         </div>
-      </div>
 
-      {/* Image area */}
-      <div
-        className="flex-1 flex items-center justify-center overflow-hidden relative"
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
-      >
-        <img
-          src={getShareImageUrl(token, image.r2Key)}
-          alt={image.name || 'Pose'}
-          className="max-w-full max-h-full object-contain pointer-events-none"
-          style={{
-            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-            transition: isDragging ? 'none' : 'transform 0.2s ease',
-          }}
-          draggable={false}
-        />
+        {/* Swiper Container */}
+        <div className="flex-1 relative overflow-hidden">
+          <Swiper
+            modules={[Navigation, Keyboard]}
+            initialSlide={currentIndex}
+            onSwiper={(swiper) => {
+              swiperRef.current = swiper;
+            }}
+            onSlideChange={handleSlideChange}
+            navigation={{
+              prevEl: '.swiper-button-prev-custom',
+              nextEl: '.swiper-button-next-custom',
+            }}
+            keyboard={{
+              enabled: true,
+            }}
+            speed={300}
+            className="h-full"
+          >
+            {images.map((img, idx) => (
+              <SwiperSlide key={idx} className="h-full">
+                <div
+                  className="h-full w-full flex items-center justify-center relative"
+                  onClick={handleImageDoubleTap}
+                >
+                  <img
+                    src={getShareImageUrl(token, img.r2Key)}
+                    alt={img.name || `Pose ${idx + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                  {/* Fullscreen expand button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsFullscreen(true);
+                    }}
+                    className="absolute bottom-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-80 p-2 rounded-full transition-colors cursor-pointer z-10"
+                    aria-label="View fullscreen"
+                  >
+                    <Maximize size={20} className="text-white" />
+                  </button>
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
 
-        {/* Navigation arrows */}
-        {hasPrev && zoom <= 1 && (
+          {/* Custom Navigation Arrows - hidden on mobile */}
           <button
-            onClick={() => onNavigate(currentIndex - 1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 rounded-full transition-colors cursor-pointer"
+            className={`swiper-button-prev-custom absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex ${
+              activeIndex === 0 ? 'opacity-0 pointer-events-none' : ''
+            }`}
           >
             <ChevronLeft size={24} />
           </button>
-        )}
-        {hasNext && zoom <= 1 && (
           <button
-            onClick={() => onNavigate(currentIndex + 1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 rounded-full transition-colors cursor-pointer"
+            className={`swiper-button-next-custom absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 hover:bg-opacity-100 p-3 rounded-full transition-all cursor-pointer z-10 hidden md:flex ${
+              activeIndex >= images.length - 1 ? 'opacity-0 pointer-events-none' : ''
+            }`}
           >
             <ChevronRight size={24} />
           </button>
+        </div>
+
+        {/* Footer */}
+        {currentImage && (
+          <div className="bg-gray-900 p-3">
+            <div className="max-w-4xl mx-auto h-[32px]">
+              <div className="flex items-center justify-between gap-4 h-full">
+                {/* Tags - max 3 - clickable */}
+                <div
+                  className={`flex flex-wrap gap-1.5 flex-1 min-w-0 items-center overflow-hidden ${
+                    currentImage.tags && currentImage.tags.length > 0 ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+                  }`}
+                  onClick={() => currentImage.tags && currentImage.tags.length > 0 && setShowTagsModal(true)}
+                >
+                  {currentImage.tags && currentImage.tags.length > 0 ? (
+                    <>
+                      {currentImage.tags.slice(0, 3).map((tag, i) => (
+                        <span key={i} className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {tag}
+                        </span>
+                      ))}
+                      {currentImage.tags.length > 3 && (
+                        <span className="bg-gray-700 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+                          +{currentImage.tags.length - 3}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-400 text-xs">No tags</span>
+                  )}
+                </div>
+
+                {/* Notes indicator */}
+                <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
+                  {currentImage.notes && (
+                    <button
+                      onClick={() => setShowNotesModal(true)}
+                      className="hover:text-blue-300 transition-colors cursor-pointer"
+                    >
+                      <StickyNote size={14} className="text-blue-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notes Modal */}
+        {showNotesModal && currentImage?.notes && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowNotesModal(false)}
+          >
+            <div
+              className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-600 rounded-full">
+                  <StickyNote size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Notes</h3>
+                  <p className="text-sm text-gray-400">Pose {activeIndex + 1}</p>
+                </div>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                <p className="text-gray-300 whitespace-pre-wrap">{currentImage.notes}</p>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tags Modal */}
+        {showTagsModal && currentImage?.tags && currentImage.tags.length > 0 && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowTagsModal(false)}
+          >
+            <div
+              className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-purple-600 rounded-full">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Tags</h3>
+                  <p className="text-sm text-gray-400">Pose {activeIndex + 1}</p>
+                </div>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {currentImage.tags.map((tag, i) => (
+                    <span key={i} className="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTagsModal(false)}
+                className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Viewer Overlay */}
+        {isFullscreen && currentImage && (
+          <FullscreenViewer
+            src={getShareImageUrl(token, currentImage.r2Key)}
+            alt={displayPoseName}
+            onClose={() => setIsFullscreen(false)}
+          />
         )}
       </div>
-
-      {/* Bottom info bar */}
-      {(image.notes || (image.tags && image.tags.length > 0)) && (
-        <div className="px-4 py-3 bg-black/80 z-10">
-          {image.tags && image.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-1">
-              {image.tags.map(tag => (
-                <span key={tag} className="bg-gray-700 text-gray-300 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {image.notes && (
-            <p className="text-sm text-gray-400 mt-1">{image.notes}</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
