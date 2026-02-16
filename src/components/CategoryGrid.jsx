@@ -18,6 +18,7 @@ export default function CategoryGrid({
   onUploadCover,
   onDelete,
   onGeneratePDF,
+  onShare,
   // Props for filtering and bulk edit
   searchTerm = '',
   onSearchChange,
@@ -175,6 +176,7 @@ export default function CategoryGrid({
               onUploadCover={onUploadCover}
               onDelete={onDelete}
               onGeneratePDF={onGeneratePDF}
+              onShare={onShare}
               bulkSelectMode={bulkSelectMode}
               isSelected={selectedGalleries.includes(cat.id)}
               onSelect={onSelectGallery}

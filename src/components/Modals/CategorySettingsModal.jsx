@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Settings, FileText, Lock, AlertTriangle, Trash2, ImagePlus, Tag, Plus, Move } from 'lucide-react';
+import { X, Settings, FileText, Lock, AlertTriangle, Trash2, ImagePlus, Tag, Plus, Move, Share2 } from 'lucide-react';
 import { verifyPassword } from '../../utils/crypto';
 
-export default function CategorySettingsModal({ category, allGalleryTags = [], onClose, onSave, onUploadCover, onDelete }) {
+export default function CategorySettingsModal({ category, allGalleryTags = [], onClose, onSave, onUploadCover, onDelete, onShare }) {
   const [name, setName] = useState(category?.name || '');
   const [notes, setNotes] = useState(category?.notes || '');
   const [tags, setTags] = useState(category?.tags || []);
@@ -308,6 +308,25 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
               <p className="text-gray-400 text-sm">No tags added yet</p>
             )}
           </div>
+        </div>
+
+        {/* Share Gallery */}
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              if (onShare) {
+                onClose();
+                onShare(category.id);
+              }
+            }}
+            className="w-full p-4 bg-blue-600/10 border border-blue-600/30 rounded-lg hover:bg-blue-600/20 transition-colors cursor-pointer flex items-center gap-3"
+          >
+            <Share2 size={20} className="text-blue-400 flex-shrink-0" />
+            <div className="text-left">
+              <p className="font-semibold text-sm text-blue-400">Share Gallery</p>
+              <p className="text-xs text-gray-400">Generate a link to share this gallery with anyone</p>
+            </div>
+          </button>
         </div>
 
         {/* Private Gallery Toggle */}

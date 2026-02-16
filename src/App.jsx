@@ -21,6 +21,7 @@ import PrivateGalleryWarning from './components/Modals/PrivateGalleryWarning';
 import PDFOptionsModal from './components/Modals/PDFOptionsModal';
 import MobileUploadModal from './components/Modals/MobileUploadModal';
 import UserSettingsModal from './components/UserSettingsModal';
+import ShareConfigModal from './components/Share/ShareConfigModal';
 
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
@@ -107,6 +108,7 @@ export default function PhotographyPoseGuide() {
   const [pendingPrivateCategory, setPendingPrivateCategory] = useState(null);
   const [pdfCategory, setPdfCategory] = useState(null);
   const [showUserSettings, setShowUserSettings] = useState(false);
+  const [showShareConfig, setShowShareConfig] = useState(null); // stores categoryId when open
 
   // Tutorial state
   const {
@@ -2421,6 +2423,7 @@ export default function PhotographyPoseGuide() {
             setShowDeleteConfirm(catId);
           }}
           onGeneratePDF={(category) => setPdfCategory(category)}
+          onShare={(catId) => setShowShareConfig(catId)}
           // Gallery filtering props
           searchTerm={gallerySearchTerm}
           onSearchChange={setGallerySearchTerm}
@@ -2539,6 +2542,10 @@ export default function PhotographyPoseGuide() {
             onDelete={(catId) => {
               setEditingCategory(null);
               setShowDeleteConfirm(catId);
+            }}
+            onShare={(catId) => {
+              setEditingCategory(null);
+              setShowShareConfig(catId);
             }}
           />
         );
@@ -2709,6 +2716,17 @@ export default function PhotographyPoseGuide() {
           onResetImageTutorial={resetImageTutorial}
         />
       )}
+
+      {showShareConfig && (() => {
+        const cat = categories.find(c => c.id === showShareConfig);
+        return cat ? (
+          <ShareConfigModal
+            category={cat}
+            userId={session?.user?.id}
+            onClose={() => setShowShareConfig(null)}
+          />
+        ) : null;
+      })()}
 
       {/* Tutorial Overlay */}
       {!tutorialLoading && (

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { FileText, Camera, Trash2, Download, File } from 'lucide-react';
+import { FileText, Camera, Trash2, Download, File, Share2 } from 'lucide-react';
 import { downloadCategoryAsZip } from '../../utils/zipDownloader';
 
-export default function CategorySettingsDropdown({ 
-  category, 
-  onEditSettings, 
+export default function CategorySettingsDropdown({
+  category,
+  onEditSettings,
   onGeneratePDF,
+  onShare,
   onClose
 }) {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -39,6 +40,17 @@ export default function CategorySettingsDropdown({
       >
         <FileText size={16} />
         <span>Gallery Settings</span>
+      </button>
+
+      <button
+        onClick={() => {
+          if (onShare) onShare(category.id);
+          onClose();
+        }}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-blue-400"
+      >
+        <Share2 size={16} />
+        <span>Share Gallery</span>
       </button>
 
       <div className="border-t border-gray-600 my-1"></div>
