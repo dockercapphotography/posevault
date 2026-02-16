@@ -212,9 +212,14 @@ export async function fetchSharedGalleryData(token, galleryId, ownerId) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   try {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const response = await fetch(`${supabaseUrl}/functions/v1/validate-share-access`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+      },
       body: JSON.stringify({ token }),
     });
 
