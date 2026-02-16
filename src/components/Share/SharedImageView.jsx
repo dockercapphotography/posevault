@@ -67,7 +67,7 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
   if (!currentImage) return null;
 
   return (
-    <div className="fixed inset-0 bg-black z-50">
+    <div className="fixed inset-0 bg-black z-50 text-white">
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
