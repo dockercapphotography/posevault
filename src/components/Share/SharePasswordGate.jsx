@@ -61,9 +61,9 @@ export default function SharePasswordGate({ galleryName, onSubmit, error: extern
           </button>
         </form>
 
-        <p className="text-gray-500 text-xs text-center mt-6">
-          Shared via PoseVault
-        </p>
+        <div className="flex justify-center mt-6 opacity-40">
+          <img src="/posevault-logo-white.svg" alt="PoseVault" className="h-5" />
+        </div>
       </div>
     </div>
   );

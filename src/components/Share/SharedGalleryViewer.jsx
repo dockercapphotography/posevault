@@ -221,8 +221,8 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
       </div>
 
       {/* Footer */}
-      <footer className="text-center py-6 text-gray-600 text-xs">
-        Shared via PoseVault
+      <footer className="flex justify-center py-6 opacity-30">
+        <img src="/posevault-logo-white.svg" alt="PoseVault" className="h-5" />
       </footer>
     </div>
   );
