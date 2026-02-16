@@ -2165,7 +2165,7 @@ export default function PhotographyPoseGuide() {
 
   const handleClearGalleryFilters = () => {
     setSelectedGalleryTagFilters([]);
-    setGallerySortBy('nameAZ');
+    handleSetGallerySortBy('nameAZ');
     setGallerySearchTerm('');
   };
 
@@ -2597,8 +2597,8 @@ export default function PhotographyPoseGuide() {
           onToggleTag={handleToggleTag}
           onClearFilters={() => {
             setSelectedTagFilters([]);
-            setSortBy('dateAdded');
-            setShowFavoritesOnly(false);
+            handleSetSortBy('dateAdded');
+            handleSetFilterMode('include');
           }}
           onClose={() => setShowTagFilterModal(false)}
         />
