@@ -4,7 +4,8 @@ import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
 export default function SharedGalleryViewer({ token, gallery, images, permissions, viewer }) {
-  const [gridColumns, setGridColumns] = useState(3);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [gridColumns, setGridColumns] = useState(isMobile ? 2 : 3);
   const [showGridDropdown, setShowGridDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
