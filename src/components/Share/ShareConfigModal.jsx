@@ -454,7 +454,7 @@ export default function ShareConfigModal({ category, userId, onClose }) {
               {shareConfig.allow_favorites && (
                 <button
                   onClick={() => handleTogglePermission('favorites_visible_to_others')}
-                  className="w-full flex items-center justify-between cursor-pointer ml-2"
+                  className="w-full flex items-center justify-between cursor-pointer"
                 >
                   <div className="text-left">
                     <div className="flex items-center gap-2">
