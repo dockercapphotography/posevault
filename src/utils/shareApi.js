@@ -174,6 +174,7 @@ export async function validateShareToken(token) {
       ownerId: data.owner_id,
       needsPassword,
       allowFavorites: data.allow_favorites,
+      favoritesVisibleToOthers: data.favorites_visible_to_others,
       allowUploads: data.allow_uploads,
       allowComments: data.allow_comments,
       expiresAt: data.expires_at || null,
@@ -340,4 +341,94 @@ export async function logShareAccess(sharedGalleryId, viewerId, action, imageId 
  */
 export function getShareImageUrl(token, r2Key) {
   return `${R2_WORKER_URL}/share-image?token=${encodeURIComponent(token)}&key=${encodeURIComponent(r2Key)}`;
+}
+
+// ==========================================
+// Favorites operations
+// ==========================================
+
+/**
+ * Toggle a favorite for a viewer on a shared gallery image.
+ * Returns { ok, isFavorite } indicating the new state.
+ */
+export async function toggleShareFavorite(sharedGalleryId, imageId, viewerId) {
+  // Check if already favorited
+  const { data: existing } = await supabase
+    .from('share_favorites')
+    .select('id')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('image_id', imageId)
+    .eq('viewer_id', viewerId)
+    .maybeSingle();
+
+  if (existing) {
+    // Remove favorite
+    const { error } = await supabase
+      .from('share_favorites')
+      .delete()
+      .eq('id', existing.id);
+
+    if (error) {
+      console.error('Failed to remove favorite:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, isFavorite: false };
+  } else {
+    // Add favorite
+    const { error } = await supabase
+      .from('share_favorites')
+      .insert({
+        shared_gallery_id: sharedGalleryId,
+        image_id: imageId,
+        viewer_id: viewerId,
+      });
+
+    if (error) {
+      console.error('Failed to add favorite:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, isFavorite: true };
+  }
+}
+
+/**
+ * Get all favorites for the current viewer on a shared gallery.
+ * Returns a Set of image IDs.
+ */
+export async function getViewerFavorites(sharedGalleryId, viewerId) {
+  const { data, error } = await supabase
+    .from('share_favorites')
+    .select('image_id')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('viewer_id', viewerId);
+
+  if (error) {
+    console.error('Failed to fetch viewer favorites:', error);
+    return { ok: false, error: error.message };
+  }
+
+  const imageIds = new Set(data.map(f => f.image_id));
+  return { ok: true, favorites: imageIds };
+}
+
+/**
+ * Get all favorites across all viewers for a shared gallery.
+ * Returns a map of imageId → count of unique viewers who favorited it.
+ */
+export async function getAllFavoriteCounts(sharedGalleryId) {
+  const { data, error } = await supabase
+    .from('share_favorites')
+    .select('image_id, viewer_id')
+    .eq('shared_gallery_id', sharedGalleryId);
+
+  if (error) {
+    console.error('Failed to fetch all favorites:', error);
+    return { ok: false, error: error.message };
+  }
+
+  const counts = {};
+  data.forEach(f => {
+    counts[f.image_id] = (counts[f.image_id] || 0) + 1;
+  });
+  return { ok: true, counts };
 }

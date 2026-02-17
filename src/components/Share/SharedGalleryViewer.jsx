@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock } from 'lucide-react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock, Heart } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
-export default function SharedGalleryViewer({ token, gallery, images, permissions, viewer }) {
+export default function SharedGalleryViewer({ token, gallery, images, permissions, viewer, favorites = new Set(), favoriteCounts = {}, onToggleFavorite }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [gridColumns, setGridColumns] = useState(isMobile ? 2 : 3);
   const [showGridDropdown, setShowGridDropdown] = useState(false);
@@ -54,6 +54,9 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
         currentIndex={selectedImage}
         onClose={() => setSelectedImage(null)}
         onNavigate={setSelectedImage}
+        allowFavorites={permissions?.allowFavorites}
+        favorites={favorites}
+        onToggleFavorite={onToggleFavorite}
       />
     );
   }
@@ -210,6 +213,27 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                     <p className="text-xs text-white truncate">{image.name}</p>
                   </div>
+                )}
+
+                {/* Favorite button */}
+                {permissions?.allowFavorites && onToggleFavorite && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(image.id);
+                    }}
+                    className="absolute top-2 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer z-10"
+                  >
+                    <Heart
+                      size={20}
+                      className={favorites.has(image.id) ? 'fill-red-500 text-red-500' : 'text-white'}
+                    />
+                    {permissions.favoritesVisibleToOthers && favoriteCounts[image.id] > 0 && (
+                      <span className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                        {favoriteCounts[image.id]}
+                      </span>
+                    )}
+                  </button>
                 )}
 
                 {/* Tag chips */}

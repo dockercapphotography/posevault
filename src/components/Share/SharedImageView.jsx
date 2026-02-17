@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, StickyNote, Maximize } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, StickyNote, Maximize, Heart } from 'lucide-react';
 import FullscreenViewer from '../FullscreenViewer';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
@@ -9,7 +9,7 @@ import { getShareImageUrl } from '../../utils/shareApi';
 import 'swiper/css';
 import 'swiper/css/navigation';
 
-export default function SharedImageView({ token, images, currentIndex, onClose, onNavigate }) {
+export default function SharedImageView({ token, images, currentIndex, onClose, onNavigate, allowFavorites, favorites = new Set(), onToggleFavorite }) {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
   const [activeIndex, setActiveIndex] = useState(currentIndex);
@@ -87,8 +87,20 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
             </p>
           </div>
 
-          {/* Spacer to keep title centered */}
-          <div className="w-10" />
+          {/* Favorite button or spacer */}
+          {allowFavorites && onToggleFavorite ? (
+            <button
+              onClick={() => onToggleFavorite(currentImage?.id)}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <Heart
+                size={24}
+                className={currentImage && favorites.has(currentImage.id) ? 'fill-red-500 text-red-500' : 'text-white'}
+              />
+            </button>
+          ) : (
+            <div className="w-10" />
+          )}
         </div>
 
         {/* Swiper Container */}
