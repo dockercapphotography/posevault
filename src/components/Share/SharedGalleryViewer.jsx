@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images } from 'lucide-react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
@@ -108,7 +108,7 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
                       onClick={() => { setGridColumns(cols); setShowGridDropdown(false); }}
                       className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors cursor-pointer whitespace-nowrap text-sm ${
                         gridColumns === cols ? 'bg-gray-700 text-purple-400' : ''
-                      }`}
+                      } ${cols === 4 ? 'hidden md:block' : ''}`}
                     >
                       {cols} Columns
                     </button>
@@ -156,6 +156,18 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
       {gallery.notes && (
         <div className="max-w-6xl mx-auto px-4 py-3">
           <p className="text-sm text-gray-400 bg-gray-800/50 rounded-lg px-4 py-3">{gallery.notes}</p>
+        </div>
+      )}
+
+      {/* Expiration Notice */}
+      {permissions?.expiresAt && (
+        <div className="max-w-6xl mx-auto px-4 pt-3">
+          <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-lg px-4 py-2.5">
+            <Clock size={14} className="text-orange-400 shrink-0" />
+            <p className="text-xs text-orange-300">
+              This gallery expires on {new Date(permissions.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
         </div>
       )}
 

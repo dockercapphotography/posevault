@@ -141,7 +141,7 @@ export default function ImageCard({
       
       {/* Pose name overlay */}
       {image.poseName && !bulkSelectMode && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 rounded-b-lg pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pr-10 rounded-b-lg pointer-events-none">
           <p className="text-xs text-white truncate">{image.poseName}</p>
         </div>
       )}

@@ -208,7 +208,9 @@ function ErrorScreen({ error }) {
         <div className="mb-4 flex justify-center">{icon}</div>
         <h1 className="text-2xl font-bold mb-2">{title}</h1>
         <p className="text-gray-400">{message}</p>
-        <p className="text-gray-600 text-xs mt-8">PoseVault</p>
+        <div className="flex justify-center mt-8 opacity-30">
+          <img src="/posevault-logo-white.svg" alt="PoseVault" className="h-5" />
+        </div>
       </div>
     </div>
   );

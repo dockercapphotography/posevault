@@ -171,6 +171,7 @@ export async function validateShareToken(token) {
       allowFavorites: data.allow_favorites,
       allowUploads: data.allow_uploads,
       allowComments: data.allow_comments,
+      expiresAt: data.expires_at || null,
     },
   };
 }
