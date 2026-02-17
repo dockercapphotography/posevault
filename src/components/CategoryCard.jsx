@@ -13,6 +13,7 @@ export default function CategoryCard({
   onUploadCover,
   onDelete,
   onGeneratePDF,
+  onShare,
   bulkSelectMode = false,
   isSelected = false,
   onSelect,
@@ -242,6 +243,7 @@ export default function CategoryCard({
                   onGeneratePDF={() => {
                     onGeneratePDF(category);
                   }}
+                  onShare={onShare}
                   onClose={() => setShowDropdown(false)}
                 />
               </div>

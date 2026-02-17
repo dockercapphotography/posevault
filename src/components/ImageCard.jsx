@@ -85,23 +85,30 @@ export default function ImageCard({
 
   return (
     <div className="relative group aspect-[3/4]">
-      <img
-        src={image.src}
-        alt={`Pose ${index + 1}`}
-        onClick={() => onImageClick(bulkSelectMode ? originalIndex : index)}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchMove}
-        onContextMenu={(e) => e.preventDefault()}
-        style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
-        className={`w-full h-full object-cover rounded-lg cursor-pointer transition-all ${
-          bulkSelectMode
-            ? isSelected
-              ? 'ring-4 ring-green-500 opacity-90'
-              : 'hover:ring-4 hover:ring-gray-500 hover:opacity-90'
-            : 'hover:opacity-90'
-        }`}
-      />
+      <div className="w-full h-full overflow-hidden rounded-lg">
+        <img
+          src={image.src}
+          alt={`Pose ${index + 1}`}
+          onClick={() => onImageClick(bulkSelectMode ? originalIndex : index)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+          className={`w-full h-full object-cover cursor-pointer transition-all ${
+            bulkSelectMode
+              ? isSelected
+                ? 'ring-4 ring-green-500 opacity-90'
+                : 'hover:ring-4 hover:ring-gray-500 hover:opacity-90'
+              : 'group-hover:scale-105 transition-transform'
+          }`}
+        />
+      </div>
+
+      {/* Hover darkening overlay */}
+      {!bulkSelectMode && (
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg pointer-events-none" />
+      )}
       
       {/* Bulk Select Checkbox */}
       {bulkSelectMode && (
@@ -116,22 +123,29 @@ export default function ImageCard({
         </div>
       )}
       
-      {/* Tags overlay at bottom - hidden on mobile */}
+      {/* Tags overlay at top-left */}
       {image.tags && image.tags.length > 0 && !bulkSelectMode && (
-        <div className="hidden md:flex absolute bottom-2 left-2 right-2 flex-wrap gap-1">
-          {image.tags.slice(0, 3).map((tag, i) => (
-            <span key={i} className="bg-purple-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute top-2 left-2 flex flex-wrap gap-1 pointer-events-none">
+          {image.tags.slice(0, 2).map((tag, i) => (
+            <span key={i} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
               {tag}
             </span>
           ))}
-          {image.tags.length > 3 && (
-            <span className="bg-gray-800 bg-opacity-90 text-white text-xs px-2 py-1 rounded">
-              +{image.tags.length - 3}
+          {image.tags.length > 2 && (
+            <span className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+              +{image.tags.length - 2}
             </span>
           )}
         </div>
       )}
       
+      {/* Pose name overlay */}
+      {image.poseName && !bulkSelectMode && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pr-10 rounded-b-lg pointer-events-none">
+          <p className="text-xs text-white truncate">{image.poseName}</p>
+        </div>
+      )}
+
       {/* Normal mode buttons */}
       {!bulkSelectMode && (
         <>
@@ -140,7 +154,7 @@ export default function ImageCard({
               e.stopPropagation();
               onToggleFavorite(originalIndex);
             }}
-            className="absolute top-2 left-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
+            className="absolute top-2 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
           >
             <Heart
               size={20}
@@ -149,7 +163,7 @@ export default function ImageCard({
           </button>
 
           {/* Three-dot menu button */}
-          <div ref={menuRef} className="absolute top-2 right-2">
+          <div ref={menuRef} className="absolute bottom-2 right-2">
             <button
               ref={menuButtonRef}
               onClick={(e) => {
@@ -169,7 +183,7 @@ export default function ImageCard({
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className={`absolute mt-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20 ${
+              <div className={`absolute bottom-full mb-2 bg-gray-700 rounded-lg shadow-xl border border-gray-600 overflow-hidden min-w-[180px] z-20 ${
                 dropdownAlignRight ? 'right-0' : 'left-0'
               } md:left-auto md:right-0`}>
                 {image.tags && image.tags.length > 0 && (
