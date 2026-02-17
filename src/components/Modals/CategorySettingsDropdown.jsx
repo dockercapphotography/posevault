@@ -47,7 +47,7 @@ export default function CategorySettingsDropdown({
           if (onShare) onShare(category.id);
           onClose();
         }}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer text-blue-400"
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
       >
         <Share2 size={16} />
         <span>Share Gallery</span>

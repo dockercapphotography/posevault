@@ -304,7 +304,7 @@ export default function ShareConfigModal({ category, userId, onClose }) {
                 <div className="text-left">
                   <p className="font-medium text-sm">Link Active</p>
                   <p className="text-xs text-gray-400">
-                    {shareConfig.is_active ? 'Viewers can access this gallery' : 'Link is disabled — viewers will see an error'}
+                    {shareConfig.is_active ? 'Viewers can access this gallery' : 'Viewers will see "Gallery Not Found" if accessed'}
                   </p>
                 </div>
                 {shareConfig.is_active ? (
