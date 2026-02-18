@@ -27,7 +27,34 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
   const dragStartYRef = useRef(0);
   const dragStartPositionRef = useRef(50);
 
+  const [coverDragOver, setCoverDragOver] = useState(false);
+
   const hasExistingPassword = category?.privatePassword;
+
+  const handleCoverDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    onUploadCover({ target: { files: e.dataTransfer.files } }, category.id);
+    setHasCoverChanged(true);
+    const reader = new FileReader();
+    reader.onload = (event) => setCoverPreview(event.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(true);
+  };
+
+  const handleCoverDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(false);
+  };
 
   // Initialize cover preview when category changes
   useEffect(() => {
@@ -152,7 +179,17 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
             className="hidden"
           />
           {coverPreview ? (
-            <div className="relative">
+            <div
+              className="relative"
+              onDrop={handleCoverDrop}
+              onDragOver={handleCoverDragOver}
+              onDragLeave={handleCoverDragLeave}
+            >
+              {coverDragOver && (
+                <div className="absolute inset-0 z-10 bg-purple-600/30 border-2 border-dashed border-purple-400 rounded-lg flex items-center justify-center pointer-events-none">
+                  <p className="text-sm font-semibold text-white bg-gray-900/80 px-4 py-2 rounded-lg">Drop to replace cover</p>
+                </div>
+              )}
               <img
                 src={coverPreview}
                 alt="Cover preview"
@@ -196,10 +233,17 @@ export default function CategorySettingsModal({ category, allGalleryTags = [], o
           ) : (
             <button
               onClick={() => coverInputRef.current?.click()}
-              className="w-full h-24 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:border-purple-500 transition-colors cursor-pointer"
+              onDrop={handleCoverDrop}
+              onDragOver={handleCoverDragOver}
+              onDragLeave={handleCoverDragLeave}
+              className={`w-full h-24 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+                coverDragOver
+                  ? 'border-purple-400 bg-purple-600/20 text-white'
+                  : 'border-gray-600 text-gray-400 hover:text-white hover:border-purple-500'
+              }`}
             >
               <ImagePlus size={20} />
-              <span className="text-sm">Upload Cover Photo</span>
+              <span className="text-sm">{coverDragOver ? 'Drop image here' : 'Upload Cover Photo'}</span>
             </button>
           )}
         </div>

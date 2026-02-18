@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Heart, Grid3x3, ChevronDown, Filter, CopyCheck, CopyX, SquarePen, Images, Upload, Search, X as XIcon } from 'lucide-react';
 import ImageCard from './ImageCard';
 import { getGridColsClass } from '../utils/helpers';
@@ -34,6 +34,24 @@ export default function ImageGrid({
 }) {
   const gridColsClass = getGridColsClass(gridColumns);
   const fileInputRef = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (!e.dataTransfer.files?.length) return;
+    onUploadImages({ target: { files: e.dataTransfer.files } }, category.id);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
 
   // Detect mobile device
   const isMobile = () => {
@@ -54,7 +72,20 @@ export default function ImageGrid({
 
   if (category.images.length === 0) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div
+        className="p-6 max-w-6xl mx-auto relative"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        {dragOver && (
+          <div className="absolute inset-0 z-10 bg-blue-600/20 border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center pointer-events-none">
+            <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+              <Upload size={48} className="text-blue-400 mx-auto mb-3" />
+              <p className="text-lg font-semibold">Drop images to upload</p>
+            </div>
+          </div>
+        )}
         <div className="text-center py-20 text-gray-400">
           <Upload size={64} className="mx-auto mb-4 opacity-50" />
           <p className="text-lg">No poses in this category yet</p>
@@ -92,7 +123,20 @@ export default function ImageGrid({
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div
+      className="p-6 max-w-6xl mx-auto relative"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      {dragOver && (
+        <div className="absolute inset-0 z-20 bg-blue-600/20 border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+            <Upload size={48} className="text-blue-400 mx-auto mb-3" />
+            <p className="text-lg font-semibold">Drop images to upload</p>
+          </div>
+        </div>
+      )}
       <div className="tutorial-filter-section mb-4 flex flex-wrap items-center gap-3">
         {/* Search Box */}
         <div className="relative flex-1 min-w-[200px] max-w-xs">
