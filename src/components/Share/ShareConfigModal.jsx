@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
+import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart } from 'lucide-react';
 import {
   createShareLink,
   getShareConfig,
@@ -144,6 +144,17 @@ export default function ShareConfigModal({ category, userId, onClose }) {
     if (result.ok) {
       setShareConfig(result.data);
       setExpirationChoice(value);
+    } else {
+      setError(result.error);
+    }
+  }
+
+  async function handleTogglePermission(field) {
+    if (!shareConfig) return;
+    setError('');
+    const result = await updateShareConfig(shareConfig.id, { [field]: !shareConfig[field] });
+    if (result.ok) {
+      setShareConfig(result.data);
     } else {
       setError(result.error);
     }
@@ -413,6 +424,59 @@ export default function ShareConfigModal({ category, userId, onClose }) {
                     : `Expires on ${new Date(shareConfig.expires_at).toLocaleString()}`
                   }
                 </p>
+              )}
+            </div>
+
+            {/* Viewer Permissions */}
+            <div className="bg-gray-700/50 rounded-lg p-4 space-y-3">
+              <p className="font-medium text-sm mb-1">Viewer Permissions</p>
+
+              {/* Allow Favorites */}
+              <button
+                onClick={() => handleTogglePermission('allow_favorites')}
+                className="w-full flex items-center justify-between cursor-pointer"
+              >
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <Heart size={14} className="text-red-400" />
+                    <p className="text-sm">Allow Favorites</p>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 ml-6">Viewers can mark poses as favorites</p>
+                </div>
+                {shareConfig.allow_favorites ? (
+                  <ToggleRight size={28} className="text-green-400 shrink-0" />
+                ) : (
+                  <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                )}
+              </button>
+
+              {/* Favorites Visible to Others */}
+              {shareConfig.allow_favorites && (
+                <button
+                  onClick={() => handleTogglePermission('favorites_visible_to_others')}
+                  className="w-full flex items-center justify-between cursor-pointer"
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      {shareConfig.favorites_visible_to_others ? (
+                        <Eye size={14} className="text-blue-400" />
+                      ) : (
+                        <EyeOff size={14} className="text-gray-400" />
+                      )}
+                      <p className="text-sm">Favorites Visible to Others</p>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 ml-6">
+                      {shareConfig.favorites_visible_to_others
+                        ? 'Viewers can see how many people favorited each pose'
+                        : 'Each viewer only sees their own favorites'}
+                    </p>
+                  </div>
+                  {shareConfig.favorites_visible_to_others ? (
+                    <ToggleRight size={28} className="text-green-400 shrink-0" />
+                  ) : (
+                    <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                  )}
+                </button>
               )}
             </div>
 

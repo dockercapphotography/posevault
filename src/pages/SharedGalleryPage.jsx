@@ -10,6 +10,9 @@ import {
   getOrCreateViewer,
   checkExistingSession,
   logShareAccess,
+  getViewerFavorites,
+  getAllFavoriteCounts,
+  toggleShareFavorite,
 } from '../utils/shareApi';
 
 /**
@@ -30,6 +33,10 @@ export default function SharedGalleryPage({ token }) {
 
   // Viewer session
   const [viewer, setViewer] = useState(null);
+
+  // Favorites state
+  const [favorites, setFavorites] = useState(new Set());
+  const [favoriteCounts, setFavoriteCounts] = useState({});
 
   useEffect(() => {
     initializeShare();
@@ -123,6 +130,65 @@ export default function SharedGalleryPage({ token }) {
     logShareAccess(shareInfo.id, result.data.id, 'view_gallery');
   }
 
+  // Load favorites when viewer is ready
+  useEffect(() => {
+    if (stage !== 'ready' || !viewer || !shareInfo) return;
+    if (!shareInfo.allowFavorites) return;
+
+    loadFavorites();
+  }, [stage, viewer?.id, shareInfo?.id]);
+
+  async function loadFavorites() {
+    const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);
+    if (viewerResult.ok) {
+      setFavorites(viewerResult.favorites);
+    }
+
+    if (shareInfo.favoritesVisibleToOthers) {
+      const countsResult = await getAllFavoriteCounts(shareInfo.id);
+      if (countsResult.ok) {
+        setFavoriteCounts(countsResult.counts);
+      }
+    }
+  }
+
+  async function handleToggleFavorite(imageId) {
+    if (!viewer || !shareInfo?.allowFavorites) return;
+
+    // Optimistic update
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(imageId)) {
+        next.delete(imageId);
+      } else {
+        next.add(imageId);
+      }
+      return next;
+    });
+
+    // Optimistic count update
+    if (shareInfo.favoritesVisibleToOthers) {
+      setFavoriteCounts(prev => {
+        const wasFavorited = favorites.has(imageId);
+        const current = prev[imageId] || 0;
+        return {
+          ...prev,
+          [imageId]: wasFavorited ? Math.max(0, current - 1) : current + 1,
+        };
+      });
+    }
+
+    // Sync to DB
+    const result = await toggleShareFavorite(shareInfo.id, imageId, viewer.id);
+    if (!result.ok) {
+      // Revert on failure
+      loadFavorites();
+    } else {
+      // Log the action
+      logShareAccess(shareInfo.id, viewer.id, result.isFavorite ? 'favorite' : 'unfavorite', imageId);
+    }
+  }
+
   // Error states
   if (stage === 'error') {
     return <ErrorScreen error={error} />;
@@ -170,6 +236,9 @@ export default function SharedGalleryPage({ token }) {
         images={galleryData.images}
         permissions={shareInfo}
         viewer={viewer}
+        favorites={favorites}
+        favoriteCounts={favoriteCounts}
+        onToggleFavorite={handleToggleFavorite}
       />
     );
   }
