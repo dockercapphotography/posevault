@@ -112,6 +112,7 @@ export default function PhotographyPoseGuide() {
   const [showShareConfig, setShowShareConfig] = useState(null); // stores categoryId when open
   const [shareUploads, setShareUploads] = useState([]); // approved share uploads for current gallery
   const [shareToken, setShareToken] = useState(null);
+  const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
 
   // Tutorial state
   const {
@@ -2368,25 +2369,27 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
-  // Load share uploads when viewing a gallery
+  // Load share uploads and viewer favorite counts when viewing a gallery
   useEffect(() => {
     if (!category?.supabaseUid) {
       setShareUploads([]);
       setShareToken(null);
+      setShareFavoriteCounts({});
       return;
     }
 
     let cancelled = false;
-    async function loadShareUploads() {
+    async function loadShareData() {
       const result = await getApprovedUploadsForGallery(category.supabaseUid);
       if (cancelled) return;
       if (result.ok) {
         setShareUploads(result.uploads || []);
         setShareToken(result.shareToken || null);
+        setShareFavoriteCounts(result.favoriteCounts || {});
       }
     }
 
-    loadShareUploads();
+    loadShareData();
     return () => { cancelled = true; };
   }, [category?.supabaseUid, category?.id]);
 
@@ -2415,7 +2418,20 @@ export default function PhotographyPoseGuide() {
     _originalIndex: -(i + 1), // Unique negative index: -1, -2, -3...
   })) : [];
 
-  const displayedImages = [...galleryImages, ...shareUploadImages];
+  // Attach viewer favorite counts from the shared gallery to each displayed image
+  const attachFavoriteCounts = (images) => {
+    if (!shareFavoriteCounts || Object.keys(shareFavoriteCounts).length === 0) return images;
+    return images.map(img => {
+      // Gallery images are keyed by supabaseUid, uploads by "upload-<id>"
+      const key = img.isShareUpload
+        ? `upload-${img.shareUploadId}`
+        : (img.supabaseUid != null ? String(img.supabaseUid) : null);
+      const count = key ? (shareFavoriteCounts[key] || 0) : 0;
+      return count > 0 ? { ...img, viewerFavoriteCount: count } : img;
+    });
+  };
+
+  const displayedImages = attachFavoriteCounts([...galleryImages, ...shareUploadImages]);
 
   // Extract mapping array for backward compatibility
   const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);

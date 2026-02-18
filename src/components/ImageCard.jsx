@@ -170,6 +170,11 @@ export default function ImageCard({
               size={20}
               className={image.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
             />
+            {image.viewerFavoriteCount > 0 && (
+              <span className="absolute -bottom-1 -right-1 bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                {image.viewerFavoriteCount}
+              </span>
+            )}
           </button>
 
           {/* Three-dot menu button */}
