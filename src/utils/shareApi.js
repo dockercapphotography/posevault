@@ -494,6 +494,33 @@ export async function approveUpload(uploadId) {
 }
 
 /**
+ * Update share upload metadata (owner only).
+ * Supports: display_name, notes, tags, is_favorite.
+ * @param {string} uploadId - The upload UUID
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function updateShareUpload(uploadId, updates) {
+  const allowed = {};
+  if (updates.display_name !== undefined) allowed.display_name = updates.display_name;
+  if (updates.notes !== undefined) allowed.notes = updates.notes;
+  if (updates.tags !== undefined) allowed.tags = updates.tags;
+  if (updates.is_favorite !== undefined) allowed.is_favorite = updates.is_favorite;
+
+  const { error } = await supabase
+    .from('share_uploads')
+    .update(allowed)
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to update share upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
  * Reject (delete) an upload (owner only).
  * Also deletes the image from R2 via the worker.
  * @param {string} uploadId - The upload UUID

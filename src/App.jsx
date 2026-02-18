@@ -39,7 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
-import { getApprovedUploadsForGallery, getShareImageUrl } from './utils/shareApi';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -1775,9 +1775,61 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleToggleFavorite = (categoryId, imageIndex) => {
+    if (imageIndex < 0) {
+      // Share upload: find by negative index and toggle via share upload API
+      const img = displayedImages.find(i => i._originalIndex === imageIndex);
+      if (!img) return;
+      const newFav = !img.isFavorite;
+      setShareUploads(prev => prev.map(u =>
+        u.id === img.shareUploadId ? { ...u, is_favorite: newFav } : u
+      ));
+      updateShareUpload(img.shareUploadId, { is_favorite: newFav });
+      return;
+    }
     const cat = categoriesRef.current.find(c => c.id === categoryId);
     const image = cat.images[imageIndex];
     updateImageWithSync(categoryId, imageIndex, { isFavorite: !image.isFavorite });
+  };
+
+  // Wrapper for image updates that routes share uploads to the share upload API
+  const handleUpdateImage = (catId, imgIndex, updates) => {
+    if (imgIndex < 0) {
+      const img = displayedImages.find(i => i._originalIndex === imgIndex);
+      if (!img) return;
+      // Map local image field names to share_upload column names
+      const uploadUpdates = {};
+      if (updates.poseName !== undefined) uploadUpdates.display_name = updates.poseName;
+      if (updates.notes !== undefined) uploadUpdates.notes = updates.notes;
+      if (updates.tags !== undefined) uploadUpdates.tags = updates.tags;
+      if (updates.isFavorite !== undefined) uploadUpdates.is_favorite = updates.isFavorite;
+      updateShareUpload(img.shareUploadId, uploadUpdates);
+      // Update local state
+      setShareUploads(prev => prev.map(u =>
+        u.id === img.shareUploadId
+          ? {
+              ...u,
+              ...(updates.poseName !== undefined ? { display_name: updates.poseName } : {}),
+              ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+              ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+              ...(updates.isFavorite !== undefined ? { is_favorite: updates.isFavorite } : {}),
+            }
+          : u
+      ));
+      return;
+    }
+    updateImageWithSync(catId, imgIndex, updates);
+  };
+
+  // Delete handler that routes share uploads to rejectUpload API
+  const handleDeleteImage = (catId, imgIndex) => {
+    if (imgIndex < 0) {
+      const img = displayedImages.find(i => i._originalIndex === imgIndex);
+      if (!img) return;
+      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token);
+      setShareUploads(prev => prev.filter(u => u.id !== img.shareUploadId));
+      return;
+    }
+    deleteImageWithSync(catId, imgIndex);
   };
 
   // ==========================================
@@ -2347,20 +2399,20 @@ export default function PhotographyPoseGuide() {
     searchTerm
   }) : [];
 
-  // Append approved share uploads as image-like objects
-  const shareUploadImages = (shareUploads.length > 0 && shareToken) ? shareUploads.map(upload => ({
+  // Append approved share uploads as image-like objects with unique negative indices
+  const shareUploadImages = (shareUploads.length > 0 && shareToken) ? shareUploads.map((upload, i) => ({
     src: getShareImageUrl(shareToken, upload.image_url),
-    poseName: upload.original_filename?.replace(/\.[^/.]+$/, '') || 'Viewer Upload',
-    notes: '',
-    isFavorite: false,
+    poseName: upload.display_name || upload.original_filename?.replace(/\.[^/.]+$/, '') || 'Viewer Upload',
+    notes: upload.notes || '',
+    isFavorite: upload.is_favorite || false,
     isCover: false,
-    tags: [],
+    tags: upload.tags || [],
     dateAdded: upload.uploaded_at,
     r2Key: upload.image_url,
     isShareUpload: true,
     uploadedBy: upload.share_viewers?.display_name || 'Unknown',
     shareUploadId: upload.id,
-    _originalIndex: -1, // Sentinel: not a real gallery image
+    _originalIndex: -(i + 1), // Unique negative index: -1, -2, -3...
   })) : [];
 
   const displayedImages = [...galleryImages, ...shareUploadImages];
@@ -2519,8 +2571,8 @@ export default function PhotographyPoseGuide() {
           onToggleFavorite={(index) => handleToggleFavorite(category.id, index)}
           onEditImage={(index) => setEditingImage({ categoryId: category.id, imageIndex: index })}
           onDeleteImage={(index) => {
-            deleteImageWithSync(category.id, index);
-            if (currentImageIndex >= category.images.length - 1) {
+            handleDeleteImage(category.id, index);
+            if (index >= 0 && currentImageIndex >= category.images.length - 1) {
               setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
             }
           }}
@@ -2531,7 +2583,7 @@ export default function PhotographyPoseGuide() {
         />
       )}
 
-      {viewMode === 'single' && category && category.images.length > 0 && (() => {
+      {viewMode === 'single' && category && displayedImages.length > 0 && (() => {
         // Create a category with sorted images for the viewer
         const sortedCategory = { ...category, images: displayedImages };
         return (
@@ -2555,7 +2607,7 @@ export default function PhotographyPoseGuide() {
               // swiperIndex comes from SingleImageView's activeIndex
               const currentImage = displayedImages[swiperIndex];
               const originalIndex = currentImage._originalIndex;
-              updateImageWithSync(catId, originalIndex, updates);
+              handleUpdateImage(catId, originalIndex, updates);
             }}
           />
         );
@@ -2611,7 +2663,10 @@ export default function PhotographyPoseGuide() {
 
       {editingImage && (() => {
         const cat = categories.find(c => c.id === editingImage.categoryId);
-        const img = cat?.images[editingImage.imageIndex];
+        // For share uploads (negative index), find the image from displayedImages
+        const img = editingImage.imageIndex < 0
+          ? displayedImages.find(i => i._originalIndex === editingImage.imageIndex)
+          : cat?.images[editingImage.imageIndex];
         return (
           <ImageEditModal
             image={img}
@@ -2619,10 +2674,10 @@ export default function PhotographyPoseGuide() {
             categoryId={editingImage.categoryId}
             allTags={allTags}
             onClose={() => setEditingImage(null)}
-            onUpdateTags={(catId, imgIndex, tags) => updateImageWithSync(catId, imgIndex, { tags })}
-            onUpdateNotes={(catId, imgIndex, notes) => updateImageWithSync(catId, imgIndex, { notes })}
-            onUpdatePoseName={(catId, imgIndex, poseName) => updateImageWithSync(catId, imgIndex, { poseName })}
-            onUpdate={(catId, imgIndex, updates) => updateImageWithSync(catId, imgIndex, updates)}
+            onUpdateTags={(catId, imgIndex, tags) => handleUpdateImage(catId, imgIndex, { tags })}
+            onUpdateNotes={(catId, imgIndex, notes) => handleUpdateImage(catId, imgIndex, { notes })}
+            onUpdatePoseName={(catId, imgIndex, poseName) => handleUpdateImage(catId, imgIndex, { poseName })}
+            onUpdate={(catId, imgIndex, updates) => handleUpdateImage(catId, imgIndex, updates)}
             onForceSave={forceSave}
           />
         );

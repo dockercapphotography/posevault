@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertCircle, Clock, LinkIcon } from 'lucide-react';
 import SharePasswordGate from '../components/Share/SharePasswordGate';
 import NameEntryGate from '../components/Share/NameEntryGate';
@@ -150,6 +150,51 @@ export default function SharedGalleryPage({ token }) {
 
     loadUploads();
   }, [stage, shareInfo?.id, shareInfo?.allowUploads]);
+
+  // Auto-refresh: poll for new images and uploads every 30 seconds
+  const pollIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (stage !== 'ready' || !shareInfo) return;
+
+    const pollData = async () => {
+      // Silently refresh gallery images
+      const galleryResult = await fetchSharedGalleryData(token, shareInfo.galleryId, shareInfo.ownerId);
+      if (galleryResult.ok) {
+        setGalleryData(galleryResult.data);
+      }
+
+      // Refresh uploads if enabled
+      if (shareInfo.allowUploads) {
+        const uploadsResult = await getShareUploads(shareInfo.id, true);
+        if (uploadsResult.ok) {
+          setUploads(uploadsResult.uploads);
+        }
+      }
+
+      // Refresh favorites if enabled
+      if (shareInfo.allowFavorites && viewer) {
+        const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);
+        if (viewerResult.ok) {
+          setFavorites(viewerResult.favorites);
+        }
+        if (shareInfo.favoritesVisibleToOthers) {
+          const countsResult = await getAllFavoriteCounts(shareInfo.id);
+          if (countsResult.ok) {
+            setFavoriteCounts(countsResult.counts);
+          }
+        }
+      }
+    };
+
+    pollIntervalRef.current = setInterval(pollData, 30000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [stage, shareInfo?.id, viewer?.id]);
 
   async function loadFavorites() {
     const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);

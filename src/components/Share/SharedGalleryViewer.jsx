@@ -326,25 +326,23 @@ export default function SharedGalleryViewer({
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
 
-                {/* Image name overlay */}
-                {image.name && (
+                {/* Image name + upload badge overlay */}
+                {(image.name || image.isUpload) && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="text-xs text-white truncate">{image.name}</p>
-                  </div>
-                )}
-
-                {/* Upload badge */}
-                {image.isUpload && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="text-[10px] text-green-300 truncate">
-                      <Upload size={10} className="inline mr-0.5" />
-                      {image.uploadedBy}
-                    </p>
+                    {image.name && (
+                      <p className="text-xs text-white truncate">{image.name}</p>
+                    )}
+                    {image.isUpload && (
+                      <p className="text-[10px] text-green-300 truncate mt-0.5">
+                        <Upload size={10} className="inline mr-0.5" />
+                        {image.uploadedBy}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* Favorite button */}
-                {permissions?.allowFavorites && onToggleFavorite && !image.isUpload && (
+                {permissions?.allowFavorites && onToggleFavorite && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
