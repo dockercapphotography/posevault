@@ -1836,7 +1836,7 @@ export default function PhotographyPoseGuide() {
     if (imgIndex < 0) {
       const img = displayedImages.find(i => i._originalIndex === imgIndex);
       if (!img) return;
-      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token);
+      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, session?.user?.id);
       setShareUploads(prev => prev.filter(u => u.id !== img.shareUploadId));
       return;
     }

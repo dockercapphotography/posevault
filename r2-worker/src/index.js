@@ -261,6 +261,36 @@ export default {
 
         const insertData = await insertResp.json();
 
+        // Track storage against gallery owner
+        try {
+          const storageUrl = `${supabaseUrl}/rest/v1/user_storage?user_id=eq.${share.owner_id}&select=uid,current_storage`;
+          const storageResp = await fetch(storageUrl, {
+            headers: {
+              "apikey": serviceKey,
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+          });
+          const storageRows = await storageResp.json();
+          if (storageRows && storageRows.length > 0) {
+            const row = storageRows[0];
+            await fetch(`${supabaseUrl}/rest/v1/user_storage?uid=eq.${row.uid}`, {
+              method: "PATCH",
+              headers: {
+                "apikey": serviceKey,
+                "Authorization": `Bearer ${serviceKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                current_storage: (row.current_storage || 0) + file.size,
+                updated_at: new Date().toISOString(),
+              }),
+            });
+          }
+        } catch (storageErr) {
+          // Non-fatal: upload still succeeded, just log the error
+          console.error("Failed to update owner storage:", storageErr);
+        }
+
         return new Response(
           JSON.stringify({
             ok: true,
@@ -373,9 +403,16 @@ export default {
       }
 
       try {
+        // Get file size before deleting (for storage reclamation)
+        let size = 0;
+        try {
+          const head = await env.MY_BUCKET.head(key);
+          if (head) size = head.size || 0;
+        } catch (_) { /* non-fatal */ }
+
         await env.MY_BUCKET.delete(key);
         return new Response(
-          JSON.stringify({ ok: true, key }),
+          JSON.stringify({ ok: true, key, size }),
           { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       } catch (err) {

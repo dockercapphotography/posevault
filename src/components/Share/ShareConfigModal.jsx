@@ -666,6 +666,7 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
           shareConfig={shareConfig}
           token={shareConfig.share_token}
           accessToken={accessToken}
+          ownerId={userId}
           onClose={() => {
             setShowApprovalQueue(false);
             // Refresh pending count

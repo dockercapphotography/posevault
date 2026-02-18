@@ -3,7 +3,7 @@ import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDow
 import { getPendingUploads, approveUpload, rejectUpload, getShareUploads } from '../../utils/shareApi';
 import { getShareImageUrl } from '../../utils/shareApi';
 
-export default function UploadApprovalQueue({ shareConfig, token: shareToken, accessToken, onClose }) {
+export default function UploadApprovalQueue({ shareConfig, token: shareToken, accessToken, ownerId, onClose }) {
   const [pendingUploads, setPendingUploads] = useState([]);
   const [approvedUploads, setApprovedUploads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
 
   async function handleReject(upload) {
     setActionLoading(prev => ({ ...prev, [upload.id]: 'rejecting' }));
-    const result = await rejectUpload(upload.id, upload.image_url, accessToken);
+    const result = await rejectUpload(upload.id, upload.image_url, accessToken, ownerId);
     if (result.ok) {
       setPendingUploads(prev => prev.filter(u => u.id !== upload.id));
     }

@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { hashPassword, verifyPassword } from './crypto';
+import { updateUserStorage } from './supabaseSync';
 
 const R2_WORKER_URL = 'https://r2-worker.sitranephotography.workers.dev';
 
@@ -532,20 +533,26 @@ export async function updateShareUpload(uploadId, updates) {
 
 /**
  * Reject (delete) an upload (owner only).
- * Also deletes the image from R2 via the worker.
+ * Also deletes the image from R2 via the worker and reclaims storage.
  * @param {string} uploadId - The upload UUID
  * @param {string} imageUrl - The R2 key to delete
  * @param {string} accessToken - Owner's Supabase access token
+ * @param {string} ownerId - The gallery owner's user ID (for storage reclamation)
  * @returns {Promise<{ok: boolean, error?: string}>}
  */
-export async function rejectUpload(uploadId, imageUrl, accessToken) {
-  // Delete from R2
+export async function rejectUpload(uploadId, imageUrl, accessToken, ownerId) {
+  // Delete from R2 and capture file size for storage reclamation
+  let deletedSize = 0;
   if (imageUrl) {
     try {
-      await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
+      const resp = await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      const result = await resp.json();
+      if (result.ok && result.size) {
+        deletedSize = result.size;
+      }
     } catch (err) {
       console.error('Failed to delete rejected upload from R2:', err);
     }
@@ -560,6 +567,11 @@ export async function rejectUpload(uploadId, imageUrl, accessToken) {
   if (error) {
     console.error('Failed to reject upload:', error);
     return { ok: false, error: error.message };
+  }
+
+  // Reclaim storage from owner
+  if (deletedSize > 0 && ownerId) {
+    updateUserStorage(ownerId, -deletedSize);
   }
 
   return { ok: true };
