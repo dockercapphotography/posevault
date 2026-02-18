@@ -2105,15 +2105,46 @@ export default function PhotographyPoseGuide() {
       bulkUpdates.isFavorite = false;
     }
 
-    // Update locally first
-    bulkUpdateImages(currentCategory.id, selectedImages, bulkUpdates);
+    // Split selected images into regular (non-negative) and share uploads (negative)
+    const regularIndices = selectedImages.filter(i => i >= 0);
+    const shareUploadIndices = selectedImages.filter(i => i < 0);
 
-    // Sync to Supabase in background
+    // Update regular images locally first
+    if (regularIndices.length > 0) {
+      bulkUpdateImages(currentCategory.id, regularIndices, bulkUpdates);
+    }
+
+    // Update share uploads locally
+    if (shareUploadIndices.length > 0) {
+      setShareUploads(prev => prev.map((upload, i) => {
+        const negIndex = -(i + 1);
+        if (!shareUploadIndices.includes(negIndex)) return upload;
+
+        let updated = { ...upload };
+        if (bulkUpdates.tags && bulkUpdates.tags.length > 0) {
+          const existing = updated.tags || [];
+          updated.tags = [...new Set([...existing, ...bulkUpdates.tags])];
+        }
+        if (bulkUpdates.notes !== undefined) {
+          if (bulkUpdates.notesMode === 'append' && updated.notes) {
+            updated.notes = `${updated.notes}\n${bulkUpdates.notes}`;
+          } else {
+            updated.notes = bulkUpdates.notes;
+          }
+        }
+        if (bulkUpdates.isFavorite !== undefined) {
+          updated.is_favorite = bulkUpdates.isFavorite;
+        }
+        return updated;
+      }));
+    }
+
+    // Sync regular images to Supabase in background
     const userId = session?.user?.id;
     if (userId) {
       const cat = categoriesRef.current.find(c => c.id === currentCategory.id);
       if (cat) {
-        for (const imageIndex of selectedImages) {
+        for (const imageIndex of regularIndices) {
           const image = cat.images[imageIndex];
           if (!image) continue;
 
@@ -2154,6 +2185,33 @@ export default function PhotographyPoseGuide() {
           }
         }
       }
+
+      // Sync share uploads to Supabase in background
+      for (const negIndex of shareUploadIndices) {
+        const img = displayedImages.find(i => i._originalIndex === negIndex);
+        if (!img?.shareUploadId) continue;
+
+        const uploadUpdates = {};
+        if (bulkUpdates.tags && bulkUpdates.tags.length > 0) {
+          const existing = img.tags || [];
+          uploadUpdates.tags = [...new Set([...existing, ...bulkUpdates.tags])];
+        }
+        if (bulkUpdates.notes !== undefined) {
+          if (bulkUpdates.notesMode === 'append' && img.notes) {
+            uploadUpdates.notes = `${img.notes}\n${bulkUpdates.notes}`;
+          } else {
+            uploadUpdates.notes = bulkUpdates.notes;
+          }
+        }
+        if (bulkUpdates.isFavorite !== undefined) {
+          uploadUpdates.is_favorite = bulkUpdates.isFavorite;
+        }
+
+        if (Object.keys(uploadUpdates).length > 0) {
+          updateShareUpload(img.shareUploadId, uploadUpdates)
+            .catch(err => console.error('Bulk edit share upload sync error:', err));
+        }
+      }
     }
 
     setBulkSelectMode(false);
@@ -2165,11 +2223,15 @@ export default function PhotographyPoseGuide() {
 
     const userId = session?.user?.id;
 
-    // Delete from R2 and soft-delete in Supabase before removing locally
+    // Split selected images into regular (non-negative) and share uploads (negative)
+    const regularIndices = selectedImages.filter(i => i >= 0);
+    const shareUploadIndices = selectedImages.filter(i => i < 0);
+
+    // Delete regular images from R2 and soft-delete in Supabase
     if (userId) {
       const cat = categoriesRef.current.find(c => c.id === currentCategory.id);
       if (cat) {
-        for (const imageIndex of selectedImages) {
+        for (const imageIndex of regularIndices) {
           const image = cat.images[imageIndex];
           if (!image) continue;
 
@@ -2200,8 +2262,27 @@ export default function PhotographyPoseGuide() {
       }
     }
 
-    // Delete all selected images locally
-    bulkDeleteImages(currentCategory.id, selectedImages);
+    // Delete share uploads via rejectUpload API
+    for (const negIndex of shareUploadIndices) {
+      const img = displayedImages.find(i => i._originalIndex === negIndex);
+      if (!img?.shareUploadId) continue;
+
+      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, userId)
+        .catch(err => console.error('Bulk delete share upload error:', err));
+    }
+
+    // Remove share uploads from local state
+    if (shareUploadIndices.length > 0) {
+      const deletedUploadIds = shareUploadIndices
+        .map(negIndex => displayedImages.find(i => i._originalIndex === negIndex)?.shareUploadId)
+        .filter(Boolean);
+      setShareUploads(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
+    }
+
+    // Delete regular images locally
+    if (regularIndices.length > 0) {
+      bulkDeleteImages(currentCategory.id, regularIndices);
+    }
 
     setBulkSelectMode(false);
     setSelectedImages([]);
