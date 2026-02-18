@@ -385,9 +385,9 @@ export default function SharedGalleryViewer({
 
                 {/* Tag chips */}
                 {image.tags && image.tags.length > 0 && (
-                  <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                  <div className="absolute top-2 left-2 right-12 flex flex-wrap gap-1">
                     {image.tags.slice(0, 2).map(tag => (
-                      <span key={tag} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                      <span key={tag} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded truncate max-w-[calc(100%-8px)]">
                         {tag}
                       </span>
                     ))}
