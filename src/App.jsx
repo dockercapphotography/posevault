@@ -39,6 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
+import { getApprovedUploadsForGallery, getShareImageUrl } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -109,6 +110,8 @@ export default function PhotographyPoseGuide() {
   const [pdfCategory, setPdfCategory] = useState(null);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showShareConfig, setShowShareConfig] = useState(null); // stores categoryId when open
+  const [shareUploads, setShareUploads] = useState([]); // approved share uploads for current gallery
+  const [shareToken, setShareToken] = useState(null);
 
   // Tutorial state
   const {
@@ -2313,14 +2316,54 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
+  // Load share uploads when viewing a gallery
+  useEffect(() => {
+    if (!category?.supabaseUid) {
+      setShareUploads([]);
+      setShareToken(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadShareUploads() {
+      const result = await getApprovedUploadsForGallery(category.supabaseUid);
+      if (cancelled) return;
+      if (result.ok) {
+        setShareUploads(result.uploads || []);
+        setShareToken(result.shareToken || null);
+      }
+    }
+
+    loadShareUploads();
+    return () => { cancelled = true; };
+  }, [category?.supabaseUid, category?.id]);
+
   // Get displayed images (already includes _originalIndex from helpers.js)
-  const displayedImages = category ? getDisplayedImages(category, {
+  const galleryImages = category ? getDisplayedImages(category, {
     selectedTagFilters,
     tagFilterMode,
     showFavoritesOnly,
     sortBy,
     searchTerm
   }) : [];
+
+  // Append approved share uploads as image-like objects
+  const shareUploadImages = (shareUploads.length > 0 && shareToken) ? shareUploads.map(upload => ({
+    src: getShareImageUrl(shareToken, upload.image_url),
+    poseName: upload.original_filename?.replace(/\.[^/.]+$/, '') || 'Viewer Upload',
+    notes: '',
+    isFavorite: false,
+    isCover: false,
+    tags: [],
+    dateAdded: upload.uploaded_at,
+    r2Key: upload.image_url,
+    isShareUpload: true,
+    uploadedBy: upload.share_viewers?.display_name || 'Unknown',
+    shareUploadId: upload.id,
+    _originalIndex: -1, // Sentinel: not a real gallery image
+  })) : [];
+
+  const displayedImages = [...galleryImages, ...shareUploadImages];
 
   // Extract mapping array for backward compatibility
   const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);

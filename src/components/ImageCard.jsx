@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag } from 'lucide-react';
+import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag, Upload } from 'lucide-react';
 
 export default function ImageCard({
   image,
@@ -123,8 +123,18 @@ export default function ImageCard({
         </div>
       )}
       
+      {/* Share upload badge at top-left */}
+      {image.isShareUpload && !bulkSelectMode && (
+        <div className="absolute top-2 left-2 pointer-events-none">
+          <span className="bg-green-600/90 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+            <Upload size={10} />
+            {image.uploadedBy}
+          </span>
+        </div>
+      )}
+
       {/* Tags overlay at top-left */}
-      {image.tags && image.tags.length > 0 && !bulkSelectMode && (
+      {!image.isShareUpload && image.tags && image.tags.length > 0 && !bulkSelectMode && (
         <div className="absolute top-2 left-2 flex flex-wrap gap-1 pointer-events-none">
           {image.tags.slice(0, 2).map((tag, i) => (
             <span key={i} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
@@ -138,16 +148,16 @@ export default function ImageCard({
           )}
         </div>
       )}
-      
+
       {/* Pose name overlay */}
       {image.poseName && !bulkSelectMode && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pr-10 rounded-b-lg pointer-events-none">
+        <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 ${image.isShareUpload ? '' : 'pr-10'} rounded-b-lg pointer-events-none`}>
           <p className="text-xs text-white truncate">{image.poseName}</p>
         </div>
       )}
 
-      {/* Normal mode buttons */}
-      {!bulkSelectMode && (
+      {/* Normal mode buttons (hidden for share uploads) */}
+      {!bulkSelectMode && !image.isShareUpload && (
         <>
           <button
             onClick={(e) => {

@@ -346,6 +346,40 @@ export function getShareImageUrl(token, r2Key) {
   return `${R2_WORKER_URL}/share-image?token=${encodeURIComponent(token)}&key=${encodeURIComponent(r2Key)}`;
 }
 
+/**
+ * Get approved uploads for a gallery (owner-side).
+ * Fetches the share config + approved uploads, returning image-ready objects.
+ * @param {number|string} galleryUid - The gallery's supabaseUid
+ * @returns {Promise<{ok: boolean, uploads?: Array, shareToken?: string, error?: string}>}
+ */
+export async function getApprovedUploadsForGallery(galleryUid) {
+  // First get the share config
+  const configResult = await getShareConfig(galleryUid);
+  if (!configResult.ok || !configResult.data) {
+    return { ok: true, uploads: [] }; // No share = no uploads
+  }
+
+  const config = configResult.data;
+  if (!config.allow_uploads) {
+    return { ok: true, uploads: [] };
+  }
+
+  // Fetch approved uploads
+  const { data, error } = await supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', config.id)
+    .eq('approved', true)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch approved uploads for gallery:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data || [], shareToken: config.share_token };
+}
+
 // ==========================================
 // Upload operations
 // ==========================================
