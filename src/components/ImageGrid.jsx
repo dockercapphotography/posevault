@@ -79,8 +79,8 @@ export default function ImageGrid({
         onDragLeave={handleDragLeave}
       >
         {dragOver && (
-          <div className="absolute inset-0 z-10 bg-blue-600/20 border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center pointer-events-none">
-            <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+          <div className="fixed inset-0 z-50 bg-blue-600/20 border-4 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
+            <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center shadow-2xl">
               <Upload size={48} className="text-blue-400 mx-auto mb-3" />
               <p className="text-lg font-semibold">Drop images to upload</p>
             </div>
@@ -130,8 +130,8 @@ export default function ImageGrid({
       onDragLeave={handleDragLeave}
     >
       {dragOver && (
-        <div className="absolute inset-0 z-20 bg-blue-600/20 border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center pointer-events-none">
-          <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+        <div className="fixed inset-0 z-50 bg-blue-600/20 border-4 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center shadow-2xl">
             <Upload size={48} className="text-blue-400 mx-auto mb-3" />
             <p className="text-lg font-semibold">Drop images to upload</p>
           </div>
