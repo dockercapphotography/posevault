@@ -541,18 +541,22 @@ export async function updateShareUpload(uploadId, updates) {
  * @returns {Promise<{ok: boolean, error?: string}>}
  */
 export async function rejectUpload(uploadId, imageUrl, accessToken, ownerId) {
-  // Delete from R2 and capture file size for storage reclamation
-  let deletedSize = 0;
+  // Read file_size from DB before deleting the record
+  let fileSize = 0;
+  const { data: upload } = await supabase
+    .from('share_uploads')
+    .select('file_size')
+    .eq('id', uploadId)
+    .maybeSingle();
+  if (upload?.file_size) fileSize = upload.file_size;
+
+  // Delete from R2
   if (imageUrl) {
     try {
-      const resp = await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
+      await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const result = await resp.json();
-      if (result.ok && result.size) {
-        deletedSize = result.size;
-      }
     } catch (err) {
       console.error('Failed to delete rejected upload from R2:', err);
     }
@@ -570,8 +574,8 @@ export async function rejectUpload(uploadId, imageUrl, accessToken, ownerId) {
   }
 
   // Reclaim storage from owner
-  if (deletedSize > 0 && ownerId) {
-    updateUserStorage(ownerId, -deletedSize);
+  if (fileSize > 0 && ownerId) {
+    updateUserStorage(ownerId, -fileSize);
   }
 
   return { ok: true };

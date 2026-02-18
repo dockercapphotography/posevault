@@ -247,6 +247,7 @@ export default {
             original_filename: file.name,
             viewer_id: viewerId,
             approved,
+            file_size: file.size,
           }),
         });
 
