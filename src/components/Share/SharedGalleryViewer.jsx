@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock, Heart, Upload, CheckCircle, Loader2 } from 'lucide-react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Image as ImageIcon, Images, Clock, Heart, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
@@ -13,17 +13,20 @@ export default function SharedGalleryViewer({
   const [showGridDropdown, setShowGridDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showMobileUploadModal, setShowMobileUploadModal] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   // Combine gallery images with approved uploads
   const allImages = useMemo(() => {
     const uploadImages = uploads.map(u => ({
       id: `upload-${u.id}`,
-      name: u.original_filename || 'Uploaded pose',
+      name: u.display_name || u.original_filename || 'Uploaded pose',
       r2Key: u.image_url,
-      tags: [],
+      tags: u.tags || [],
       isUpload: true,
       uploadedBy: u.share_viewers?.display_name || 'Unknown',
     }));
@@ -125,16 +128,34 @@ export default function SharedGalleryViewer({
         </div>
       )}
 
-      {/* Hidden file input */}
+      {/* Hidden file inputs */}
       {uploadsAllowed && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => handleFileSelect(e.target.files)}
-          className="hidden"
-        />
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => handleFileSelect(e.target.files)}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => { handleFileSelect(e.target.files); setShowMobileUploadModal(false); }}
+            className="hidden"
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => { handleFileSelect(e.target.files); setShowMobileUploadModal(false); }}
+            className="hidden"
+          />
+        </>
       )}
 
       {/* Header */}
@@ -153,7 +174,7 @@ export default function SharedGalleryViewer({
             {/* Upload Button */}
             {uploadsAllowed && (
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => isMobile ? setShowMobileUploadModal(true) : fileInputRef.current?.click()}
                 disabled={isUploading}
                 className="px-2 md:px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -382,6 +403,60 @@ export default function SharedGalleryViewer({
           </div>
         )}
       </div>
+
+      {/* Mobile Upload Modal */}
+      {showMobileUploadModal && uploadsAllowed && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end sm:items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-t-xl sm:rounded-xl w-full sm:max-w-sm sm:mx-4 animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <h2 className="text-lg font-semibold">Upload Images</h2>
+              <button
+                onClick={() => setShowMobileUploadModal(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full flex items-center gap-4 p-4 bg-gray-700 hover:bg-gray-600 rounded-xl transition-colors cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <Camera size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Take Photo</p>
+                  <p className="text-sm text-gray-400">Use your camera</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => galleryInputRef.current?.click()}
+                className="w-full flex items-center gap-4 p-4 bg-gray-700 hover:bg-gray-600 rounded-xl transition-colors cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                  <ImageIcon size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Photo Gallery</p>
+                  <p className="text-sm text-gray-400">Choose from your photos</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="p-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowMobileUploadModal(false)}
+                className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-xl transition-colors font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="flex justify-center py-6 opacity-30">

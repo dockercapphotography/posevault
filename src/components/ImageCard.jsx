@@ -133,11 +133,11 @@ export default function ImageCard({
         </div>
       )}
 
-      {/* Tags overlay at top-left (offset down if share upload badge is shown) */}
+      {/* Tags overlay at top-left — capped width so tags never overlap the favorite icon */}
       {image.tags && image.tags.length > 0 && !bulkSelectMode && (
-        <div className="absolute top-2 left-2 flex flex-wrap gap-1 pointer-events-none">
+        <div className="absolute top-2 left-2 max-w-[calc(100%-3.5rem)] flex flex-wrap gap-1 pointer-events-none">
           {image.tags.slice(0, 2).map((tag, i) => (
-            <span key={i} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+            <span key={i} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded truncate max-w-[6rem]">
               {tag}
             </span>
           ))}
