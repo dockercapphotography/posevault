@@ -2723,6 +2723,7 @@ export default function PhotographyPoseGuide() {
           <ShareConfigModal
             category={cat}
             userId={session?.user?.id}
+            accessToken={session?.access_token}
             onClose={() => setShowShareConfig(null)}
           />
         ) : null;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, Clock, LinkIcon } from 'lucide-react';
 import SharePasswordGate from '../components/Share/SharePasswordGate';
 import NameEntryGate from '../components/Share/NameEntryGate';
@@ -13,6 +13,8 @@ import {
   getViewerFavorites,
   getAllFavoriteCounts,
   toggleShareFavorite,
+  uploadToSharedGallery,
+  getShareUploads,
 } from '../utils/shareApi';
 
 /**
@@ -37,6 +39,10 @@ export default function SharedGalleryPage({ token }) {
   // Favorites state
   const [favorites, setFavorites] = useState(new Set());
   const [favoriteCounts, setFavoriteCounts] = useState({});
+
+  // Uploads state
+  const [uploads, setUploads] = useState([]);
+  const [uploadState, setUploadState] = useState(null);
 
   useEffect(() => {
     initializeShare();
@@ -138,6 +144,13 @@ export default function SharedGalleryPage({ token }) {
     loadFavorites();
   }, [stage, viewer?.id, shareInfo?.id]);
 
+  // Load uploads when viewer is ready and uploads are enabled
+  useEffect(() => {
+    if (stage !== 'ready' || !shareInfo?.allowUploads) return;
+
+    loadUploads();
+  }, [stage, shareInfo?.id, shareInfo?.allowUploads]);
+
   async function loadFavorites() {
     const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);
     if (viewerResult.ok) {
@@ -149,6 +162,14 @@ export default function SharedGalleryPage({ token }) {
       if (countsResult.ok) {
         setFavoriteCounts(countsResult.counts);
       }
+    }
+  }
+
+  async function loadUploads() {
+    // Viewers only see approved uploads
+    const result = await getShareUploads(shareInfo.id, true);
+    if (result.ok) {
+      setUploads(result.uploads);
     }
   }
 
@@ -188,6 +209,41 @@ export default function SharedGalleryPage({ token }) {
       logShareAccess(shareInfo.id, viewer.id, result.isFavorite ? 'favorite' : 'unfavorite', imageId);
     }
   }
+
+  const handleUpload = useCallback(async (file) => {
+    if (!viewer || !shareInfo?.allowUploads) return;
+
+    setUploadState({ status: 'uploading', message: `Uploading ${file.name}...` });
+
+    const result = await uploadToSharedGallery(
+      token,
+      shareInfo.id,
+      viewer.id,
+      file,
+      shareInfo.maxUploadSizeMb || 10,
+    );
+
+    if (!result.ok) {
+      setUploadState({ status: 'error', message: result.error });
+      setTimeout(() => setUploadState(null), 5000);
+      return;
+    }
+
+    // Log the upload action
+    logShareAccess(shareInfo.id, viewer.id, 'upload');
+
+    const message = result.data?.approved !== false
+      ? 'Image uploaded successfully!'
+      : 'Image submitted for approval.';
+
+    setUploadState({ status: 'success', message });
+    setTimeout(() => setUploadState(null), 4000);
+
+    // Reload uploads if auto-approved
+    if (result.data?.approved !== false) {
+      loadUploads();
+    }
+  }, [viewer, shareInfo, token]);
 
   // Error states
   if (stage === 'error') {
@@ -239,6 +295,9 @@ export default function SharedGalleryPage({ token }) {
         favorites={favorites}
         favoriteCounts={favoriteCounts}
         onToggleFavorite={handleToggleFavorite}
+        uploads={uploads}
+        onUpload={shareInfo?.allowUploads ? handleUpload : undefined}
+        uploadState={uploadState}
       />
     );
   }

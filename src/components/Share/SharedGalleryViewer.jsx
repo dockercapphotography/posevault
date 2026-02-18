@@ -1,34 +1,53 @@
-import React, { useState, useMemo } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock, Heart } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock, Heart, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
-export default function SharedGalleryViewer({ token, gallery, images, permissions, viewer, favorites = new Set(), favoriteCounts = {}, onToggleFavorite }) {
+export default function SharedGalleryViewer({
+  token, gallery, images, permissions, viewer,
+  favorites = new Set(), favoriteCounts = {}, onToggleFavorite,
+  uploads = [], onUpload, uploadState,
+}) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [gridColumns, setGridColumns] = useState(isMobile ? 2 : 3);
   const [showGridDropdown, setShowGridDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Combine gallery images with approved uploads
+  const allImages = useMemo(() => {
+    const uploadImages = uploads.map(u => ({
+      id: `upload-${u.id}`,
+      name: u.original_filename || 'Uploaded pose',
+      r2Key: u.image_url,
+      tags: [],
+      isUpload: true,
+      uploadedBy: u.share_viewers?.display_name || 'Unknown',
+    }));
+    return [...images, ...uploadImages];
+  }, [images, uploads]);
 
   // Collect all unique tags from images
   const allTags = useMemo(() => {
     const tagSet = new Set();
-    images.forEach(img => {
+    allImages.forEach(img => {
       if (img.tags) {
         img.tags.forEach(tag => tagSet.add(tag));
       }
     });
     return Array.from(tagSet).sort();
-  }, [images]);
+  }, [allImages]);
 
   // Filter images by selected tags
   const displayedImages = useMemo(() => {
-    if (selectedTags.length === 0) return images;
-    return images.filter(img =>
+    if (selectedTags.length === 0) return allImages;
+    return allImages.filter(img =>
       img.tags && selectedTags.every(tag => img.tags.includes(tag))
     );
-  }, [images, selectedTags]);
+  }, [allImages, selectedTags]);
 
   const gridColsClass = {
     2: 'grid-cols-2',
@@ -46,6 +65,31 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
     setSelectedTags([]);
   };
 
+  const handleFileSelect = (files) => {
+    if (!onUpload || !files?.length) return;
+    Array.from(files).forEach(file => {
+      if (file.type.startsWith('image/')) {
+        onUpload(file);
+      }
+    });
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
   if (selectedImage !== null) {
     return (
       <SharedImageView
@@ -61,8 +105,38 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
     );
   }
 
+  const uploadsAllowed = permissions?.allowUploads && onUpload;
+  const isUploading = uploadState?.status === 'uploading';
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div
+      className="min-h-screen bg-gray-900 text-white"
+      onDrop={uploadsAllowed ? handleDrop : undefined}
+      onDragOver={uploadsAllowed ? handleDragOver : undefined}
+      onDragLeave={uploadsAllowed ? handleDragLeave : undefined}
+    >
+      {/* Drag overlay */}
+      {dragOver && uploadsAllowed && (
+        <div className="fixed inset-0 z-50 bg-purple-600/20 border-4 border-dashed border-purple-400 flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+            <Upload size={48} className="text-purple-400 mx-auto mb-3" />
+            <p className="text-lg font-semibold">Drop images to upload</p>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      {uploadsAllowed && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => handleFileSelect(e.target.files)}
+          className="hidden"
+        />
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -70,12 +144,30 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
             <h1 className="text-lg font-bold truncate">{gallery.name}</h1>
             <p className="text-xs text-gray-400">
               {displayedImages.length} {displayedImages.length === 1 ? 'pose' : 'poses'}
-              {selectedTags.length > 0 && ` (filtered from ${images.length})`}
+              {selectedTags.length > 0 && ` (filtered from ${allImages.length})`}
               {viewer && <span className="ml-2">— Viewing as {viewer.display_name}</span>}
             </p>
           </div>
 
           <div className="flex items-center gap-2 ml-3">
+            {/* Upload Button */}
+            {uploadsAllowed && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-2 md:px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                <span className="hidden md:inline">
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </span>
+              </button>
+            )}
+
             {/* Tag Filter Button */}
             {allTags.length > 0 && (
               <button
@@ -156,6 +248,32 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
         )}
       </header>
 
+      {/* Upload Status Toast */}
+      {uploadState?.message && (
+        <div className="max-w-6xl mx-auto px-4 pt-3">
+          <div className={`flex items-center gap-2 rounded-lg px-4 py-2.5 ${
+            uploadState.status === 'success'
+              ? 'bg-green-500/10 border border-green-500/20'
+              : uploadState.status === 'error'
+              ? 'bg-red-500/10 border border-red-500/20'
+              : 'bg-blue-500/10 border border-blue-500/20'
+          }`}>
+            {uploadState.status === 'success' ? (
+              <CheckCircle size={14} className="text-green-400 shrink-0" />
+            ) : uploadState.status === 'uploading' ? (
+              <Loader2 size={14} className="text-blue-400 shrink-0 animate-spin" />
+            ) : null}
+            <p className={`text-xs ${
+              uploadState.status === 'success' ? 'text-green-300'
+              : uploadState.status === 'error' ? 'text-red-300'
+              : 'text-blue-300'
+            }`}>
+              {uploadState.message}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Gallery Notes */}
       {gallery.notes && (
         <div className="max-w-6xl mx-auto px-4 py-3">
@@ -215,8 +333,18 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
                   </div>
                 )}
 
+                {/* Upload badge */}
+                {image.isUpload && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <p className="text-[10px] text-green-300 truncate">
+                      <Upload size={10} className="inline mr-0.5" />
+                      {image.uploadedBy}
+                    </p>
+                  </div>
+                )}
+
                 {/* Favorite button */}
-                {permissions?.allowFavorites && onToggleFavorite && (
+                {permissions?.allowFavorites && onToggleFavorite && !image.isUpload && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

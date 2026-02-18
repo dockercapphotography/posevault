@@ -176,6 +176,9 @@ export async function validateShareToken(token) {
       allowFavorites: data.allow_favorites,
       favoritesVisibleToOthers: data.favorites_visible_to_others,
       allowUploads: data.allow_uploads,
+      requireUploadApproval: data.require_upload_approval,
+      maxUploadsPerViewer: data.max_uploads_per_viewer,
+      maxUploadSizeMb: data.max_upload_size_mb,
       allowComments: data.allow_comments,
       expiresAt: data.expires_at || null,
     },
@@ -341,6 +344,175 @@ export async function logShareAccess(sharedGalleryId, viewerId, action, imageId 
  */
 export function getShareImageUrl(token, r2Key) {
   return `${R2_WORKER_URL}/share-image?token=${encodeURIComponent(token)}&key=${encodeURIComponent(r2Key)}`;
+}
+
+// ==========================================
+// Upload operations
+// ==========================================
+
+/**
+ * Upload an image to a shared gallery via the R2 worker's share-upload endpoint.
+ * @param {string} token - Share token for authentication
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} viewerId - The viewer UUID
+ * @param {File} file - The image file to upload
+ * @param {number} maxSizeMb - Max file size in MB (from share config)
+ * @returns {Promise<{ok: boolean, data?: object, error?: string}>}
+ */
+export async function uploadToSharedGallery(token, sharedGalleryId, viewerId, file, maxSizeMb = 10) {
+  // Client-side file size check
+  const fileSizeBytes = file.size;
+  const maxSizeBytes = maxSizeMb * 1024 * 1024;
+  if (fileSizeBytes > maxSizeBytes) {
+    return { ok: false, error: `File exceeds ${maxSizeMb}MB limit` };
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('shared_gallery_id', sharedGalleryId);
+    formData.append('viewer_id', viewerId);
+
+    const response = await fetch(`${R2_WORKER_URL}/share-upload?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      return { ok: false, error: result.error || 'Upload failed' };
+    }
+
+    return { ok: true, data: result.data };
+  } catch (err) {
+    console.error('Share upload error:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Get all uploads for a shared gallery.
+ * If requireApproval is true, only approved uploads are returned for viewers.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {boolean} approvedOnly - If true, only return approved uploads
+ * @returns {Promise<{ok: boolean, uploads?: Array, error?: string}>}
+ */
+export async function getShareUploads(sharedGalleryId, approvedOnly = true) {
+  let query = supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .order('uploaded_at', { ascending: false });
+
+  if (approvedOnly) {
+    query = query.eq('approved', true);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Failed to fetch share uploads:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data };
+}
+
+/**
+ * Get pending (unapproved) uploads for a shared gallery (owner view).
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @returns {Promise<{ok: boolean, uploads?: Array, error?: string}>}
+ */
+export async function getPendingUploads(sharedGalleryId) {
+  const { data, error } = await supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('approved', false)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch pending uploads:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data };
+}
+
+/**
+ * Approve an upload (owner only).
+ * @param {string} uploadId - The upload UUID
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function approveUpload(uploadId) {
+  const { error } = await supabase
+    .from('share_uploads')
+    .update({ approved: true })
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to approve upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Reject (delete) an upload (owner only).
+ * Also deletes the image from R2 via the worker.
+ * @param {string} uploadId - The upload UUID
+ * @param {string} imageUrl - The R2 key to delete
+ * @param {string} accessToken - Owner's Supabase access token
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function rejectUpload(uploadId, imageUrl, accessToken) {
+  // Delete from R2
+  if (imageUrl) {
+    try {
+      await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch (err) {
+      console.error('Failed to delete rejected upload from R2:', err);
+    }
+  }
+
+  // Delete from DB
+  const { error } = await supabase
+    .from('share_uploads')
+    .delete()
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to reject upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Get the count of uploads a viewer has made to a shared gallery.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} viewerId - The viewer UUID
+ * @returns {Promise<{ok: boolean, count?: number, error?: string}>}
+ */
+export async function getViewerUploadCount(sharedGalleryId, viewerId) {
+  const { count, error } = await supabase
+    .from('share_uploads')
+    .select('id', { count: 'exact', head: true })
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('viewer_id', viewerId);
+
+  if (error) {
+    console.error('Failed to get viewer upload count:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, count };
 }
 
 // ==========================================

@@ -103,6 +103,182 @@ export default {
     }
 
     // ==========================================
+    // SHARE-UPLOAD: Viewer image upload for shared galleries
+    // ==========================================
+    if (request.method === "POST" && url.pathname === "/share-upload") {
+      const shareToken = url.searchParams.get("token");
+
+      if (!shareToken) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Missing token parameter" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      try {
+        const supabaseUrl = env.SUPABASE_URL;
+        const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceKey) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Server misconfigured" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        // Validate share token and check upload permissions
+        const queryUrl = `${supabaseUrl}/rest/v1/shared_galleries?share_token=eq.${encodeURIComponent(shareToken)}&is_active=eq.true&select=id,owner_id,expires_at,allow_uploads,require_upload_approval,max_uploads_per_viewer,max_upload_size_mb`;
+        const sgResp = await fetch(queryUrl, {
+          headers: {
+            "apikey": serviceKey,
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+        });
+
+        if (!sgResp.ok) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Token validation failed" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const shares = await sgResp.json();
+        if (!shares || shares.length === 0) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Invalid or inactive share token" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const share = shares[0];
+
+        // Check expiration
+        if (share.expires_at && new Date(share.expires_at) < new Date()) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Share link has expired" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        // Check if uploads are allowed
+        if (!share.allow_uploads) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Uploads are not enabled for this gallery" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        // Parse multipart form data
+        const contentType = request.headers.get("content-type");
+        if (!contentType?.includes("multipart/form-data")) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Expected multipart upload" }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const formData = await request.formData();
+        const file = formData.get("file");
+        const viewerId = formData.get("viewer_id");
+        const sharedGalleryId = formData.get("shared_gallery_id");
+
+        if (!file || !viewerId || !sharedGalleryId) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Missing file, viewer_id, or shared_gallery_id" }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        // Check file size limit
+        const maxBytes = (share.max_upload_size_mb || 10) * 1024 * 1024;
+        if (file.size > maxBytes) {
+          return new Response(
+            JSON.stringify({ ok: false, error: `File exceeds ${share.max_upload_size_mb || 10}MB limit` }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        // Check per-viewer upload limit
+        if (share.max_uploads_per_viewer !== null) {
+          const countUrl = `${supabaseUrl}/rest/v1/share_uploads?shared_gallery_id=eq.${sharedGalleryId}&viewer_id=eq.${viewerId}&select=id`;
+          const countResp = await fetch(countUrl, {
+            headers: {
+              "apikey": serviceKey,
+              "Authorization": `Bearer ${serviceKey}`,
+              "Prefer": "count=exact",
+              "Range-Unit": "items",
+              "Range": "0-0",
+            },
+          });
+          const contentRange = countResp.headers.get("content-range");
+          const currentCount = contentRange ? parseInt(contentRange.split("/")[1]) || 0 : 0;
+
+          if (currentCount >= share.max_uploads_per_viewer) {
+            return new Response(
+              JSON.stringify({ ok: false, error: `Upload limit reached (${share.max_uploads_per_viewer} max)` }),
+              { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+            );
+          }
+        }
+
+        // Upload to R2 under the gallery owner's namespace
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const r2Key = `users/${share.owner_id}/share-uploads/${share.id}/${timestamp}-${safeName}`;
+
+        await env.MY_BUCKET.put(r2Key, file.stream(), {
+          httpMetadata: { contentType: file.type },
+        });
+
+        // Insert record into share_uploads table
+        const approved = !share.require_upload_approval;
+        const insertUrl = `${supabaseUrl}/rest/v1/share_uploads`;
+        const insertResp = await fetch(insertUrl, {
+          method: "POST",
+          headers: {
+            "apikey": serviceKey,
+            "Authorization": `Bearer ${serviceKey}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+          },
+          body: JSON.stringify({
+            shared_gallery_id: sharedGalleryId,
+            image_url: r2Key,
+            original_filename: file.name,
+            viewer_id: viewerId,
+            approved,
+          }),
+        });
+
+        if (!insertResp.ok) {
+          // Clean up the R2 upload on DB failure
+          await env.MY_BUCKET.delete(r2Key);
+          return new Response(
+            JSON.stringify({ ok: false, error: "Failed to record upload" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const insertData = await insertResp.json();
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: insertData[0] || insertData,
+            approved,
+            message: approved ? "Upload added to gallery" : "Upload submitted for approval",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Share upload failed: " + err.message }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
+
+    // ==========================================
     // AUTH: Extract and decode JWT for all methods
     // ==========================================
     const authHeader = request.headers.get("authorization");
