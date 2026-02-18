@@ -586,6 +586,66 @@ export async function getViewerUploadCount(sharedGalleryId, viewerId) {
   return { ok: true, count };
 }
 
+/**
+ * Get approved share upload counts and favorite counts for all galleries owned by a user.
+ * Returns a map of galleryUid → { uploadCount, favoriteCount }
+ */
+export async function getShareStatsForOwner(ownerId) {
+  // Get all shared galleries for this owner
+  const { data: shares, error: sharesError } = await supabase
+    .from('shared_galleries')
+    .select('id, gallery_id')
+    .eq('owner_id', ownerId)
+    .eq('is_active', true);
+
+  if (sharesError || !shares || shares.length === 0) {
+    return { ok: true, stats: {} };
+  }
+
+  const shareIds = shares.map(s => s.id);
+
+  // Fetch approved upload counts
+  const { data: uploads, error: uploadsError } = await supabase
+    .from('share_uploads')
+    .select('shared_gallery_id')
+    .in('shared_gallery_id', shareIds)
+    .eq('approved', true);
+
+  // Fetch favorite counts on share uploads (owner favorites)
+  const { data: favUploads, error: favError } = await supabase
+    .from('share_uploads')
+    .select('shared_gallery_id, is_favorite')
+    .in('shared_gallery_id', shareIds)
+    .eq('approved', true)
+    .eq('is_favorite', true);
+
+  if (uploadsError) {
+    console.error('Failed to fetch share upload counts:', uploadsError);
+    return { ok: false, error: uploadsError.message };
+  }
+
+  // Build a shareId → galleryUid lookup
+  const shareToGallery = {};
+  for (const s of shares) {
+    shareToGallery[s.id] = s.gallery_id;
+  }
+
+  // Aggregate counts by galleryUid
+  const stats = {};
+  for (const u of (uploads || [])) {
+    const galleryUid = shareToGallery[u.shared_gallery_id];
+    if (!stats[galleryUid]) stats[galleryUid] = { uploadCount: 0, favoriteCount: 0 };
+    stats[galleryUid].uploadCount++;
+  }
+  for (const f of (favUploads || [])) {
+    const galleryUid = shareToGallery[f.shared_gallery_id];
+    if (!stats[galleryUid]) stats[galleryUid] = { uploadCount: 0, favoriteCount: 0 };
+    stats[galleryUid].favoriteCount++;
+  }
+
+  return { ok: true, stats };
+}
+
 // ==========================================
 // Favorites operations
 // ==========================================

@@ -17,7 +17,8 @@ export default function CategoryCard({
   bulkSelectMode = false,
   isSelected = false,
   onSelect,
-  onStartBulkSelect
+  onStartBulkSelect,
+  shareStats
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownAlignRight, setDropdownAlignRight] = useState(false);
@@ -195,7 +196,7 @@ export default function CategoryCard({
           )}
         </div>
         <p className="text-xs md:text-sm text-gray-400 mb-3">
-          {galleryImages.length} poses • {galleryImages.filter(img => img.isFavorite).length} favorites
+          {galleryImages.length}{shareStats?.uploadCount > 0 ? ` + ${shareStats.uploadCount} shared` : ''} poses • {galleryImages.filter(img => img.isFavorite).length + (shareStats?.favoriteCount || 0)} favorites
         </p>
         
         <div className="flex gap-2">

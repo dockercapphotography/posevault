@@ -39,7 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
-import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload } from './utils/shareApi';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -111,6 +111,7 @@ export default function PhotographyPoseGuide() {
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showShareConfig, setShowShareConfig] = useState(null); // stores categoryId when open
   const [shareUploads, setShareUploads] = useState([]); // approved share uploads for current gallery
+  const [shareStats, setShareStats] = useState({}); // { galleryUid: { uploadCount, favoriteCount } }
   const [shareToken, setShareToken] = useState(null);
   const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
 
@@ -393,6 +394,15 @@ export default function PhotographyPoseGuide() {
 
     syncFromCloud({ silent: true });
   }, [session?.user?.id, categoriesLoading]);
+
+  // Fetch share upload stats for all galleries after sync and when returning to categories view
+  useEffect(() => {
+    if (!hasSyncedOnce || !session?.user?.id) return;
+    if (viewMode !== 'categories') return;
+    getShareStatsForOwner(session.user.id).then(result => {
+      if (result.ok) setShareStats(result.stats);
+    });
+  }, [hasSyncedOnce, session?.user?.id, viewMode]);
 
   // First-time setup: wait for sample gallery to be in state, then complete setup and start tutorial
   useEffect(() => {
@@ -2550,6 +2560,7 @@ export default function PhotographyPoseGuide() {
           onSelectGallery={handleGallerySelect}
           onStartBulkSelect={handleStartGalleryBulkSelect}
           onShowBulkEdit={() => setShowGalleryBulkEditModal(true)}
+          shareStats={shareStats}
         />
       )}
 
