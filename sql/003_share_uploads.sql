@@ -13,8 +13,12 @@ CREATE TABLE share_uploads (
   original_filename TEXT,
   viewer_id UUID NOT NULL REFERENCES share_viewers(id) ON DELETE CASCADE,
   approved BOOLEAN NOT NULL DEFAULT false,
-  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  file_size BIGINT DEFAULT 0
 );
+
+-- If table already exists, add the column:
+-- ALTER TABLE share_uploads ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;
 
 CREATE INDEX idx_share_uploads_gallery ON share_uploads(shared_gallery_id);
 CREATE INDEX idx_share_uploads_viewer ON share_uploads(viewer_id);

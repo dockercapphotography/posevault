@@ -184,43 +184,43 @@ function UploadCard({ upload, shareToken, isPending, actionLoading, onApprove, o
       </div>
 
       {/* Info & Actions */}
-      <div className="p-2.5">
+      <div className="p-2 min-w-0">
         <div className="flex items-center gap-1 text-xs text-gray-400 mb-1.5">
-          <User size={10} />
+          <User size={10} className="shrink-0" />
           <span className="truncate">{viewerName}</span>
         </div>
         <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-2">
-          <Clock size={9} />
+          <Clock size={9} className="shrink-0" />
           <span>{uploadDate}</span>
         </div>
 
-        <div className="flex gap-1.5">
+        <div className="flex gap-1 min-w-0">
           {isPending && onApprove && (
             <button
               onClick={onApprove}
               disabled={!!actionLoading}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               {actionLoading === 'approving' ? (
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={12} className="animate-spin shrink-0" />
               ) : (
-                <Check size={12} />
+                <Check size={12} className="shrink-0" />
               )}
-              Approve
+              <span className="truncate">Approve</span>
             </button>
           )}
           {onReject && (
             <button
               onClick={onReject}
               disabled={!!actionLoading}
-              className={`flex items-center justify-center gap-1 px-2 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 rounded text-xs text-red-400 transition-colors cursor-pointer disabled:opacity-50 ${isPending ? '' : 'flex-1'}`}
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 rounded text-xs text-red-400 transition-colors cursor-pointer disabled:opacity-50"
             >
               {actionLoading === 'rejecting' ? (
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={12} className="animate-spin shrink-0" />
               ) : (
-                <Trash2 size={12} />
+                <Trash2 size={12} className="shrink-0" />
               )}
-              {isPending ? 'Reject' : 'Remove'}
+              <span className="truncate">{isPending ? 'Reject' : 'Remove'}</span>
             </button>
           )}
         </div>

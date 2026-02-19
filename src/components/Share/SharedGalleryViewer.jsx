@@ -70,11 +70,10 @@ export default function SharedGalleryViewer({
 
   const handleFileSelect = (files) => {
     if (!onUpload || !files?.length) return;
-    Array.from(files).forEach(file => {
-      if (file.type.startsWith('image/')) {
-        onUpload(file);
-      }
-    });
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      onUpload(imageFiles);
+    }
   };
 
   const handleDrop = (e) => {

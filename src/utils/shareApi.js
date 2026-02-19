@@ -486,6 +486,24 @@ export async function getPendingUploads(sharedGalleryId) {
 }
 
 /**
+ * Get the total upload count for a specific viewer (approved + pending).
+ * Used for client-side pre-validation of max_uploads_per_viewer.
+ */
+export async function getViewerUploadCount(sharedGalleryId, viewerId) {
+  const { count, error } = await supabase
+    .from('share_uploads')
+    .select('id', { count: 'exact', head: true })
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('viewer_id', viewerId);
+
+  if (error) {
+    console.error('Failed to get viewer upload count:', error);
+    return 0;
+  }
+  return count || 0;
+}
+
+/**
  * Approve an upload (owner only).
  * @param {string} uploadId - The upload UUID
  * @returns {Promise<{ok: boolean, error?: string}>}

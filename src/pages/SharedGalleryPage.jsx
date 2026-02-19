@@ -3,6 +3,7 @@ import { AlertCircle, Clock, LinkIcon } from 'lucide-react';
 import SharePasswordGate from '../components/Share/SharePasswordGate';
 import NameEntryGate from '../components/Share/NameEntryGate';
 import SharedGalleryViewer from '../components/Share/SharedGalleryViewer';
+import { convertToWebP } from '../utils/imageOptimizer';
 import {
   validateShareToken,
   verifySharePassword,
@@ -15,7 +16,18 @@ import {
   toggleShareFavorite,
   uploadToSharedGallery,
   getShareUploads,
+  getViewerUploadCount,
 } from '../utils/shareApi';
+
+function dataURLtoBlob(dataURL) {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+  return new Blob([u8arr], { type: mime });
+}
 
 /**
  * Top-level page for /share/:token routes.
@@ -255,37 +267,93 @@ export default function SharedGalleryPage({ token }) {
     }
   }
 
-  const handleUpload = useCallback(async (file) => {
+  const handleUpload = useCallback(async (files) => {
     if (!viewer || !shareInfo?.allowUploads) return;
 
-    setUploadState({ status: 'uploading', message: `Uploading ${file.name}...` });
+    const fileArray = Array.isArray(files) ? files : [files];
 
-    const result = await uploadToSharedGallery(
-      token,
-      shareInfo.id,
-      viewer.id,
-      file,
-      shareInfo.maxUploadSizeMb || 10,
-    );
-
-    if (!result.ok) {
-      setUploadState({ status: 'error', message: result.error });
-      setTimeout(() => setUploadState(null), 5000);
-      return;
+    // Pre-check upload limit before sending any files
+    const maxUploads = shareInfo.maxUploadsPerViewer;
+    let filesToUpload = fileArray;
+    if (maxUploads != null) {
+      const currentCount = await getViewerUploadCount(shareInfo.id, viewer.id);
+      const remaining = Math.max(0, maxUploads - currentCount);
+      if (remaining === 0) {
+        setUploadState({ status: 'error', message: `Upload limit reached (${maxUploads} max)` });
+        setTimeout(() => setUploadState(null), 5000);
+        return;
+      }
+      if (fileArray.length > remaining) {
+        filesToUpload = fileArray.slice(0, remaining);
+        // We'll show a warning after uploads complete
+      }
     }
 
-    // Log the upload action
-    logShareAccess(shareInfo.id, viewer.id, 'upload');
+    const total = filesToUpload.length;
+    let succeeded = 0;
+    let lastApproved = true;
 
-    const message = result.data?.approved !== false
-      ? 'Image uploaded successfully!'
-      : 'Image submitted for approval.';
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      setUploadState({
+        status: 'uploading',
+        message: total > 1
+          ? `Optimizing & uploading ${i + 1} of ${total}...`
+          : `Optimizing & uploading ${file.name}...`,
+      });
+
+      // Compress and convert to webp (same as regular gallery uploads)
+      let optimizedFile = file;
+      try {
+        const webpDataUrl = await convertToWebP(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.85,
+        });
+        const blob = dataURLtoBlob(webpDataUrl);
+        const webpName = file.name.replace(/\.[^/.]+$/, '') + '.webp';
+        optimizedFile = new File([blob], webpName, { type: 'image/webp' });
+      } catch (err) {
+        console.warn('WebP conversion failed, uploading original:', err);
+      }
+
+      const result = await uploadToSharedGallery(
+        token,
+        shareInfo.id,
+        viewer.id,
+        optimizedFile,
+        shareInfo.maxUploadSizeMb || 10,
+      );
+
+      if (!result.ok) {
+        setUploadState({ status: 'error', message: result.error });
+        setTimeout(() => setUploadState(null), 5000);
+        return;
+      }
+
+      succeeded++;
+      lastApproved = result.data?.approved !== false;
+      logShareAccess(shareInfo.id, viewer.id, 'upload');
+    }
+
+    const skipped = fileArray.length - filesToUpload.length;
+    let message;
+    if (skipped > 0) {
+      message = `Uploaded ${succeeded} image${succeeded !== 1 ? 's' : ''}. ${skipped} skipped (upload limit: ${maxUploads}).`;
+    } else if (succeeded > 1) {
+      message = lastApproved
+        ? `${succeeded} images uploaded successfully!`
+        : `${succeeded} images submitted for approval.`;
+    } else {
+      message = lastApproved
+        ? 'Image uploaded successfully!'
+        : 'Image submitted for approval.';
+    }
 
     setUploadState({ status: 'success', message });
-    setTimeout(() => setUploadState(null), 4000);
+    setTimeout(() => setUploadState(null), 5000);
 
-    // Reload uploads if auto-approved
-    if (result.data?.approved !== false) {
+    if (lastApproved) {
       loadUploads();
     }
   }, [viewer, shareInfo, token]);
