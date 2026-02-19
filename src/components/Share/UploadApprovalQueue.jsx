@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
 import { getPendingUploads, approveUpload, rejectUpload, getShareUploads } from '../../utils/shareApi';
 import { getShareImageUrl } from '../../utils/shareApi';
 
@@ -9,6 +9,7 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [showApproved, setShowApproved] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   // Prevent body scroll
   useEffect(() => {
@@ -19,6 +20,16 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
   useEffect(() => {
     loadUploads();
   }, [shareConfig?.id]);
+
+  // Clean up selections when pending list changes (remove stale IDs)
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const pendingIds = new Set(pendingUploads.map(u => u.id));
+      const filtered = new Set([...prev].filter(id => pendingIds.has(id)));
+      if (filtered.size !== prev.size) return filtered;
+      return prev;
+    });
+  }, [pendingUploads]);
 
   async function loadUploads() {
     if (!shareConfig?.id) return;
@@ -54,13 +65,46 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
     setActionLoading(prev => ({ ...prev, [upload.id]: null }));
   }
 
-  async function handleApproveAll() {
-    for (const upload of pendingUploads) {
-      await handleApprove(upload);
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === pendingUploads.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendingUploads.map(u => u.id)));
     }
   }
 
+  async function handleBulkApprove() {
+    const targets = selectedIds.size > 0
+      ? pendingUploads.filter(u => selectedIds.has(u.id))
+      : pendingUploads;
+    for (const upload of targets) {
+      await handleApprove(upload);
+    }
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkReject() {
+    const targets = selectedIds.size > 0
+      ? pendingUploads.filter(u => selectedIds.has(u.id))
+      : pendingUploads;
+    for (const upload of targets) {
+      await handleReject(upload);
+    }
+    setSelectedIds(new Set());
+  }
+
   const totalUploads = pendingUploads.length + approvedUploads.length;
+  const hasSelection = selectedIds.size > 0;
+  const allSelected = pendingUploads.length > 0 && selectedIds.size === pendingUploads.length;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -100,13 +144,29 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
                     Pending Approval ({pendingUploads.length})
                   </h3>
                   {pendingUploads.length > 1 && (
-                    <button
-                      onClick={handleApproveAll}
-                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
-                    >
-                      <Check size={12} />
-                      Approve All
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
+                      >
+                        {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+                        {allSelected ? 'Deselect All' : 'Select All'}
+                      </button>
+                      <button
+                        onClick={handleBulkApprove}
+                        className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
+                      >
+                        <Check size={12} />
+                        {hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}
+                      </button>
+                      <button
+                        onClick={handleBulkReject}
+                        className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
+                      >
+                        <Trash2 size={12} />
+                        {hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -117,6 +177,8 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
                       upload={upload}
                       shareToken={shareToken}
                       isPending
+                      selected={selectedIds.has(upload.id)}
+                      onToggleSelect={() => toggleSelect(upload.id)}
                       actionLoading={actionLoading[upload.id]}
                       onApprove={() => handleApprove(upload)}
                       onReject={() => handleReject(upload)}
@@ -160,14 +222,14 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
   );
 }
 
-function UploadCard({ upload, shareToken, isPending, actionLoading, onApprove, onReject }) {
+function UploadCard({ upload, shareToken, isPending, selected, onToggleSelect, actionLoading, onApprove, onReject }) {
   const viewerName = upload.share_viewers?.display_name || 'Unknown';
   const uploadDate = new Date(upload.uploaded_at).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
   return (
-    <div className="bg-gray-700/50 rounded-lg overflow-hidden border border-gray-600/50">
+    <div className={`bg-gray-700/50 rounded-lg overflow-hidden border ${selected ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-gray-600/50'}`}>
       {/* Image preview */}
       <div className="aspect-[3/4] bg-gray-800 relative">
         <img
@@ -176,6 +238,18 @@ function UploadCard({ upload, shareToken, isPending, actionLoading, onApprove, o
           className="w-full h-full object-cover"
           loading="lazy"
         />
+        {isPending && onToggleSelect && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+            className="absolute top-1.5 left-1.5 w-5 h-5 rounded flex items-center justify-center cursor-pointer transition-colors bg-black/50 hover:bg-black/70"
+          >
+            {selected ? (
+              <CheckSquare size={14} className="text-blue-400" />
+            ) : (
+              <Square size={14} className="text-gray-300" />
+            )}
+          </button>
+        )}
         {isPending && (
           <div className="absolute top-1.5 right-1.5 bg-orange-500/90 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
             Pending
