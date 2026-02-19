@@ -600,27 +600,6 @@ export async function rejectUpload(uploadId, imageUrl, accessToken, ownerId) {
 }
 
 /**
- * Get the count of uploads a viewer has made to a shared gallery.
- * @param {string} sharedGalleryId - The shared gallery UUID
- * @param {string} viewerId - The viewer UUID
- * @returns {Promise<{ok: boolean, count?: number, error?: string}>}
- */
-export async function getViewerUploadCount(sharedGalleryId, viewerId) {
-  const { count, error } = await supabase
-    .from('share_uploads')
-    .select('id', { count: 'exact', head: true })
-    .eq('shared_gallery_id', sharedGalleryId)
-    .eq('viewer_id', viewerId);
-
-  if (error) {
-    console.error('Failed to get viewer upload count:', error);
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true, count };
-}
-
-/**
  * Get approved share upload counts and favorite counts for all galleries owned by a user.
  * Returns a map of galleryUid → { uploadCount, favoriteCount }
  */
