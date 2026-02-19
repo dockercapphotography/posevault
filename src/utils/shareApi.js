@@ -748,3 +748,100 @@ export async function getAllFavoriteCounts(sharedGalleryId) {
   });
   return { ok: true, counts };
 }
+
+// ==========================================
+// Comment operations
+// ==========================================
+
+/**
+ * Add a comment on an image in a shared gallery.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} imageId - The image ID (gallery image or upload-{id})
+ * @param {string} viewerId - The viewer UUID
+ * @param {string} commentText - The comment text
+ * @returns {Promise<{ok: boolean, comment?: Object, error?: string}>}
+ */
+export async function addShareComment(sharedGalleryId, imageId, viewerId, commentText) {
+  const { data, error } = await supabase
+    .from('share_comments')
+    .insert({
+      shared_gallery_id: sharedGalleryId,
+      image_id: imageId,
+      viewer_id: viewerId,
+      comment_text: commentText.trim(),
+    })
+    .select('*, share_viewers(display_name)')
+    .single();
+
+  if (error) {
+    console.error('Failed to add comment:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, comment: data };
+}
+
+/**
+ * Get all comments for a specific image in a shared gallery.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} imageId - The image ID
+ * @returns {Promise<{ok: boolean, comments?: Array, error?: string}>}
+ */
+export async function getCommentsForImage(sharedGalleryId, imageId) {
+  const { data, error } = await supabase
+    .from('share_comments')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('image_id', imageId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Failed to fetch comments:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, comments: data || [] };
+}
+
+/**
+ * Get comment counts per image for a shared gallery.
+ * Returns a map of imageId → count.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @returns {Promise<{ok: boolean, counts?: Object, error?: string}>}
+ */
+export async function getCommentCounts(sharedGalleryId) {
+  const { data, error } = await supabase
+    .from('share_comments')
+    .select('image_id')
+    .eq('shared_gallery_id', sharedGalleryId);
+
+  if (error) {
+    console.error('Failed to fetch comment counts:', error);
+    return { ok: false, error: error.message };
+  }
+
+  const counts = {};
+  (data || []).forEach(c => {
+    counts[c.image_id] = (counts[c.image_id] || 0) + 1;
+  });
+  return { ok: true, counts };
+}
+
+/**
+ * Delete a comment (viewer can delete own, owner can delete any).
+ * @param {string} commentId - The comment UUID
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function deleteShareComment(commentId) {
+  const { error } = await supabase
+    .from('share_comments')
+    .delete()
+    .eq('id', commentId);
+
+  if (error) {
+    console.error('Failed to delete comment:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}

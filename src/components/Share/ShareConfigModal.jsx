@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox } from 'lucide-react';
+import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox, MessageCircle } from 'lucide-react';
 import {
   createShareLink,
   getShareConfig,
@@ -590,6 +590,28 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
                   </div>
                 </>
               )}
+
+              {/* Divider */}
+              <div className="border-t border-gray-600 my-1"></div>
+
+              {/* Allow Comments */}
+              <button
+                onClick={() => handleTogglePermission('allow_comments')}
+                className="w-full flex items-center justify-between cursor-pointer"
+              >
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle size={14} className="text-purple-400" />
+                    <p className="text-sm">Allow Comments</p>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 ml-6">Viewers can leave comments on individual images</p>
+                </div>
+                {shareConfig.allow_comments ? (
+                  <ToggleRight size={28} className="text-green-400 shrink-0" />
+                ) : (
+                  <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                )}
+              </button>
             </div>
 
             {/* Upload Approval Queue Button */}

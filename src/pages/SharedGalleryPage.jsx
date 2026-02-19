@@ -17,6 +17,10 @@ import {
   uploadToSharedGallery,
   getShareUploads,
   getViewerUploadCount,
+  addShareComment,
+  getCommentsForImage,
+  getCommentCounts,
+  deleteShareComment,
 } from '../utils/shareApi';
 
 function dataURLtoBlob(dataURL) {
@@ -55,6 +59,11 @@ export default function SharedGalleryPage({ token }) {
   // Uploads state
   const [uploads, setUploads] = useState([]);
   const [uploadState, setUploadState] = useState(null);
+
+  // Comments state
+  const [commentCounts, setCommentCounts] = useState({});
+  const [currentImageComments, setCurrentImageComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     initializeShare();
@@ -197,6 +206,14 @@ export default function SharedGalleryPage({ token }) {
           }
         }
       }
+
+      // Refresh comment counts if enabled
+      if (shareInfo.allowComments) {
+        const commentCountsResult = await getCommentCounts(shareInfo.id);
+        if (commentCountsResult.ok) {
+          setCommentCounts(commentCountsResult.counts);
+        }
+      }
     };
 
     pollIntervalRef.current = setInterval(pollData, 30000);
@@ -227,6 +244,61 @@ export default function SharedGalleryPage({ token }) {
     const result = await getShareUploads(shareInfo.id, true);
     if (result.ok) {
       setUploads(result.uploads);
+    }
+  }
+
+  // Load comment counts when viewer is ready and comments are enabled
+  useEffect(() => {
+    if (stage !== 'ready' || !shareInfo?.allowComments) return;
+
+    loadCommentCounts();
+  }, [stage, shareInfo?.id, shareInfo?.allowComments]);
+
+  async function loadCommentCounts() {
+    const result = await getCommentCounts(shareInfo.id);
+    if (result.ok) {
+      setCommentCounts(result.counts);
+    }
+  }
+
+  async function loadCommentsForImage(imageId) {
+    if (!shareInfo?.allowComments) return;
+    setLoadingComments(true);
+    const result = await getCommentsForImage(shareInfo.id, imageId);
+    if (result.ok) {
+      setCurrentImageComments(result.comments);
+    }
+    setLoadingComments(false);
+  }
+
+  async function handleAddComment(imageId, commentText) {
+    if (!viewer || !shareInfo?.allowComments) return;
+
+    const result = await addShareComment(shareInfo.id, imageId, viewer.id, commentText);
+    if (result.ok) {
+      // Add to current comments list
+      setCurrentImageComments(prev => [...prev, result.comment]);
+      // Update count
+      setCommentCounts(prev => ({
+        ...prev,
+        [imageId]: (prev[imageId] || 0) + 1,
+      }));
+      // Log the action
+      logShareAccess(shareInfo.id, viewer.id, 'comment', imageId);
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    const comment = currentImageComments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    const result = await deleteShareComment(commentId);
+    if (result.ok) {
+      setCurrentImageComments(prev => prev.filter(c => c.id !== commentId));
+      setCommentCounts(prev => ({
+        ...prev,
+        [comment.image_id]: Math.max(0, (prev[comment.image_id] || 0) - 1),
+      }));
     }
   }
 
@@ -413,6 +485,12 @@ export default function SharedGalleryPage({ token }) {
         uploads={uploads}
         onUpload={shareInfo?.allowUploads ? handleUpload : undefined}
         uploadState={uploadState}
+        commentCounts={commentCounts}
+        currentImageComments={currentImageComments}
+        loadingComments={loadingComments}
+        onImageSelect={shareInfo?.allowComments ? loadCommentsForImage : undefined}
+        onAddComment={shareInfo?.allowComments ? handleAddComment : undefined}
+        onDeleteComment={shareInfo?.allowComments ? handleDeleteComment : undefined}
       />
     );
   }

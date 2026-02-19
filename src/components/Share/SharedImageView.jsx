@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, StickyNote, Maximize, Heart } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, StickyNote, Maximize, Heart, MessageCircle } from 'lucide-react';
 import FullscreenViewer from '../FullscreenViewer';
+import CommentSection from './CommentSection';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
 import { getShareImageUrl } from '../../utils/shareApi';
@@ -9,9 +10,15 @@ import { getShareImageUrl } from '../../utils/shareApi';
 import 'swiper/css';
 import 'swiper/css/navigation';
 
-export default function SharedImageView({ token, images, currentIndex, onClose, onNavigate, allowFavorites, favorites = new Set(), onToggleFavorite }) {
+export default function SharedImageView({
+  token, images, currentIndex, onClose, onNavigate,
+  allowFavorites, favorites = new Set(), onToggleFavorite,
+  allowComments, comments = [], commentCounts = {}, onAddComment, onDeleteComment,
+  loadingComments = false, viewerId,
+}) {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const swiperRef = useRef(null);
@@ -38,6 +45,7 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
   useEffect(() => {
     setShowNotesModal(false);
     setShowTagsModal(false);
+    setShowComments(false);
   }, [activeIndex]);
 
   // Prevent body scroll
@@ -196,8 +204,21 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
                   )}
                 </div>
 
-                {/* Notes indicator */}
+                {/* Notes + Comments indicators */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
+                  {allowComments && (
+                    <button
+                      onClick={() => setShowComments(!showComments)}
+                      className="hover:text-purple-300 transition-colors cursor-pointer relative flex items-center gap-1"
+                    >
+                      <MessageCircle size={14} className={showComments ? 'text-purple-400' : 'text-gray-400'} />
+                      {(commentCounts[currentImage?.id] || 0) > 0 && (
+                        <span className="text-[10px] text-purple-300 font-medium">
+                          {commentCounts[currentImage.id]}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}
@@ -209,6 +230,19 @@ export default function SharedImageView({ token, images, currentIndex, onClose, 
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Comment Panel */}
+        {showComments && allowComments && (
+          <div className="bg-gray-800 border-t border-gray-700 max-h-[40vh] flex flex-col">
+            <CommentSection
+              comments={comments}
+              onAddComment={onAddComment ? (text) => onAddComment(currentImage?.id, text) : undefined}
+              onDeleteComment={onDeleteComment}
+              viewerId={viewerId}
+              loading={loadingComments}
+            />
           </div>
         )}
 
