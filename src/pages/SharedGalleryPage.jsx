@@ -337,17 +337,19 @@ export default function SharedGalleryPage({ token }) {
     }
 
     const skipped = fileArray.length - filesToUpload.length;
+    const needsApproval = !lastApproved;
+    const approvalNote = needsApproval ? ' Submitted for approval.' : '';
     let message;
     if (skipped > 0) {
-      message = `Uploaded ${succeeded} image${succeeded !== 1 ? 's' : ''}. ${skipped} skipped (upload limit: ${maxUploads}).`;
+      message = `Uploaded ${succeeded} image${succeeded !== 1 ? 's' : ''}. ${skipped} skipped (upload limit: ${maxUploads}).${approvalNote}`;
     } else if (succeeded > 1) {
-      message = lastApproved
-        ? `${succeeded} images uploaded successfully!`
-        : `${succeeded} images submitted for approval.`;
+      message = needsApproval
+        ? `${succeeded} images submitted for approval.`
+        : `${succeeded} images uploaded successfully!`;
     } else {
-      message = lastApproved
-        ? 'Image uploaded successfully!'
-        : 'Image submitted for approval.';
+      message = needsApproval
+        ? 'Image submitted for approval.'
+        : 'Image uploaded successfully!';
     }
 
     setUploadState({ status: 'success', message });
