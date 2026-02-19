@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart } from 'lucide-react';
+import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox } from 'lucide-react';
 import {
   createShareLink,
   getShareConfig,
@@ -9,7 +9,9 @@ import {
   reactivateShare,
   deleteShareLink,
   regenerateShareToken,
+  getPendingUploads,
 } from '../../utils/shareApi';
+import UploadApprovalQueue from './UploadApprovalQueue';
 
 const EXPIRATION_OPTIONS = [
   { label: 'Never', value: null },
@@ -18,7 +20,7 @@ const EXPIRATION_OPTIONS = [
   { label: '30 days', value: 30 * 24 * 60 * 60 * 1000 },
 ];
 
-export default function ShareConfigModal({ category, userId, onClose }) {
+export default function ShareConfigModal({ category, userId, accessToken, onClose }) {
   const [loading, setLoading] = useState(true);
   const [shareConfig, setShareConfig] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -34,6 +36,10 @@ export default function ShareConfigModal({ category, userId, onClose }) {
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Upload approval queue
+  const [showApprovalQueue, setShowApprovalQueue] = useState(false);
+  const [pendingUploadCount, setPendingUploadCount] = useState(0);
 
   // Prevent body scroll
   useEffect(() => {
@@ -55,8 +61,19 @@ export default function ShareConfigModal({ category, userId, onClose }) {
       if (result.data.expires_at) {
         setExpirationChoice('custom');
       }
+      // Load pending upload count if uploads are enabled
+      if (result.data.allow_uploads) {
+        loadPendingCount(result.data.id);
+      }
     }
     setLoading(false);
+  }
+
+  async function loadPendingCount(shareId) {
+    const result = await getPendingUploads(shareId);
+    if (result.ok) {
+      setPendingUploadCount(result.uploads.length);
+    }
   }
 
   async function handleCreateLink() {
@@ -478,7 +495,121 @@ export default function ShareConfigModal({ category, userId, onClose }) {
                   )}
                 </button>
               )}
+
+              {/* Divider */}
+              <div className="border-t border-gray-600 my-1"></div>
+
+              {/* Allow Uploads */}
+              <button
+                onClick={() => handleTogglePermission('allow_uploads')}
+                className="w-full flex items-center justify-between cursor-pointer"
+              >
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <Upload size={14} className="text-green-400" />
+                    <p className="text-sm">Allow Uploads</p>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 ml-6">Viewers can upload pose reference images</p>
+                </div>
+                {shareConfig.allow_uploads ? (
+                  <ToggleRight size={28} className="text-green-400 shrink-0" />
+                ) : (
+                  <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                )}
+              </button>
+
+              {/* Upload sub-settings (only shown if uploads enabled) */}
+              {shareConfig.allow_uploads && (
+                <>
+                  {/* Require Approval */}
+                  <button
+                    onClick={() => handleTogglePermission('require_upload_approval')}
+                    className="w-full flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-orange-400" />
+                        <p className="text-sm">Require Approval</p>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5 ml-6">
+                        {shareConfig.require_upload_approval
+                          ? 'Uploads need your approval before appearing'
+                          : 'Uploads appear immediately in the gallery'}
+                      </p>
+                    </div>
+                    {shareConfig.require_upload_approval ? (
+                      <ToggleRight size={28} className="text-green-400 shrink-0" />
+                    ) : (
+                      <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                    )}
+                  </button>
+
+                  {/* Max Upload Size */}
+                  <div className="ml-6">
+                    <p className="text-xs text-gray-400 mb-1.5">Max file size per upload</p>
+                    <div className="flex gap-2">
+                      {[5, 10, 25, 50].map(size => (
+                        <button
+                          key={size}
+                          onClick={() => updateShareConfig(shareConfig.id, { max_upload_size_mb: size }).then(r => r.ok && setShareConfig(r.data))}
+                          className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                            shareConfig.max_upload_size_mb === size
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                          }`}
+                        >
+                          {size}MB
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Max Uploads Per Viewer */}
+                  <div className="ml-6">
+                    <p className="text-xs text-gray-400 mb-1.5">Max uploads per viewer</p>
+                    <div className="flex gap-2">
+                      {[
+                        { label: 'Unlimited', value: null },
+                        { label: '5', value: 5 },
+                        { label: '10', value: 10 },
+                        { label: '20', value: 20 },
+                      ].map(({ label, value }) => (
+                        <button
+                          key={label}
+                          onClick={() => updateShareConfig(shareConfig.id, { max_uploads_per_viewer: value }).then(r => r.ok && setShareConfig(r.data))}
+                          className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                            shareConfig.max_uploads_per_viewer === value
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Upload Approval Queue Button */}
+            {shareConfig.allow_uploads && (
+              <button
+                onClick={() => setShowApprovalQueue(true)}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-sm transition-colors cursor-pointer"
+              >
+                <Inbox size={16} className="text-green-400" />
+                <span>View Uploads</span>
+                {pendingUploadCount > 0 && (
+                  <span className="ml-auto bg-orange-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                    {pendingUploadCount}
+                  </span>
+                )}
+                {pendingUploadCount === 0 && (
+                  <span className="text-xs text-gray-400 ml-auto">No pending</span>
+                )}
+              </button>
+            )}
 
             {/* Advanced Actions */}
             <div className="border-t border-gray-700 pt-4 space-y-2">
@@ -528,6 +659,21 @@ export default function ShareConfigModal({ category, userId, onClose }) {
           <p className="text-red-500 text-sm mt-3">{error}</p>
         )}
       </div>
+
+      {/* Upload Approval Queue Modal */}
+      {showApprovalQueue && shareConfig && (
+        <UploadApprovalQueue
+          shareConfig={shareConfig}
+          token={shareConfig.share_token}
+          accessToken={accessToken}
+          ownerId={userId}
+          onClose={() => {
+            setShowApprovalQueue(false);
+            // Refresh pending count
+            if (shareConfig?.id) loadPendingCount(shareConfig.id);
+          }}
+        />
+      )}
     </div>
   );
 }

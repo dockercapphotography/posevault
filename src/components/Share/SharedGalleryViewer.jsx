@@ -1,34 +1,56 @@
-import React, { useState, useMemo } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Images, Clock, Heart } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Image as ImageIcon, Images, Clock, Heart, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
-export default function SharedGalleryViewer({ token, gallery, images, permissions, viewer, favorites = new Set(), favoriteCounts = {}, onToggleFavorite }) {
+export default function SharedGalleryViewer({
+  token, gallery, images, permissions, viewer,
+  favorites = new Set(), favoriteCounts = {}, onToggleFavorite,
+  uploads = [], onUpload, uploadState,
+}) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [gridColumns, setGridColumns] = useState(isMobile ? 2 : 3);
   const [showGridDropdown, setShowGridDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showMobileUploadModal, setShowMobileUploadModal] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+
+  // Combine gallery images with approved uploads
+  const allImages = useMemo(() => {
+    const uploadImages = uploads.map(u => ({
+      id: `upload-${u.id}`,
+      name: u.display_name || u.original_filename || 'Uploaded pose',
+      r2Key: u.image_url,
+      tags: u.tags || [],
+      isUpload: true,
+      uploadedBy: u.share_viewers?.display_name || 'Unknown',
+    }));
+    return [...images, ...uploadImages];
+  }, [images, uploads]);
 
   // Collect all unique tags from images
   const allTags = useMemo(() => {
     const tagSet = new Set();
-    images.forEach(img => {
+    allImages.forEach(img => {
       if (img.tags) {
         img.tags.forEach(tag => tagSet.add(tag));
       }
     });
     return Array.from(tagSet).sort();
-  }, [images]);
+  }, [allImages]);
 
   // Filter images by selected tags
   const displayedImages = useMemo(() => {
-    if (selectedTags.length === 0) return images;
-    return images.filter(img =>
+    if (selectedTags.length === 0) return allImages;
+    return allImages.filter(img =>
       img.tags && selectedTags.every(tag => img.tags.includes(tag))
     );
-  }, [images, selectedTags]);
+  }, [allImages, selectedTags]);
 
   const gridColsClass = {
     2: 'grid-cols-2',
@@ -46,6 +68,30 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
     setSelectedTags([]);
   };
 
+  const handleFileSelect = (files) => {
+    if (!onUpload || !files?.length) return;
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      onUpload(imageFiles);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
   if (selectedImage !== null) {
     return (
       <SharedImageView
@@ -61,8 +107,56 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
     );
   }
 
+  const uploadsAllowed = permissions?.allowUploads && onUpload;
+  const isUploading = uploadState?.status === 'uploading';
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div
+      className="min-h-screen bg-gray-900 text-white"
+      onDrop={uploadsAllowed ? handleDrop : undefined}
+      onDragOver={uploadsAllowed ? handleDragOver : undefined}
+      onDragLeave={uploadsAllowed ? handleDragLeave : undefined}
+    >
+      {/* Drag overlay */}
+      {dragOver && uploadsAllowed && (
+        <div className="fixed inset-0 z-50 bg-purple-600/20 border-4 border-dashed border-purple-400 flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900/90 rounded-xl px-8 py-6 text-center">
+            <Upload size={48} className="text-purple-400 mx-auto mb-3" />
+            <p className="text-lg font-semibold">Drop images to upload</p>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file inputs */}
+      {uploadsAllowed && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => handleFileSelect(e.target.files)}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => { handleFileSelect(e.target.files); setShowMobileUploadModal(false); }}
+            className="hidden"
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => { handleFileSelect(e.target.files); setShowMobileUploadModal(false); }}
+            className="hidden"
+          />
+        </>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -70,12 +164,30 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
             <h1 className="text-lg font-bold truncate">{gallery.name}</h1>
             <p className="text-xs text-gray-400">
               {displayedImages.length} {displayedImages.length === 1 ? 'pose' : 'poses'}
-              {selectedTags.length > 0 && ` (filtered from ${images.length})`}
+              {selectedTags.length > 0 && ` (filtered from ${allImages.length})`}
               {viewer && <span className="ml-2">— Viewing as {viewer.display_name}</span>}
             </p>
           </div>
 
           <div className="flex items-center gap-2 ml-3">
+            {/* Upload Button */}
+            {uploadsAllowed && (
+              <button
+                onClick={() => isMobile ? setShowMobileUploadModal(true) : fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-2 md:px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                <span className="hidden md:inline">
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </span>
+              </button>
+            )}
+
             {/* Tag Filter Button */}
             {allTags.length > 0 && (
               <button
@@ -156,6 +268,32 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
         )}
       </header>
 
+      {/* Upload Status Toast */}
+      {uploadState?.message && (
+        <div className="max-w-6xl mx-auto px-4 pt-3">
+          <div className={`flex items-center gap-2 rounded-lg px-4 py-2.5 ${
+            uploadState.status === 'success'
+              ? 'bg-green-500/10 border border-green-500/20'
+              : uploadState.status === 'error'
+              ? 'bg-red-500/10 border border-red-500/20'
+              : 'bg-blue-500/10 border border-blue-500/20'
+          }`}>
+            {uploadState.status === 'success' ? (
+              <CheckCircle size={14} className="text-green-400 shrink-0" />
+            ) : uploadState.status === 'uploading' ? (
+              <Loader2 size={14} className="text-blue-400 shrink-0 animate-spin" />
+            ) : null}
+            <p className={`text-xs ${
+              uploadState.status === 'success' ? 'text-green-300'
+              : uploadState.status === 'error' ? 'text-red-300'
+              : 'text-blue-300'
+            }`}>
+              {uploadState.message}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Gallery Notes */}
       {gallery.notes && (
         <div className="max-w-6xl mx-auto px-4 py-3">
@@ -208,10 +346,18 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
 
-                {/* Image name overlay */}
-                {image.name && (
+                {/* Image name + upload badge overlay */}
+                {(image.name || image.isUpload) && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="text-xs text-white truncate">{image.name}</p>
+                    {image.name && (
+                      <p className="text-xs text-white truncate">{image.name}</p>
+                    )}
+                    {image.isUpload && (
+                      <p className="text-[10px] text-green-300 truncate mt-0.5">
+                        <Upload size={10} className="inline mr-0.5" />
+                        {image.uploadedBy}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -238,9 +384,9 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
 
                 {/* Tag chips */}
                 {image.tags && image.tags.length > 0 && (
-                  <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                  <div className="absolute top-2 left-2 right-12 flex flex-wrap gap-1">
                     {image.tags.slice(0, 2).map(tag => (
-                      <span key={tag} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                      <span key={tag} className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded truncate max-w-[calc(100%-8px)]">
                         {tag}
                       </span>
                     ))}
@@ -256,6 +402,60 @@ export default function SharedGalleryViewer({ token, gallery, images, permission
           </div>
         )}
       </div>
+
+      {/* Mobile Upload Modal */}
+      {showMobileUploadModal && uploadsAllowed && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end sm:items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-t-xl sm:rounded-xl w-full sm:max-w-sm sm:mx-4 animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <h2 className="text-lg font-semibold">Upload Images</h2>
+              <button
+                onClick={() => setShowMobileUploadModal(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full flex items-center gap-4 p-4 bg-gray-700 hover:bg-gray-600 rounded-xl transition-colors cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <Camera size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Take Photo</p>
+                  <p className="text-sm text-gray-400">Use your camera</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => galleryInputRef.current?.click()}
+                className="w-full flex items-center gap-4 p-4 bg-gray-700 hover:bg-gray-600 rounded-xl transition-colors cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                  <ImageIcon size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Photo Gallery</p>
+                  <p className="text-sm text-gray-400">Choose from your photos</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="p-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowMobileUploadModal(false)}
+                className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-xl transition-colors font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="flex justify-center py-6 opacity-30">

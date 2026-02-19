@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertCircle, Clock, LinkIcon } from 'lucide-react';
 import SharePasswordGate from '../components/Share/SharePasswordGate';
 import NameEntryGate from '../components/Share/NameEntryGate';
 import SharedGalleryViewer from '../components/Share/SharedGalleryViewer';
+import { convertToWebP } from '../utils/imageOptimizer';
 import {
   validateShareToken,
   verifySharePassword,
@@ -13,7 +14,20 @@ import {
   getViewerFavorites,
   getAllFavoriteCounts,
   toggleShareFavorite,
+  uploadToSharedGallery,
+  getShareUploads,
+  getViewerUploadCount,
 } from '../utils/shareApi';
+
+function dataURLtoBlob(dataURL) {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+  return new Blob([u8arr], { type: mime });
+}
 
 /**
  * Top-level page for /share/:token routes.
@@ -37,6 +51,10 @@ export default function SharedGalleryPage({ token }) {
   // Favorites state
   const [favorites, setFavorites] = useState(new Set());
   const [favoriteCounts, setFavoriteCounts] = useState({});
+
+  // Uploads state
+  const [uploads, setUploads] = useState([]);
+  const [uploadState, setUploadState] = useState(null);
 
   useEffect(() => {
     initializeShare();
@@ -138,6 +156,58 @@ export default function SharedGalleryPage({ token }) {
     loadFavorites();
   }, [stage, viewer?.id, shareInfo?.id]);
 
+  // Load uploads when viewer is ready and uploads are enabled
+  useEffect(() => {
+    if (stage !== 'ready' || !shareInfo?.allowUploads) return;
+
+    loadUploads();
+  }, [stage, shareInfo?.id, shareInfo?.allowUploads]);
+
+  // Auto-refresh: poll for new images and uploads every 30 seconds
+  const pollIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (stage !== 'ready' || !shareInfo) return;
+
+    const pollData = async () => {
+      // Silently refresh gallery images
+      const galleryResult = await fetchSharedGalleryData(token, shareInfo.galleryId, shareInfo.ownerId);
+      if (galleryResult.ok) {
+        setGalleryData(galleryResult.data);
+      }
+
+      // Refresh uploads if enabled
+      if (shareInfo.allowUploads) {
+        const uploadsResult = await getShareUploads(shareInfo.id, true);
+        if (uploadsResult.ok) {
+          setUploads(uploadsResult.uploads);
+        }
+      }
+
+      // Refresh favorites if enabled
+      if (shareInfo.allowFavorites && viewer) {
+        const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);
+        if (viewerResult.ok) {
+          setFavorites(viewerResult.favorites);
+        }
+        if (shareInfo.favoritesVisibleToOthers) {
+          const countsResult = await getAllFavoriteCounts(shareInfo.id);
+          if (countsResult.ok) {
+            setFavoriteCounts(countsResult.counts);
+          }
+        }
+      }
+    };
+
+    pollIntervalRef.current = setInterval(pollData, 30000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [stage, shareInfo?.id, viewer?.id]);
+
   async function loadFavorites() {
     const viewerResult = await getViewerFavorites(shareInfo.id, viewer.id);
     if (viewerResult.ok) {
@@ -149,6 +219,14 @@ export default function SharedGalleryPage({ token }) {
       if (countsResult.ok) {
         setFavoriteCounts(countsResult.counts);
       }
+    }
+  }
+
+  async function loadUploads() {
+    // Viewers only see approved uploads
+    const result = await getShareUploads(shareInfo.id, true);
+    if (result.ok) {
+      setUploads(result.uploads);
     }
   }
 
@@ -188,6 +266,99 @@ export default function SharedGalleryPage({ token }) {
       logShareAccess(shareInfo.id, viewer.id, result.isFavorite ? 'favorite' : 'unfavorite', imageId);
     }
   }
+
+  const handleUpload = useCallback(async (files) => {
+    if (!viewer || !shareInfo?.allowUploads) return;
+
+    const fileArray = Array.isArray(files) ? files : [files];
+
+    // Pre-check upload limit before sending any files
+    const maxUploads = shareInfo.maxUploadsPerViewer;
+    let filesToUpload = fileArray;
+    if (maxUploads != null) {
+      const currentCount = await getViewerUploadCount(shareInfo.id, viewer.id);
+      const remaining = Math.max(0, maxUploads - currentCount);
+      if (remaining === 0) {
+        setUploadState({ status: 'error', message: `Upload limit reached (${maxUploads} max)` });
+        setTimeout(() => setUploadState(null), 5000);
+        return;
+      }
+      if (fileArray.length > remaining) {
+        filesToUpload = fileArray.slice(0, remaining);
+        // We'll show a warning after uploads complete
+      }
+    }
+
+    const total = filesToUpload.length;
+    let succeeded = 0;
+    let lastApproved = true;
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      setUploadState({
+        status: 'uploading',
+        message: total > 1
+          ? `Optimizing & uploading ${i + 1} of ${total}...`
+          : `Optimizing & uploading ${file.name}...`,
+      });
+
+      // Compress and convert to webp (same as regular gallery uploads)
+      let optimizedFile = file;
+      try {
+        const webpDataUrl = await convertToWebP(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.85,
+        });
+        const blob = dataURLtoBlob(webpDataUrl);
+        const webpName = file.name.replace(/\.[^/.]+$/, '') + '.webp';
+        optimizedFile = new File([blob], webpName, { type: 'image/webp' });
+      } catch (err) {
+        console.warn('WebP conversion failed, uploading original:', err);
+      }
+
+      const result = await uploadToSharedGallery(
+        token,
+        shareInfo.id,
+        viewer.id,
+        optimizedFile,
+        shareInfo.maxUploadSizeMb || 10,
+      );
+
+      if (!result.ok) {
+        setUploadState({ status: 'error', message: result.error });
+        setTimeout(() => setUploadState(null), 5000);
+        return;
+      }
+
+      succeeded++;
+      lastApproved = result.data?.approved !== false;
+      logShareAccess(shareInfo.id, viewer.id, 'upload');
+    }
+
+    const skipped = fileArray.length - filesToUpload.length;
+    const needsApproval = !lastApproved;
+    const approvalNote = needsApproval ? ' Submitted for approval.' : '';
+    let message;
+    if (skipped > 0) {
+      message = `Uploaded ${succeeded} image${succeeded !== 1 ? 's' : ''}. ${skipped} skipped (upload limit: ${maxUploads}).${approvalNote}`;
+    } else if (succeeded > 1) {
+      message = needsApproval
+        ? `${succeeded} images submitted for approval.`
+        : `${succeeded} images uploaded successfully!`;
+    } else {
+      message = needsApproval
+        ? 'Image submitted for approval.'
+        : 'Image uploaded successfully!';
+    }
+
+    setUploadState({ status: 'success', message });
+    setTimeout(() => setUploadState(null), 5000);
+
+    if (lastApproved) {
+      loadUploads();
+    }
+  }, [viewer, shareInfo, token]);
 
   // Error states
   if (stage === 'error') {
@@ -239,6 +410,9 @@ export default function SharedGalleryPage({ token }) {
         favorites={favorites}
         favoriteCounts={favoriteCounts}
         onToggleFavorite={handleToggleFavorite}
+        uploads={uploads}
+        onUpload={shareInfo?.allowUploads ? handleUpload : undefined}
+        uploadState={uploadState}
       />
     );
   }

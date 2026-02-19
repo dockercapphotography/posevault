@@ -29,7 +29,8 @@ export default function CategoryGrid({
   onToggleBulkSelect,
   onSelectGallery,
   onStartBulkSelect,
-  onShowBulkEdit
+  onShowBulkEdit,
+  shareStats = {}
 }) {
   const categoryGridColsClass = getCategoryGridColsClass(categoryGridColumns);
   const activeFilterCount = selectedTagFilters.length;
@@ -181,6 +182,7 @@ export default function CategoryGrid({
               isSelected={selectedGalleries.includes(cat.id)}
               onSelect={onSelectGallery}
               onStartBulkSelect={onStartBulkSelect}
+              shareStats={shareStats[cat.supabaseUid]}
             />
           ))}
         </div>

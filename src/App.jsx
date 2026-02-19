@@ -39,6 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -109,6 +110,10 @@ export default function PhotographyPoseGuide() {
   const [pdfCategory, setPdfCategory] = useState(null);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showShareConfig, setShowShareConfig] = useState(null); // stores categoryId when open
+  const [shareUploads, setShareUploads] = useState([]); // approved share uploads for current gallery
+  const [shareStats, setShareStats] = useState({}); // { galleryUid: { uploadCount, favoriteCount } }
+  const [shareToken, setShareToken] = useState(null);
+  const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
 
   // Tutorial state
   const {
@@ -389,6 +394,15 @@ export default function PhotographyPoseGuide() {
 
     syncFromCloud({ silent: true });
   }, [session?.user?.id, categoriesLoading]);
+
+  // Fetch share upload stats for all galleries after sync and when returning to categories view
+  useEffect(() => {
+    if (!hasSyncedOnce || !session?.user?.id) return;
+    if (viewMode !== 'categories') return;
+    getShareStatsForOwner(session.user.id).then(result => {
+      if (result.ok) setShareStats(result.stats);
+    });
+  }, [hasSyncedOnce, session?.user?.id, viewMode]);
 
   // First-time setup: wait for sample gallery to be in state, then complete setup and start tutorial
   useEffect(() => {
@@ -1772,9 +1786,61 @@ export default function PhotographyPoseGuide() {
   };
 
   const handleToggleFavorite = (categoryId, imageIndex) => {
+    if (imageIndex < 0) {
+      // Share upload: find by negative index and toggle via share upload API
+      const img = displayedImages.find(i => i._originalIndex === imageIndex);
+      if (!img) return;
+      const newFav = !img.isFavorite;
+      setShareUploads(prev => prev.map(u =>
+        u.id === img.shareUploadId ? { ...u, is_favorite: newFav } : u
+      ));
+      updateShareUpload(img.shareUploadId, { is_favorite: newFav });
+      return;
+    }
     const cat = categoriesRef.current.find(c => c.id === categoryId);
     const image = cat.images[imageIndex];
     updateImageWithSync(categoryId, imageIndex, { isFavorite: !image.isFavorite });
+  };
+
+  // Wrapper for image updates that routes share uploads to the share upload API
+  const handleUpdateImage = (catId, imgIndex, updates) => {
+    if (imgIndex < 0) {
+      const img = displayedImages.find(i => i._originalIndex === imgIndex);
+      if (!img) return;
+      // Map local image field names to share_upload column names
+      const uploadUpdates = {};
+      if (updates.poseName !== undefined) uploadUpdates.display_name = updates.poseName;
+      if (updates.notes !== undefined) uploadUpdates.notes = updates.notes;
+      if (updates.tags !== undefined) uploadUpdates.tags = updates.tags;
+      if (updates.isFavorite !== undefined) uploadUpdates.is_favorite = updates.isFavorite;
+      updateShareUpload(img.shareUploadId, uploadUpdates);
+      // Update local state
+      setShareUploads(prev => prev.map(u =>
+        u.id === img.shareUploadId
+          ? {
+              ...u,
+              ...(updates.poseName !== undefined ? { display_name: updates.poseName } : {}),
+              ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+              ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+              ...(updates.isFavorite !== undefined ? { is_favorite: updates.isFavorite } : {}),
+            }
+          : u
+      ));
+      return;
+    }
+    updateImageWithSync(catId, imgIndex, updates);
+  };
+
+  // Delete handler that routes share uploads to rejectUpload API
+  const handleDeleteImage = (catId, imgIndex) => {
+    if (imgIndex < 0) {
+      const img = displayedImages.find(i => i._originalIndex === imgIndex);
+      if (!img) return;
+      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, session?.user?.id);
+      setShareUploads(prev => prev.filter(u => u.id !== img.shareUploadId));
+      return;
+    }
+    deleteImageWithSync(catId, imgIndex);
   };
 
   // ==========================================
@@ -2039,15 +2105,46 @@ export default function PhotographyPoseGuide() {
       bulkUpdates.isFavorite = false;
     }
 
-    // Update locally first
-    bulkUpdateImages(currentCategory.id, selectedImages, bulkUpdates);
+    // Split selected images into regular (non-negative) and share uploads (negative)
+    const regularIndices = selectedImages.filter(i => i >= 0);
+    const shareUploadIndices = selectedImages.filter(i => i < 0);
 
-    // Sync to Supabase in background
+    // Update regular images locally first
+    if (regularIndices.length > 0) {
+      bulkUpdateImages(currentCategory.id, regularIndices, bulkUpdates);
+    }
+
+    // Update share uploads locally
+    if (shareUploadIndices.length > 0) {
+      setShareUploads(prev => prev.map((upload, i) => {
+        const negIndex = -(i + 1);
+        if (!shareUploadIndices.includes(negIndex)) return upload;
+
+        let updated = { ...upload };
+        if (bulkUpdates.tags && bulkUpdates.tags.length > 0) {
+          const existing = updated.tags || [];
+          updated.tags = [...new Set([...existing, ...bulkUpdates.tags])];
+        }
+        if (bulkUpdates.notes !== undefined) {
+          if (bulkUpdates.notesMode === 'append' && updated.notes) {
+            updated.notes = `${updated.notes}\n${bulkUpdates.notes}`;
+          } else {
+            updated.notes = bulkUpdates.notes;
+          }
+        }
+        if (bulkUpdates.isFavorite !== undefined) {
+          updated.is_favorite = bulkUpdates.isFavorite;
+        }
+        return updated;
+      }));
+    }
+
+    // Sync regular images to Supabase in background
     const userId = session?.user?.id;
     if (userId) {
       const cat = categoriesRef.current.find(c => c.id === currentCategory.id);
       if (cat) {
-        for (const imageIndex of selectedImages) {
+        for (const imageIndex of regularIndices) {
           const image = cat.images[imageIndex];
           if (!image) continue;
 
@@ -2088,6 +2185,33 @@ export default function PhotographyPoseGuide() {
           }
         }
       }
+
+      // Sync share uploads to Supabase in background
+      for (const negIndex of shareUploadIndices) {
+        const img = displayedImages.find(i => i._originalIndex === negIndex);
+        if (!img?.shareUploadId) continue;
+
+        const uploadUpdates = {};
+        if (bulkUpdates.tags && bulkUpdates.tags.length > 0) {
+          const existing = img.tags || [];
+          uploadUpdates.tags = [...new Set([...existing, ...bulkUpdates.tags])];
+        }
+        if (bulkUpdates.notes !== undefined) {
+          if (bulkUpdates.notesMode === 'append' && img.notes) {
+            uploadUpdates.notes = `${img.notes}\n${bulkUpdates.notes}`;
+          } else {
+            uploadUpdates.notes = bulkUpdates.notes;
+          }
+        }
+        if (bulkUpdates.isFavorite !== undefined) {
+          uploadUpdates.is_favorite = bulkUpdates.isFavorite;
+        }
+
+        if (Object.keys(uploadUpdates).length > 0) {
+          updateShareUpload(img.shareUploadId, uploadUpdates)
+            .catch(err => console.error('Bulk edit share upload sync error:', err));
+        }
+      }
     }
 
     setBulkSelectMode(false);
@@ -2099,11 +2223,15 @@ export default function PhotographyPoseGuide() {
 
     const userId = session?.user?.id;
 
-    // Delete from R2 and soft-delete in Supabase before removing locally
+    // Split selected images into regular (non-negative) and share uploads (negative)
+    const regularIndices = selectedImages.filter(i => i >= 0);
+    const shareUploadIndices = selectedImages.filter(i => i < 0);
+
+    // Delete regular images from R2 and soft-delete in Supabase
     if (userId) {
       const cat = categoriesRef.current.find(c => c.id === currentCategory.id);
       if (cat) {
-        for (const imageIndex of selectedImages) {
+        for (const imageIndex of regularIndices) {
           const image = cat.images[imageIndex];
           if (!image) continue;
 
@@ -2134,8 +2262,27 @@ export default function PhotographyPoseGuide() {
       }
     }
 
-    // Delete all selected images locally
-    bulkDeleteImages(currentCategory.id, selectedImages);
+    // Delete share uploads via rejectUpload API
+    for (const negIndex of shareUploadIndices) {
+      const img = displayedImages.find(i => i._originalIndex === negIndex);
+      if (!img?.shareUploadId) continue;
+
+      rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, userId)
+        .catch(err => console.error('Bulk delete share upload error:', err));
+    }
+
+    // Remove share uploads from local state
+    if (shareUploadIndices.length > 0) {
+      const deletedUploadIds = shareUploadIndices
+        .map(negIndex => displayedImages.find(i => i._originalIndex === negIndex)?.shareUploadId)
+        .filter(Boolean);
+      setShareUploads(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
+    }
+
+    // Delete regular images locally
+    if (regularIndices.length > 0) {
+      bulkDeleteImages(currentCategory.id, regularIndices);
+    }
 
     setBulkSelectMode(false);
     setSelectedImages([]);
@@ -2313,14 +2460,69 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
+  // Load share uploads and viewer favorite counts when viewing a gallery
+  useEffect(() => {
+    if (!category?.supabaseUid) {
+      setShareUploads([]);
+      setShareToken(null);
+      setShareFavoriteCounts({});
+      return;
+    }
+
+    let cancelled = false;
+    async function loadShareData() {
+      const result = await getApprovedUploadsForGallery(category.supabaseUid);
+      if (cancelled) return;
+      if (result.ok) {
+        setShareUploads(result.uploads || []);
+        setShareToken(result.shareToken || null);
+        setShareFavoriteCounts(result.favoriteCounts || {});
+      }
+    }
+
+    loadShareData();
+    return () => { cancelled = true; };
+  }, [category?.supabaseUid, category?.id]);
+
   // Get displayed images (already includes _originalIndex from helpers.js)
-  const displayedImages = category ? getDisplayedImages(category, {
+  const galleryImages = category ? getDisplayedImages(category, {
     selectedTagFilters,
     tagFilterMode,
     showFavoritesOnly,
     sortBy,
     searchTerm
   }) : [];
+
+  // Append approved share uploads as image-like objects with unique negative indices
+  const shareUploadImages = (shareUploads.length > 0 && shareToken) ? shareUploads.map((upload, i) => ({
+    src: getShareImageUrl(shareToken, upload.image_url),
+    poseName: upload.display_name || upload.original_filename?.replace(/\.[^/.]+$/, '') || 'Viewer Upload',
+    notes: upload.notes || '',
+    isFavorite: upload.is_favorite || false,
+    isCover: false,
+    tags: upload.tags || [],
+    dateAdded: upload.uploaded_at,
+    r2Key: upload.image_url,
+    isShareUpload: true,
+    uploadedBy: upload.share_viewers?.display_name || 'Unknown',
+    shareUploadId: upload.id,
+    _originalIndex: -(i + 1), // Unique negative index: -1, -2, -3...
+  })) : [];
+
+  // Attach viewer favorite counts from the shared gallery to each displayed image
+  const attachFavoriteCounts = (images) => {
+    if (!shareFavoriteCounts || Object.keys(shareFavoriteCounts).length === 0) return images;
+    return images.map(img => {
+      // Gallery images are keyed by supabaseUid, uploads by "upload-<id>"
+      const key = img.isShareUpload
+        ? `upload-${img.shareUploadId}`
+        : (img.supabaseUid != null ? String(img.supabaseUid) : null);
+      const count = key ? (shareFavoriteCounts[key] || 0) : 0;
+      return count > 0 ? { ...img, viewerFavoriteCount: count } : img;
+    });
+  };
+
+  const displayedImages = attachFavoriteCounts([...galleryImages, ...shareUploadImages]);
 
   // Extract mapping array for backward compatibility
   const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);
@@ -2439,6 +2641,7 @@ export default function PhotographyPoseGuide() {
           onSelectGallery={handleGallerySelect}
           onStartBulkSelect={handleStartGalleryBulkSelect}
           onShowBulkEdit={() => setShowGalleryBulkEditModal(true)}
+          shareStats={shareStats}
         />
       )}
 
@@ -2476,8 +2679,8 @@ export default function PhotographyPoseGuide() {
           onToggleFavorite={(index) => handleToggleFavorite(category.id, index)}
           onEditImage={(index) => setEditingImage({ categoryId: category.id, imageIndex: index })}
           onDeleteImage={(index) => {
-            deleteImageWithSync(category.id, index);
-            if (currentImageIndex >= category.images.length - 1) {
+            handleDeleteImage(category.id, index);
+            if (index >= 0 && currentImageIndex >= category.images.length - 1) {
               setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
             }
           }}
@@ -2488,7 +2691,7 @@ export default function PhotographyPoseGuide() {
         />
       )}
 
-      {viewMode === 'single' && category && category.images.length > 0 && (() => {
+      {viewMode === 'single' && category && displayedImages.length > 0 && (() => {
         // Create a category with sorted images for the viewer
         const sortedCategory = { ...category, images: displayedImages };
         return (
@@ -2512,7 +2715,7 @@ export default function PhotographyPoseGuide() {
               // swiperIndex comes from SingleImageView's activeIndex
               const currentImage = displayedImages[swiperIndex];
               const originalIndex = currentImage._originalIndex;
-              updateImageWithSync(catId, originalIndex, updates);
+              handleUpdateImage(catId, originalIndex, updates);
             }}
           />
         );
@@ -2568,7 +2771,10 @@ export default function PhotographyPoseGuide() {
 
       {editingImage && (() => {
         const cat = categories.find(c => c.id === editingImage.categoryId);
-        const img = cat?.images[editingImage.imageIndex];
+        // For share uploads (negative index), find the image from displayedImages
+        const img = editingImage.imageIndex < 0
+          ? displayedImages.find(i => i._originalIndex === editingImage.imageIndex)
+          : cat?.images[editingImage.imageIndex];
         return (
           <ImageEditModal
             image={img}
@@ -2576,10 +2782,10 @@ export default function PhotographyPoseGuide() {
             categoryId={editingImage.categoryId}
             allTags={allTags}
             onClose={() => setEditingImage(null)}
-            onUpdateTags={(catId, imgIndex, tags) => updateImageWithSync(catId, imgIndex, { tags })}
-            onUpdateNotes={(catId, imgIndex, notes) => updateImageWithSync(catId, imgIndex, { notes })}
-            onUpdatePoseName={(catId, imgIndex, poseName) => updateImageWithSync(catId, imgIndex, { poseName })}
-            onUpdate={(catId, imgIndex, updates) => updateImageWithSync(catId, imgIndex, updates)}
+            onUpdateTags={(catId, imgIndex, tags) => handleUpdateImage(catId, imgIndex, { tags })}
+            onUpdateNotes={(catId, imgIndex, notes) => handleUpdateImage(catId, imgIndex, { notes })}
+            onUpdatePoseName={(catId, imgIndex, poseName) => handleUpdateImage(catId, imgIndex, { poseName })}
+            onUpdate={(catId, imgIndex, updates) => handleUpdateImage(catId, imgIndex, updates)}
             onForceSave={forceSave}
           />
         );
@@ -2723,6 +2929,7 @@ export default function PhotographyPoseGuide() {
           <ShareConfigModal
             category={cat}
             userId={session?.user?.id}
+            accessToken={session?.access_token}
             onClose={() => setShowShareConfig(null)}
           />
         ) : null;

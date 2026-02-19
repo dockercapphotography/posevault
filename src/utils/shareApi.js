@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { hashPassword, verifyPassword } from './crypto';
+import { updateUserStorage } from './supabaseSync';
 
 const R2_WORKER_URL = 'https://r2-worker.sitranephotography.workers.dev';
 
@@ -176,6 +177,9 @@ export async function validateShareToken(token) {
       allowFavorites: data.allow_favorites,
       favoritesVisibleToOthers: data.favorites_visible_to_others,
       allowUploads: data.allow_uploads,
+      requireUploadApproval: data.require_upload_approval,
+      maxUploadsPerViewer: data.max_uploads_per_viewer,
+      maxUploadSizeMb: data.max_upload_size_mb,
       allowComments: data.allow_comments,
       expiresAt: data.expires_at || null,
     },
@@ -341,6 +345,318 @@ export async function logShareAccess(sharedGalleryId, viewerId, action, imageId 
  */
 export function getShareImageUrl(token, r2Key) {
   return `${R2_WORKER_URL}/share-image?token=${encodeURIComponent(token)}&key=${encodeURIComponent(r2Key)}`;
+}
+
+/**
+ * Get approved uploads for a gallery (owner-side).
+ * Fetches the share config + approved uploads, returning image-ready objects.
+ * @param {number|string} galleryUid - The gallery's supabaseUid
+ * @returns {Promise<{ok: boolean, uploads?: Array, shareToken?: string, error?: string}>}
+ */
+export async function getApprovedUploadsForGallery(galleryUid) {
+  // First get the share config
+  const configResult = await getShareConfig(galleryUid);
+  if (!configResult.ok || !configResult.data) {
+    return { ok: true, uploads: [], favoriteCounts: {} }; // No share = no data
+  }
+
+  const config = configResult.data;
+
+  // Fetch viewer favorite counts (always, regardless of uploads setting)
+  let favoriteCounts = {};
+  if (config.allow_favorites) {
+    const countsResult = await getAllFavoriteCounts(config.id);
+    if (countsResult.ok) {
+      favoriteCounts = countsResult.counts;
+    }
+  }
+
+  if (!config.allow_uploads) {
+    return { ok: true, uploads: [], favoriteCounts, shareToken: config.share_token };
+  }
+
+  // Fetch approved uploads
+  const { data, error } = await supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', config.id)
+    .eq('approved', true)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch approved uploads for gallery:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data || [], favoriteCounts, shareToken: config.share_token };
+}
+
+// ==========================================
+// Upload operations
+// ==========================================
+
+/**
+ * Upload an image to a shared gallery via the R2 worker's share-upload endpoint.
+ * @param {string} token - Share token for authentication
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} viewerId - The viewer UUID
+ * @param {File} file - The image file to upload
+ * @param {number} maxSizeMb - Max file size in MB (from share config)
+ * @returns {Promise<{ok: boolean, data?: object, error?: string}>}
+ */
+export async function uploadToSharedGallery(token, sharedGalleryId, viewerId, file, maxSizeMb = 10) {
+  // Client-side file size check
+  const fileSizeBytes = file.size;
+  const maxSizeBytes = maxSizeMb * 1024 * 1024;
+  if (fileSizeBytes > maxSizeBytes) {
+    return { ok: false, error: `File exceeds ${maxSizeMb}MB limit` };
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('shared_gallery_id', sharedGalleryId);
+    formData.append('viewer_id', viewerId);
+
+    const response = await fetch(`${R2_WORKER_URL}/share-upload?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      return { ok: false, error: result.error || 'Upload failed' };
+    }
+
+    return { ok: true, data: result.data };
+  } catch (err) {
+    console.error('Share upload error:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Get all uploads for a shared gallery.
+ * If requireApproval is true, only approved uploads are returned for viewers.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {boolean} approvedOnly - If true, only return approved uploads
+ * @returns {Promise<{ok: boolean, uploads?: Array, error?: string}>}
+ */
+export async function getShareUploads(sharedGalleryId, approvedOnly = true) {
+  let query = supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .order('uploaded_at', { ascending: false });
+
+  if (approvedOnly) {
+    query = query.eq('approved', true);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Failed to fetch share uploads:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data };
+}
+
+/**
+ * Get pending (unapproved) uploads for a shared gallery (owner view).
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @returns {Promise<{ok: boolean, uploads?: Array, error?: string}>}
+ */
+export async function getPendingUploads(sharedGalleryId) {
+  const { data, error } = await supabase
+    .from('share_uploads')
+    .select('*, share_viewers(display_name)')
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('approved', false)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch pending uploads:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, uploads: data };
+}
+
+/**
+ * Get the total upload count for a specific viewer (approved + pending).
+ * Used for client-side pre-validation of max_uploads_per_viewer.
+ */
+export async function getViewerUploadCount(sharedGalleryId, viewerId) {
+  const { count, error } = await supabase
+    .from('share_uploads')
+    .select('id', { count: 'exact', head: true })
+    .eq('shared_gallery_id', sharedGalleryId)
+    .eq('viewer_id', viewerId);
+
+  if (error) {
+    console.error('Failed to get viewer upload count:', error);
+    return 0;
+  }
+  return count || 0;
+}
+
+/**
+ * Approve an upload (owner only).
+ * @param {string} uploadId - The upload UUID
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function approveUpload(uploadId) {
+  const { error } = await supabase
+    .from('share_uploads')
+    .update({ approved: true })
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to approve upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Update share upload metadata (owner only).
+ * Supports: display_name, notes, tags, is_favorite.
+ * @param {string} uploadId - The upload UUID
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function updateShareUpload(uploadId, updates) {
+  const allowed = {};
+  if (updates.display_name !== undefined) allowed.display_name = updates.display_name;
+  if (updates.notes !== undefined) allowed.notes = updates.notes;
+  if (updates.tags !== undefined) allowed.tags = updates.tags;
+  if (updates.is_favorite !== undefined) allowed.is_favorite = updates.is_favorite;
+
+  const { error } = await supabase
+    .from('share_uploads')
+    .update(allowed)
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to update share upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Reject (delete) an upload (owner only).
+ * Also deletes the image from R2 via the worker and reclaims storage.
+ * @param {string} uploadId - The upload UUID
+ * @param {string} imageUrl - The R2 key to delete
+ * @param {string} accessToken - Owner's Supabase access token
+ * @param {string} ownerId - The gallery owner's user ID (for storage reclamation)
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+export async function rejectUpload(uploadId, imageUrl, accessToken, ownerId) {
+  // Read file_size from DB before deleting the record
+  let fileSize = 0;
+  const { data: upload } = await supabase
+    .from('share_uploads')
+    .select('file_size')
+    .eq('id', uploadId)
+    .maybeSingle();
+  if (upload?.file_size) fileSize = upload.file_size;
+
+  // Delete from R2
+  if (imageUrl) {
+    try {
+      await fetch(`${R2_WORKER_URL}/${imageUrl}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch (err) {
+      console.error('Failed to delete rejected upload from R2:', err);
+    }
+  }
+
+  // Delete from DB
+  const { error } = await supabase
+    .from('share_uploads')
+    .delete()
+    .eq('id', uploadId);
+
+  if (error) {
+    console.error('Failed to reject upload:', error);
+    return { ok: false, error: error.message };
+  }
+
+  // Reclaim storage from owner
+  if (fileSize > 0 && ownerId) {
+    updateUserStorage(ownerId, -fileSize);
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Get approved share upload counts and favorite counts for all galleries owned by a user.
+ * Returns a map of galleryUid → { uploadCount, favoriteCount }
+ */
+export async function getShareStatsForOwner(ownerId) {
+  // Get all shared galleries for this owner
+  const { data: shares, error: sharesError } = await supabase
+    .from('shared_galleries')
+    .select('id, gallery_id')
+    .eq('owner_id', ownerId)
+    .eq('is_active', true);
+
+  if (sharesError || !shares || shares.length === 0) {
+    return { ok: true, stats: {} };
+  }
+
+  const shareIds = shares.map(s => s.id);
+
+  // Fetch approved upload counts
+  const { data: uploads, error: uploadsError } = await supabase
+    .from('share_uploads')
+    .select('shared_gallery_id')
+    .in('shared_gallery_id', shareIds)
+    .eq('approved', true);
+
+  // Fetch favorite counts on share uploads (owner favorites)
+  const { data: favUploads, error: favError } = await supabase
+    .from('share_uploads')
+    .select('shared_gallery_id, is_favorite')
+    .in('shared_gallery_id', shareIds)
+    .eq('approved', true)
+    .eq('is_favorite', true);
+
+  if (uploadsError) {
+    console.error('Failed to fetch share upload counts:', uploadsError);
+    return { ok: false, error: uploadsError.message };
+  }
+
+  // Build a shareId → galleryUid lookup
+  const shareToGallery = {};
+  for (const s of shares) {
+    shareToGallery[s.id] = s.gallery_id;
+  }
+
+  // Aggregate counts by galleryUid
+  const stats = {};
+  for (const u of (uploads || [])) {
+    const galleryUid = shareToGallery[u.shared_gallery_id];
+    if (!stats[galleryUid]) stats[galleryUid] = { uploadCount: 0, favoriteCount: 0 };
+    stats[galleryUid].uploadCount++;
+  }
+  for (const f of (favUploads || [])) {
+    const galleryUid = shareToGallery[f.shared_gallery_id];
+    if (!stats[galleryUid]) stats[galleryUid] = { uploadCount: 0, favoriteCount: 0 };
+    stats[galleryUid].favoriteCount++;
+  }
+
+  return { ok: true, stats };
 }
 
 // ==========================================
