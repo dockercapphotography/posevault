@@ -65,43 +65,53 @@ export default function CommentSection({
             <p className="text-xs text-gray-600 mt-1">Be the first to comment</p>
           </div>
         ) : (
-          comments.map(comment => (
-            <div key={comment.id} className="group">
-              <div className="flex items-start gap-2.5">
-                {/* Avatar */}
-                <div className="w-7 h-7 rounded-full bg-purple-600/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-xs font-semibold text-purple-300">
-                    {(comment.share_viewers?.display_name || '?')[0].toUpperCase()}
-                  </span>
-                </div>
+          comments.map(comment => {
+            const isOwnerComment = !!comment.owner_id || comment._isOwner;
+            const displayName = isOwnerComment
+              ? 'Owner'
+              : (comment.share_viewers?.display_name || 'Unknown');
+            const avatarLetter = isOwnerComment ? 'O' : (displayName[0] || '?').toUpperCase();
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium text-gray-200 truncate">
-                      {comment.share_viewers?.display_name || 'Unknown'}
-                    </span>
-                    <span className="text-[10px] text-gray-500 shrink-0">
-                      {formatTime(comment.created_at)}
+            return (
+              <div key={comment.id} className="group">
+                <div className="flex items-start gap-2.5">
+                  {/* Avatar — gold for owner, purple for viewers */}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    isOwnerComment ? 'bg-amber-500/30' : 'bg-purple-600/30'
+                  }`}>
+                    <span className={`text-xs font-semibold ${isOwnerComment ? 'text-amber-300' : 'text-purple-300'}`}>
+                      {avatarLetter}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-300 mt-0.5 break-words whitespace-pre-wrap">
-                    {comment.comment_text}
-                  </p>
-                </div>
 
-                {/* Delete button (shown for own comments, or all comments if viewerId is null = owner) */}
-                {(viewerId === null || viewerId === comment.viewer_id) && onDeleteComment && (
-                  <button
-                    onClick={() => onDeleteComment(comment.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/20 rounded transition-all cursor-pointer shrink-0"
-                    title="Delete comment"
-                  >
-                    <Trash2 size={12} className="text-red-400" />
-                  </button>
-                )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-sm font-medium truncate ${isOwnerComment ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {displayName}
+                      </span>
+                      <span className="text-[10px] text-gray-500 shrink-0">
+                        {formatTime(comment.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-300 mt-0.5 break-words whitespace-pre-wrap">
+                      {comment.comment_text}
+                    </p>
+                  </div>
+
+                  {/* Delete button (shown for own comments, or all comments if viewerId is null = owner) */}
+                  {(viewerId === null || viewerId === comment.viewer_id) && onDeleteComment && (
+                    <button
+                      onClick={() => onDeleteComment(comment.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/20 rounded transition-all cursor-pointer shrink-0"
+                      title="Delete comment"
+                    >
+                      <Trash2 size={12} className="text-red-400" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={commentsEndRef} />
       </div>

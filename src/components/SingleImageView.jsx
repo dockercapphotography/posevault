@@ -21,8 +21,11 @@ export default function SingleImageView({
   onNext,
   onUpdateImage,
   sharedGalleryId,
+  autoOpenComments,
+  onResetAutoOpenComments,
   onLoadComments,
   onDeleteComment,
+  onAddOwnerComment,
 }) {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
@@ -67,6 +70,14 @@ export default function SingleImageView({
     setImageComments([]);
     setIsEditingName(false);
   }, [activeIndex]);
+
+  // Auto-open comments panel when requested (e.g. from comment button on grid card)
+  useEffect(() => {
+    if (autoOpenComments && sharedGalleryId) {
+      handleToggleComments();
+      if (onResetAutoOpenComments) onResetAutoOpenComments();
+    }
+  }, [autoOpenComments]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -130,6 +141,20 @@ export default function SingleImageView({
       setImageComments(result.comments);
     }
     setLoadingComments(false);
+  };
+
+  const handleOwnerAddComment = async (commentText) => {
+    if (!onAddOwnerComment || !sharedGalleryId) return;
+    const key = getImageCommentKey(currentImage);
+    if (!key) return;
+    const result = await onAddOwnerComment(key, commentText);
+    if (result.ok) {
+      // Add the owner comment to the local list with a synthetic display structure
+      setImageComments(prev => [...prev, {
+        ...result.comment,
+        _isOwner: true,
+      }]);
+    }
   };
 
   const handleOwnerDeleteComment = async (commentId) => {
@@ -314,15 +339,17 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
-                  {sharedGalleryId && currentImage.viewerCommentCount > 0 && (
+                  {sharedGalleryId && (
                     <button
                       onClick={handleToggleComments}
-                      className="hover:text-purple-300 transition-colors cursor-pointer flex items-center gap-1"
+                      className="hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      <MessageCircle size={14} className={showComments ? 'text-purple-400' : 'text-gray-400'} />
-                      <span className="text-[10px] text-purple-300 font-medium">
-                        {currentImage.viewerCommentCount}
-                      </span>
+                      <MessageCircle size={14} className={showComments ? 'text-blue-400' : 'text-gray-400'} />
+                      {currentImage.viewerCommentCount > 0 && (
+                        <span className="text-[10px] text-blue-300 font-medium">
+                          {currentImage.viewerCommentCount}
+                        </span>
+                      )}
                     </button>
                   )}
                   {currentImage.notes && (
@@ -339,11 +366,12 @@ export default function SingleImageView({
           </div>
         )}
 
-        {/* Comment Panel (owner view — read-only with delete) */}
+        {/* Comment Panel (owner view — can add and delete) */}
         {showComments && sharedGalleryId && (
           <div className="bg-gray-800 border-t border-gray-700 max-h-[40vh] flex flex-col">
             <CommentSection
               comments={imageComments}
+              onAddComment={onAddOwnerComment ? handleOwnerAddComment : undefined}
               onDeleteComment={onDeleteComment ? handleOwnerDeleteComment : undefined}
               viewerId={null}
               loading={loadingComments}

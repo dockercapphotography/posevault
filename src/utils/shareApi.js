@@ -371,13 +371,11 @@ export async function getApprovedUploadsForGallery(galleryUid) {
     }
   }
 
-  // Fetch comment counts (always, regardless of comments setting — owner should see them)
+  // Always fetch comment counts — owner can comment regardless of allow_comments
   let commentCounts = {};
-  if (config.allow_comments) {
-    const commentCountsResult = await getCommentCounts(config.id);
-    if (commentCountsResult.ok) {
-      commentCounts = commentCountsResult.counts;
-    }
+  const commentCountsResult = await getCommentCounts(config.id);
+  if (commentCountsResult.ok) {
+    commentCounts = commentCountsResult.counts;
   }
 
   if (!config.allow_uploads) {
@@ -784,6 +782,36 @@ export async function addShareComment(sharedGalleryId, imageId, viewerId, commen
 
   if (error) {
     console.error('Failed to add comment:', error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, comment: data };
+}
+
+/**
+ * Add a comment as the gallery owner.
+ * @param {string} sharedGalleryId - The shared gallery UUID
+ * @param {string} imageId - The image ID
+ * @param {string} commentText - The comment text
+ * @returns {Promise<{ok: boolean, comment?: Object, error?: string}>}
+ */
+export async function addOwnerComment(sharedGalleryId, imageId, commentText) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+
+  const { data, error } = await supabase
+    .from('share_comments')
+    .insert({
+      shared_gallery_id: sharedGalleryId,
+      image_id: imageId,
+      owner_id: user.id,
+      comment_text: commentText.trim(),
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Failed to add owner comment:', error);
     return { ok: false, error: error.message };
   }
 

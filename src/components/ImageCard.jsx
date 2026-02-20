@@ -9,6 +9,7 @@ export default function ImageCard({
   bulkSelectMode,
   onImageClick,
   onToggleFavorite,
+  onCommentClick,
   onEdit,
   onDelete,
   onStartBulkSelect
@@ -177,12 +178,25 @@ export default function ImageCard({
             )}
           </button>
 
-          {/* Comment count pill (below heart) */}
-          {image.viewerCommentCount > 0 && (
-            <div className="absolute top-12 right-2 bg-gray-800 bg-opacity-75 rounded-full px-1.5 py-1 flex items-center gap-1 pointer-events-none">
-              <MessageCircle size={12} className="text-purple-300" />
-              <span className="text-[10px] text-purple-300 font-bold">{image.viewerCommentCount}</span>
-            </div>
+          {/* Comment button (below heart) */}
+          {onCommentClick && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCommentClick(index);
+              }}
+              className="absolute top-12 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
+            >
+              <MessageCircle
+                size={20}
+                className={image.viewerCommentCount > 0 ? 'fill-blue-400 text-blue-400' : 'text-white'}
+              />
+              {image.viewerCommentCount > 0 && (
+                <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                  {image.viewerCommentCount}
+                </span>
+              )}
+            </button>
           )}
 
           {/* Three-dot menu button */}

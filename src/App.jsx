@@ -39,7 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
-import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner, getCommentsForImage, deleteShareComment } from './utils/shareApi';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner, getCommentsForImage, deleteShareComment, addOwnerComment } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -116,6 +116,7 @@ export default function PhotographyPoseGuide() {
   const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
   const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
   const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
+  const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
 
   // Tutorial state
   const {
@@ -2689,6 +2690,10 @@ export default function PhotographyPoseGuide() {
           }}
           onImageClick={handleImageClick}
           onToggleFavorite={(index) => handleToggleFavorite(category.id, index)}
+          onCommentClick={sharedGalleryId ? (index) => {
+            setAutoOpenComments(true);
+            handleOpenImage(index);
+          } : undefined}
           onEditImage={(index) => setEditingImage({ categoryId: category.id, imageIndex: index })}
           onDeleteImage={(index) => {
             handleDeleteImage(category.id, index);
@@ -2730,8 +2735,20 @@ export default function PhotographyPoseGuide() {
               handleUpdateImage(catId, originalIndex, updates);
             }}
             sharedGalleryId={sharedGalleryId}
+            autoOpenComments={autoOpenComments}
+            onResetAutoOpenComments={() => setAutoOpenComments(false)}
             onLoadComments={sharedGalleryId ? getCommentsForImage : undefined}
             onDeleteComment={sharedGalleryId ? deleteShareComment : undefined}
+            onAddOwnerComment={sharedGalleryId ? async (imageId, text) => {
+              const result = await addOwnerComment(sharedGalleryId, imageId, text);
+              if (result.ok) {
+                setShareCommentCounts(prev => ({
+                  ...prev,
+                  [imageId]: (prev[imageId] || 0) + 1,
+                }));
+              }
+              return result;
+            } : undefined}
           />
         );
       })()}
