@@ -149,14 +149,6 @@ export default function ImageCard({
         </div>
       )}
 
-      {/* Comment count badge */}
-      {image.viewerCommentCount > 0 && !bulkSelectMode && (
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-1.5 py-0.5 pointer-events-none z-10">
-          <MessageCircle size={10} className="text-purple-300" />
-          <span className="text-[10px] text-purple-300 font-medium">{image.viewerCommentCount}</span>
-        </div>
-      )}
-
       {/* Pose name overlay */}
       {image.poseName && !bulkSelectMode && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pr-10 rounded-b-lg pointer-events-none">
@@ -181,6 +173,12 @@ export default function ImageCard({
             {image.viewerFavoriteCount > 0 && (
               <span className="absolute -bottom-1 -right-1 bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                 {image.viewerFavoriteCount}
+              </span>
+            )}
+            {image.viewerCommentCount > 0 && (
+              <span className="absolute -bottom-1 -left-1 bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 gap-0.5">
+                <MessageCircle size={8} />
+                {image.viewerCommentCount}
               </span>
             )}
           </button>
