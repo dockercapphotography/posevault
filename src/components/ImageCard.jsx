@@ -175,13 +175,15 @@ export default function ImageCard({
                 {image.viewerFavoriteCount}
               </span>
             )}
-            {image.viewerCommentCount > 0 && (
-              <span className="absolute -bottom-1 -left-1 bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 gap-0.5">
-                <MessageCircle size={8} />
-                {image.viewerCommentCount}
-              </span>
-            )}
           </button>
+
+          {/* Comment count pill (below heart) */}
+          {image.viewerCommentCount > 0 && (
+            <div className="absolute top-12 right-2 bg-gray-800 bg-opacity-75 rounded-full px-1.5 py-1 flex items-center gap-1 pointer-events-none">
+              <MessageCircle size={12} className="text-purple-300" />
+              <span className="text-[10px] text-purple-300 font-bold">{image.viewerCommentCount}</span>
+            </div>
+          )}
 
           {/* Three-dot menu button */}
           <div ref={menuRef} className="absolute bottom-2 right-2">
