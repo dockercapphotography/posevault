@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote, Maximize } from 'lucide-react';
+import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote, Maximize, MessageCircle } from 'lucide-react';
 import FullscreenViewer from './FullscreenViewer';
+import CommentSection from './Share/CommentSection';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
 
@@ -18,10 +19,16 @@ export default function SingleImageView({
   onToggleFavorite,
   onPrevious,
   onNext,
-  onUpdateImage
+  onUpdateImage,
+  sharedGalleryId,
+  onLoadComments,
+  onDeleteComment,
 }) {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [imageComments, setImageComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -56,6 +63,8 @@ export default function SingleImageView({
   useEffect(() => {
     setShowNotesModal(false);
     setShowTagsModal(false);
+    setShowComments(false);
+    setImageComments([]);
     setIsEditingName(false);
   }, [activeIndex]);
 
@@ -95,6 +104,39 @@ export default function SingleImageView({
       handleSaveName();
     } else if (e.key === 'Escape') {
       handleCancelEditName();
+    }
+  };
+
+  // Get image key for comment lookups (same keying as App.jsx attachShareCounts)
+  const getImageCommentKey = (img) => {
+    if (!img) return null;
+    return img.isShareUpload
+      ? `upload-${img.shareUploadId}`
+      : (img.supabaseUid != null ? String(img.supabaseUid) : null);
+  };
+
+  const handleToggleComments = async () => {
+    if (showComments) {
+      setShowComments(false);
+      return;
+    }
+    setShowComments(true);
+    if (!onLoadComments || !sharedGalleryId) return;
+    const key = getImageCommentKey(currentImage);
+    if (!key) return;
+    setLoadingComments(true);
+    const result = await onLoadComments(sharedGalleryId, key);
+    if (result.ok) {
+      setImageComments(result.comments);
+    }
+    setLoadingComments(false);
+  };
+
+  const handleOwnerDeleteComment = async (commentId) => {
+    if (!onDeleteComment) return;
+    const result = await onDeleteComment(commentId);
+    if (result.ok) {
+      setImageComments(prev => prev.filter(c => c.id !== commentId));
     }
   };
 
@@ -257,7 +299,7 @@ export default function SingleImageView({
                   )}
                 </div>
 
-                {/* Date and Notes indicator */}
+                {/* Date, Comments, and Notes indicators */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={14} />
@@ -272,6 +314,17 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
+                  {sharedGalleryId && currentImage.viewerCommentCount > 0 && (
+                    <button
+                      onClick={handleToggleComments}
+                      className="hover:text-purple-300 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <MessageCircle size={14} className={showComments ? 'text-purple-400' : 'text-gray-400'} />
+                      <span className="text-[10px] text-purple-300 font-medium">
+                        {currentImage.viewerCommentCount}
+                      </span>
+                    </button>
+                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}
@@ -283,6 +336,18 @@ export default function SingleImageView({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Comment Panel (owner view — read-only with delete) */}
+        {showComments && sharedGalleryId && (
+          <div className="bg-gray-800 border-t border-gray-700 max-h-[40vh] flex flex-col">
+            <CommentSection
+              comments={imageComments}
+              onDeleteComment={onDeleteComment ? handleOwnerDeleteComment : undefined}
+              viewerId={null}
+              loading={loadingComments}
+            />
           </div>
         )}
 

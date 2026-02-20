@@ -89,8 +89,8 @@ export default function CommentSection({
                   </p>
                 </div>
 
-                {/* Delete button (shown for own comments) */}
-                {viewerId === comment.viewer_id && onDeleteComment && (
+                {/* Delete button (shown for own comments, or all comments if viewerId is null = owner) */}
+                {(viewerId === null || viewerId === comment.viewer_id) && onDeleteComment && (
                   <button
                     onClick={() => onDeleteComment(comment.id)}
                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/20 rounded transition-all cursor-pointer shrink-0"

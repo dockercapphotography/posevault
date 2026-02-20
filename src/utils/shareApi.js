@@ -357,7 +357,7 @@ export async function getApprovedUploadsForGallery(galleryUid) {
   // First get the share config
   const configResult = await getShareConfig(galleryUid);
   if (!configResult.ok || !configResult.data) {
-    return { ok: true, uploads: [], favoriteCounts: {} }; // No share = no data
+    return { ok: true, uploads: [], favoriteCounts: {}, commentCounts: {} }; // No share = no data
   }
 
   const config = configResult.data;
@@ -371,8 +371,17 @@ export async function getApprovedUploadsForGallery(galleryUid) {
     }
   }
 
+  // Fetch comment counts (always, regardless of comments setting — owner should see them)
+  let commentCounts = {};
+  if (config.allow_comments) {
+    const commentCountsResult = await getCommentCounts(config.id);
+    if (commentCountsResult.ok) {
+      commentCounts = commentCountsResult.counts;
+    }
+  }
+
   if (!config.allow_uploads) {
-    return { ok: true, uploads: [], favoriteCounts, shareToken: config.share_token };
+    return { ok: true, uploads: [], favoriteCounts, commentCounts, shareToken: config.share_token, sharedGalleryId: config.id };
   }
 
   // Fetch approved uploads
@@ -388,7 +397,7 @@ export async function getApprovedUploadsForGallery(galleryUid) {
     return { ok: false, error: error.message };
   }
 
-  return { ok: true, uploads: data || [], favoriteCounts, shareToken: config.share_token };
+  return { ok: true, uploads: data || [], favoriteCounts, commentCounts, shareToken: config.share_token, sharedGalleryId: config.id };
 }
 
 // ==========================================

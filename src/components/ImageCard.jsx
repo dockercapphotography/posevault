@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag, Upload } from 'lucide-react';
+import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag, Upload, MessageCircle } from 'lucide-react';
 
 export default function ImageCard({
   image,
@@ -146,6 +146,14 @@ export default function ImageCard({
               +{image.tags.length - 2}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Comment count badge */}
+      {image.viewerCommentCount > 0 && !bulkSelectMode && (
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-1.5 py-0.5 pointer-events-none z-10">
+          <MessageCircle size={10} className="text-purple-300" />
+          <span className="text-[10px] text-purple-300 font-medium">{image.viewerCommentCount}</span>
         </div>
       )}
 

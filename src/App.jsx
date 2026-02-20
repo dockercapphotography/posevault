@@ -39,7 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
-import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner } from './utils/shareApi';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner, getCommentsForImage, deleteShareComment } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -114,6 +114,8 @@ export default function PhotographyPoseGuide() {
   const [shareStats, setShareStats] = useState({}); // { galleryUid: { uploadCount, favoriteCount } }
   const [shareToken, setShareToken] = useState(null);
   const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
+  const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
+  const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
 
   // Tutorial state
   const {
@@ -2466,6 +2468,8 @@ export default function PhotographyPoseGuide() {
       setShareUploads([]);
       setShareToken(null);
       setShareFavoriteCounts({});
+      setShareCommentCounts({});
+      setSharedGalleryId(null);
       return;
     }
 
@@ -2477,6 +2481,8 @@ export default function PhotographyPoseGuide() {
         setShareUploads(result.uploads || []);
         setShareToken(result.shareToken || null);
         setShareFavoriteCounts(result.favoriteCounts || {});
+        setShareCommentCounts(result.commentCounts || {});
+        setSharedGalleryId(result.sharedGalleryId || null);
       }
     }
 
@@ -2509,20 +2515,26 @@ export default function PhotographyPoseGuide() {
     _originalIndex: -(i + 1), // Unique negative index: -1, -2, -3...
   })) : [];
 
-  // Attach viewer favorite counts from the shared gallery to each displayed image
-  const attachFavoriteCounts = (images) => {
-    if (!shareFavoriteCounts || Object.keys(shareFavoriteCounts).length === 0) return images;
+  // Attach viewer favorite counts and comment counts from the shared gallery to each displayed image
+  const attachShareCounts = (images) => {
+    const hasFavorites = shareFavoriteCounts && Object.keys(shareFavoriteCounts).length > 0;
+    const hasComments = shareCommentCounts && Object.keys(shareCommentCounts).length > 0;
+    if (!hasFavorites && !hasComments) return images;
     return images.map(img => {
       // Gallery images are keyed by supabaseUid, uploads by "upload-<id>"
       const key = img.isShareUpload
         ? `upload-${img.shareUploadId}`
         : (img.supabaseUid != null ? String(img.supabaseUid) : null);
-      const count = key ? (shareFavoriteCounts[key] || 0) : 0;
-      return count > 0 ? { ...img, viewerFavoriteCount: count } : img;
+      const favCount = key && hasFavorites ? (shareFavoriteCounts[key] || 0) : 0;
+      const commentCount = key && hasComments ? (shareCommentCounts[key] || 0) : 0;
+      const extras = {};
+      if (favCount > 0) extras.viewerFavoriteCount = favCount;
+      if (commentCount > 0) extras.viewerCommentCount = commentCount;
+      return Object.keys(extras).length > 0 ? { ...img, ...extras } : img;
     });
   };
 
-  const displayedImages = attachFavoriteCounts([...galleryImages, ...shareUploadImages]);
+  const displayedImages = attachShareCounts([...galleryImages, ...shareUploadImages]);
 
   // Extract mapping array for backward compatibility
   const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);
@@ -2717,6 +2729,9 @@ export default function PhotographyPoseGuide() {
               const originalIndex = currentImage._originalIndex;
               handleUpdateImage(catId, originalIndex, updates);
             }}
+            sharedGalleryId={sharedGalleryId}
+            onLoadComments={sharedGalleryId ? getCommentsForImage : undefined}
+            onDeleteComment={sharedGalleryId ? deleteShareComment : undefined}
           />
         );
       })()}
