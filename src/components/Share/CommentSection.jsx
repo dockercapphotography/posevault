@@ -10,6 +10,7 @@ export default function CommentSection({
   onAddComment,
   onDeleteComment,
   viewerId,
+  ownerDisplayName = 'Owner',
   loading = false,
 }) {
   const [newComment, setNewComment] = useState('');
@@ -68,7 +69,7 @@ export default function CommentSection({
           comments.map(comment => {
             const isOwnerComment = !!comment.owner_id || comment._isOwner;
             const displayName = isOwnerComment
-              ? 'Owner'
+              ? ownerDisplayName
               : (comment.share_viewers?.display_name || 'Unknown');
             const avatarLetter = isOwnerComment ? 'O' : (displayName[0] || '?').toUpperCase();
 

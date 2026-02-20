@@ -21,6 +21,7 @@ export default function SingleImageView({
   onNext,
   onUpdateImage,
   sharedGalleryId,
+  ownerDisplayName = 'Owner',
   autoOpenComments,
   onResetAutoOpenComments,
   onLoadComments,
@@ -374,6 +375,7 @@ export default function SingleImageView({
               onAddComment={onAddOwnerComment ? handleOwnerAddComment : undefined}
               onDeleteComment={onDeleteComment ? handleOwnerDeleteComment : undefined}
               viewerId={null}
+              ownerDisplayName={ownerDisplayName}
               loading={loadingComments}
             />
           </div>

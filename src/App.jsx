@@ -2735,6 +2735,11 @@ export default function PhotographyPoseGuide() {
               handleUpdateImage(catId, originalIndex, updates);
             }}
             sharedGalleryId={sharedGalleryId}
+            ownerDisplayName={
+              session?.user?.user_metadata?.firstName && session?.user?.user_metadata?.lastName
+                ? `${session.user.user_metadata.firstName} ${session.user.user_metadata.lastName}`
+                : (session?.user?.email || 'Owner')
+            }
             autoOpenComments={autoOpenComments}
             onResetAutoOpenComments={() => setAutoOpenComments(false)}
             onLoadComments={sharedGalleryId ? getCommentsForImage : undefined}
