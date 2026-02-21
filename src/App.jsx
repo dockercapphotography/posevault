@@ -1021,7 +1021,10 @@ export default function PhotographyPoseGuide() {
     setViewMode('grid');
     setCurrentImageIndex(0);
     window.scrollTo(0, 0);
-    window.history.pushState({ view: 'grid' }, '');
+    // Guard against duplicate history entries (e.g. double-tap on gallery card)
+    if (window.history.state?.view !== 'grid') {
+      window.history.pushState({ view: 'grid' }, '');
+    }
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -1037,7 +1040,9 @@ export default function PhotographyPoseGuide() {
     setViewMode('grid');
     setCurrentImageIndex(0);
     window.scrollTo(0, 0);
-    window.history.pushState({ view: 'grid' }, '');
+    if (window.history.state?.view !== 'grid') {
+      window.history.pushState({ view: 'grid' }, '');
+    }
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -1048,7 +1053,9 @@ export default function PhotographyPoseGuide() {
   const handleOpenImage = (index) => {
     setCurrentImageIndex(index);
     setViewMode('single');
-    window.history.pushState({ view: 'single' }, '');
+    if (window.history.state?.view !== 'single') {
+      window.history.pushState({ view: 'single' }, '');
+    }
   };
 
   const handleCoverUpload = async (e, categoryId) => {
