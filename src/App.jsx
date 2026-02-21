@@ -117,7 +117,22 @@ export default function PhotographyPoseGuide() {
   const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
   const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
   const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
-  const shareDataCacheRef = useRef({}); // in-memory cache: { [galleryUid]: { result, timestamp } }
+  // Persistent share data cache — survives page refreshes via localStorage,
+  // with the ref providing fast synchronous access during the session.
+  const SHARE_CACHE_KEY = 'posevault_share_cache';
+  const shareDataCacheRef = useRef(() => {
+    try {
+      const raw = localStorage.getItem(SHARE_CACHE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  // Lazily initialise from the factory on first access
+  if (typeof shareDataCacheRef.current === 'function') {
+    shareDataCacheRef.current = shareDataCacheRef.current();
+  }
+  const persistShareCache = () => {
+    try { localStorage.setItem(SHARE_CACHE_KEY, JSON.stringify(shareDataCacheRef.current)); } catch {}
+  };
 
   // Tutorial state
   const {
@@ -2504,6 +2519,7 @@ export default function PhotographyPoseGuide() {
       if (cancelled) return;
       if (result.ok) {
         shareDataCacheRef.current[uid] = { result, timestamp: Date.now() };
+        persistShareCache();
         applyResult(result);
       }
     }
@@ -2999,7 +3015,10 @@ export default function PhotographyPoseGuide() {
             accessToken={session?.access_token}
             onClose={() => {
               // Invalidate share data cache for this gallery so changes take effect
-              if (cat?.supabaseUid) delete shareDataCacheRef.current[cat.supabaseUid];
+              if (cat?.supabaseUid) {
+                delete shareDataCacheRef.current[cat.supabaseUid];
+                persistShareCache();
+              }
               setShowShareConfig(null);
             }}
           />
