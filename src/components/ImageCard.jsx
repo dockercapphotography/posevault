@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag, Upload } from 'lucide-react';
+import { Heart, Trash2, SquarePen, CheckSquare, MoreVertical, Tag, Upload, MessageCircle } from 'lucide-react';
 
 export default function ImageCard({
   image,
@@ -9,6 +9,7 @@ export default function ImageCard({
   bulkSelectMode,
   onImageClick,
   onToggleFavorite,
+  onCommentClick,
   onEdit,
   onDelete,
   onStartBulkSelect
@@ -176,6 +177,27 @@ export default function ImageCard({
               </span>
             )}
           </button>
+
+          {/* Comment button (below heart) */}
+          {onCommentClick && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCommentClick(index);
+              }}
+              className="absolute top-12 right-2 p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-opacity-100 transition-all cursor-pointer"
+            >
+              <MessageCircle
+                size={20}
+                className={image.viewerCommentCount > 0 ? 'fill-blue-400 text-blue-400' : 'text-white'}
+              />
+              {image.viewerCommentCount > 0 && (
+                <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                  {image.viewerCommentCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Three-dot menu button */}
           <div ref={menuRef} className="absolute bottom-2 right-2">

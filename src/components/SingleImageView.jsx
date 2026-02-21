@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote, Maximize } from 'lucide-react';
+import { X, Heart, ChevronLeft, ChevronRight, Calendar, StickyNote, Maximize, MessageCircle } from 'lucide-react';
 import FullscreenViewer from './FullscreenViewer';
+import CommentSection from './Share/CommentSection';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Keyboard } from 'swiper/modules';
 
@@ -18,10 +19,20 @@ export default function SingleImageView({
   onToggleFavorite,
   onPrevious,
   onNext,
-  onUpdateImage
+  onUpdateImage,
+  sharedGalleryId,
+  ownerDisplayName = 'Owner',
+  autoOpenComments,
+  onResetAutoOpenComments,
+  onLoadComments,
+  onDeleteComment,
+  onAddOwnerComment,
 }) {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [imageComments, setImageComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [activeIndex, setActiveIndex] = useState(currentIndex);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -56,8 +67,18 @@ export default function SingleImageView({
   useEffect(() => {
     setShowNotesModal(false);
     setShowTagsModal(false);
+    setShowComments(false);
+    setImageComments([]);
     setIsEditingName(false);
   }, [activeIndex]);
+
+  // Auto-open comments panel when requested (e.g. from comment button on grid card)
+  useEffect(() => {
+    if (autoOpenComments && sharedGalleryId) {
+      handleToggleComments();
+      if (onResetAutoOpenComments) onResetAutoOpenComments();
+    }
+  }, [autoOpenComments]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -95,6 +116,54 @@ export default function SingleImageView({
       handleSaveName();
     } else if (e.key === 'Escape') {
       handleCancelEditName();
+    }
+  };
+
+  // Get image key for comment lookups (same keying as App.jsx attachShareCounts)
+  const getImageCommentKey = (img) => {
+    if (!img) return null;
+    return img.isShareUpload
+      ? `upload-${img.shareUploadId}`
+      : (img.supabaseUid != null ? String(img.supabaseUid) : null);
+  };
+
+  const handleToggleComments = async () => {
+    if (showComments) {
+      setShowComments(false);
+      return;
+    }
+    setShowComments(true);
+    if (!onLoadComments || !sharedGalleryId) return;
+    const key = getImageCommentKey(currentImage);
+    if (!key) return;
+    setLoadingComments(true);
+    const result = await onLoadComments(sharedGalleryId, key);
+    if (result.ok) {
+      setImageComments(result.comments);
+    }
+    setLoadingComments(false);
+  };
+
+  const handleOwnerAddComment = async (commentText) => {
+    if (!onAddOwnerComment || !sharedGalleryId) return;
+    const key = getImageCommentKey(currentImage);
+    if (!key) return;
+    const result = await onAddOwnerComment(key, commentText);
+    if (result.ok) {
+      // Add the owner comment to the local list with a synthetic display structure
+      setImageComments(prev => [...prev, {
+        ...result.comment,
+        _isOwner: true,
+      }]);
+    }
+  };
+
+  const handleOwnerDeleteComment = async (commentId) => {
+    if (!onDeleteComment) return;
+    const imageKey = getImageCommentKey(currentImage);
+    const result = await onDeleteComment(commentId, imageKey);
+    if (result.ok) {
+      setImageComments(prev => prev.filter(c => c.id !== commentId));
     }
   };
 
@@ -257,7 +326,7 @@ export default function SingleImageView({
                   )}
                 </div>
 
-                {/* Date and Notes indicator */}
+                {/* Date, Comments, and Notes indicators */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={14} />
@@ -272,6 +341,19 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
+                  {sharedGalleryId && (
+                    <button
+                      onClick={handleToggleComments}
+                      className="hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <MessageCircle size={14} className={showComments ? 'text-blue-400' : 'text-gray-400'} />
+                      {currentImage.viewerCommentCount > 0 && (
+                        <span className="text-[10px] text-blue-300 font-medium">
+                          {currentImage.viewerCommentCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}
@@ -283,6 +365,20 @@ export default function SingleImageView({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Comment Panel (owner view — can add and delete) */}
+        {showComments && sharedGalleryId && (
+          <div className="bg-gray-800 border-t border-gray-700 max-h-[40vh] flex flex-col">
+            <CommentSection
+              comments={imageComments}
+              onAddComment={onAddOwnerComment ? handleOwnerAddComment : undefined}
+              onDeleteComment={onDeleteComment ? handleOwnerDeleteComment : undefined}
+              viewerId={null}
+              ownerDisplayName={ownerDisplayName}
+              loading={loadingComments}
+            />
           </div>
         )}
 

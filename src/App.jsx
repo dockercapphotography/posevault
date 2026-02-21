@@ -39,7 +39,7 @@ import { getUserStorageInfo } from './utils/userStorage';
 import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
-import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner } from './utils/shareApi';
+import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner, getCommentsForImage, deleteShareComment, addOwnerComment } from './utils/shareApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -114,6 +114,9 @@ export default function PhotographyPoseGuide() {
   const [shareStats, setShareStats] = useState({}); // { galleryUid: { uploadCount, favoriteCount } }
   const [shareToken, setShareToken] = useState(null);
   const [shareFavoriteCounts, setShareFavoriteCounts] = useState({}); // viewer favorite counts keyed by image uid
+  const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
+  const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
+  const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
 
   // Tutorial state
   const {
@@ -395,7 +398,21 @@ export default function PhotographyPoseGuide() {
     syncFromCloud({ silent: true });
   }, [session?.user?.id, categoriesLoading]);
 
-  // Fetch share upload stats for all galleries after sync and when returning to categories view
+  // Derive share stats from persisted category.shareData (instant on load from IndexedDB).
+  // Then refresh from Supabase in the background after sync completes.
+  const persistedShareStats = {};
+  for (const cat of categories) {
+    if (cat.shareData?.result?.uploads?.length > 0) {
+      const uploads = cat.shareData.result.uploads;
+      persistedShareStats[cat.supabaseUid] = {
+        uploadCount: uploads.length,
+        favoriteCount: uploads.filter(u => u.is_favorite).length
+      };
+    }
+  }
+  // Merge: persisted stats as baseline, Supabase-fetched stats override when available
+  const mergedShareStats = { ...persistedShareStats, ...shareStats };
+
   useEffect(() => {
     if (!hasSyncedOnce || !session?.user?.id) return;
     if (viewMode !== 'categories') return;
@@ -526,8 +543,18 @@ export default function PhotographyPoseGuide() {
     if (!silent) {
       setCloudSyncProgress('Saving to local storage...');
     }
-    replaceAllCategories(localCategories);
-    console.log(`Cloud sync complete: ${localCategories.length} categories, ${loadedImages} images`);
+    // Preserve any shareData that was written during the async pull
+    const latest = categoriesRef.current;
+    const mergedLocal = localCategories.map(cat => {
+      if (!cat.supabaseUid) return cat;
+      const latestCat = latest.find(c => c.supabaseUid === cat.supabaseUid);
+      if (latestCat?.shareData) {
+        return { ...cat, shareData: latestCat.shareData };
+      }
+      return cat;
+    });
+    replaceAllCategories(mergedLocal);
+    console.log(`Cloud sync complete: ${mergedLocal.length} categories, ${loadedImages} images`);
   };
 
   // Incremental merge — used when local data exists (page refresh / returning to app)
@@ -722,7 +749,19 @@ export default function PhotographyPoseGuide() {
     });
 
     if (changed) {
-      replaceAllCategories(finalCategories);
+      // Preserve local-only fields (e.g. shareData) that may have been written
+      // into categories while the async sync was running. The sync snapshot
+      // (`local`) was taken at the start and is now stale for these fields.
+      const latest = categoriesRef.current;
+      const mergedFinal = finalCategories.map(cat => {
+        if (!cat.supabaseUid) return cat;
+        const latestCat = latest.find(c => c.supabaseUid === cat.supabaseUid);
+        if (latestCat?.shareData) {
+          return { ...cat, shareData: latestCat.shareData };
+        }
+        return cat;
+      });
+      replaceAllCategories(mergedFinal);
       console.log('Incremental cloud sync: local data updated');
     } else {
       console.log('Incremental cloud sync: already up to date');
@@ -982,7 +1021,10 @@ export default function PhotographyPoseGuide() {
     setViewMode('grid');
     setCurrentImageIndex(0);
     window.scrollTo(0, 0);
-    window.history.pushState({ view: 'grid' }, '');
+    // Guard against duplicate history entries (e.g. double-tap on gallery card)
+    if (window.history.state?.view !== 'grid') {
+      window.history.pushState({ view: 'grid' }, '');
+    }
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -998,7 +1040,9 @@ export default function PhotographyPoseGuide() {
     setViewMode('grid');
     setCurrentImageIndex(0);
     window.scrollTo(0, 0);
-    window.history.pushState({ view: 'grid' }, '');
+    if (window.history.state?.view !== 'grid') {
+      window.history.pushState({ view: 'grid' }, '');
+    }
     setShowFavoritesOnly(false);
     setSelectedTagFilters([]);
     setTagFilterMode('include');
@@ -1009,7 +1053,9 @@ export default function PhotographyPoseGuide() {
   const handleOpenImage = (index) => {
     setCurrentImageIndex(index);
     setViewMode('single');
-    window.history.pushState({ view: 'single' }, '');
+    if (window.history.state?.view !== 'single') {
+      window.history.pushState({ view: 'single' }, '');
+    }
   };
 
   const handleCoverUpload = async (e, categoryId) => {
@@ -1791,7 +1837,7 @@ export default function PhotographyPoseGuide() {
       const img = displayedImages.find(i => i._originalIndex === imageIndex);
       if (!img) return;
       const newFav = !img.isFavorite;
-      setShareUploads(prev => prev.map(u =>
+      updateShareUploadsAndPersist(prev => prev.map(u =>
         u.id === img.shareUploadId ? { ...u, is_favorite: newFav } : u
       ));
       updateShareUpload(img.shareUploadId, { is_favorite: newFav });
@@ -1814,8 +1860,8 @@ export default function PhotographyPoseGuide() {
       if (updates.tags !== undefined) uploadUpdates.tags = updates.tags;
       if (updates.isFavorite !== undefined) uploadUpdates.is_favorite = updates.isFavorite;
       updateShareUpload(img.shareUploadId, uploadUpdates);
-      // Update local state
-      setShareUploads(prev => prev.map(u =>
+      // Update local state + persist to IndexedDB
+      updateShareUploadsAndPersist(prev => prev.map(u =>
         u.id === img.shareUploadId
           ? {
               ...u,
@@ -1837,7 +1883,7 @@ export default function PhotographyPoseGuide() {
       const img = displayedImages.find(i => i._originalIndex === imgIndex);
       if (!img) return;
       rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, session?.user?.id);
-      setShareUploads(prev => prev.filter(u => u.id !== img.shareUploadId));
+      updateShareUploadsAndPersist(prev => prev.filter(u => u.id !== img.shareUploadId));
       return;
     }
     deleteImageWithSync(catId, imgIndex);
@@ -2114,9 +2160,9 @@ export default function PhotographyPoseGuide() {
       bulkUpdateImages(currentCategory.id, regularIndices, bulkUpdates);
     }
 
-    // Update share uploads locally
+    // Update share uploads locally + persist to IndexedDB
     if (shareUploadIndices.length > 0) {
-      setShareUploads(prev => prev.map((upload, i) => {
+      updateShareUploadsAndPersist(prev => prev.map((upload, i) => {
         const negIndex = -(i + 1);
         if (!shareUploadIndices.includes(negIndex)) return upload;
 
@@ -2271,12 +2317,12 @@ export default function PhotographyPoseGuide() {
         .catch(err => console.error('Bulk delete share upload error:', err));
     }
 
-    // Remove share uploads from local state
+    // Remove share uploads from local state + persist to IndexedDB
     if (shareUploadIndices.length > 0) {
       const deletedUploadIds = shareUploadIndices
         .map(negIndex => displayedImages.find(i => i._originalIndex === negIndex)?.shareUploadId)
         .filter(Boolean);
-      setShareUploads(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
+      updateShareUploadsAndPersist(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
     }
 
     // Delete regular images locally
@@ -2460,23 +2506,95 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
-  // Load share uploads and viewer favorite counts when viewing a gallery
+  // Helper: persist a partial update into category.shareData.result in IndexedDB.
+  // Uses categoriesRef for the latest data to avoid stale closure issues.
+  const persistShareDataField = (fieldUpdates) => {
+    const latestCat = categoriesRef.current.find(c => c.id === category?.id);
+    if (latestCat?.shareData?.result) {
+      updateCategory(latestCat.id, {
+        shareData: {
+          ...latestCat.shareData,
+          result: { ...latestCat.shareData.result, ...fieldUpdates },
+          timestamp: Date.now()
+        }
+      });
+    }
+  };
+
+  // Wrapper: update shareUploads React state AND persist into category.shareData in IndexedDB.
+  // Accepts either a new array or a functional updater (prev => next), just like setState.
+  const updateShareUploadsAndPersist = (updater) => {
+    setShareUploads(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistShareDataField({ uploads: next });
+      return next;
+    });
+  };
+
+  // Wrapper: update shareCommentCounts AND persist into category.shareData in IndexedDB.
+  const updateShareCommentCountsAndPersist = (updater) => {
+    setShareCommentCounts(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistShareDataField({ commentCounts: next });
+      return next;
+    });
+  };
+
+  // Wrapper: update shareFavoriteCounts AND persist into category.shareData in IndexedDB.
+  const updateShareFavoriteCountsAndPersist = (updater) => {
+    setShareFavoriteCounts(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistShareDataField({ favoriteCounts: next });
+      return next;
+    });
+  };
+
+  // Load share uploads and viewer favorite/comment counts when viewing a gallery.
+  // Share data is persisted inside category.shareData (saved to IndexedDB via
+  // useCategories), so it survives page refreshes — no network call needed on reload.
+  // A background refresh keeps the data fresh (60 s TTL).
+  const SHARE_CACHE_TTL = 60_000; // 60 s — within TTL skip the background refresh entirely
   useEffect(() => {
     if (!category?.supabaseUid) {
       setShareUploads([]);
       setShareToken(null);
       setShareFavoriteCounts({});
+      setShareCommentCounts({});
+      setSharedGalleryId(null);
       return;
     }
 
+    const uid = category.supabaseUid;
+    const persisted = category.shareData;
+
+    // Apply persisted/fetched data to React state
+    function applyResult(result) {
+      if (!result.ok) return;
+      setShareUploads(result.uploads || []);
+      setShareToken(result.shareToken || null);
+      setShareFavoriteCounts(result.favoriteCounts || {});
+      setShareCommentCounts(result.commentCounts || {});
+      setSharedGalleryId(result.sharedGalleryId || null);
+    }
+
+    // If we have persisted share data from IndexedDB, apply it immediately
+    if (persisted?.result) {
+      applyResult(persisted.result);
+      // If the persisted data is still fresh, skip the network call entirely
+      if (Date.now() - (persisted.timestamp || 0) < SHARE_CACHE_TTL) return;
+    }
+
+    // Fetch fresh data from Supabase (in the background if we had persisted data)
     let cancelled = false;
     async function loadShareData() {
-      const result = await getApprovedUploadsForGallery(category.supabaseUid);
+      const result = await getApprovedUploadsForGallery(uid);
       if (cancelled) return;
       if (result.ok) {
-        setShareUploads(result.uploads || []);
-        setShareToken(result.shareToken || null);
-        setShareFavoriteCounts(result.favoriteCounts || {});
+        // Persist into category.shareData → triggers IndexedDB save via useCategories
+        updateCategory(category.id, {
+          shareData: { result, timestamp: Date.now() }
+        });
+        applyResult(result);
       }
     }
 
@@ -2509,20 +2627,26 @@ export default function PhotographyPoseGuide() {
     _originalIndex: -(i + 1), // Unique negative index: -1, -2, -3...
   })) : [];
 
-  // Attach viewer favorite counts from the shared gallery to each displayed image
-  const attachFavoriteCounts = (images) => {
-    if (!shareFavoriteCounts || Object.keys(shareFavoriteCounts).length === 0) return images;
+  // Attach viewer favorite counts and comment counts from the shared gallery to each displayed image
+  const attachShareCounts = (images) => {
+    const hasFavorites = shareFavoriteCounts && Object.keys(shareFavoriteCounts).length > 0;
+    const hasComments = shareCommentCounts && Object.keys(shareCommentCounts).length > 0;
+    if (!hasFavorites && !hasComments) return images;
     return images.map(img => {
       // Gallery images are keyed by supabaseUid, uploads by "upload-<id>"
       const key = img.isShareUpload
         ? `upload-${img.shareUploadId}`
         : (img.supabaseUid != null ? String(img.supabaseUid) : null);
-      const count = key ? (shareFavoriteCounts[key] || 0) : 0;
-      return count > 0 ? { ...img, viewerFavoriteCount: count } : img;
+      const favCount = key && hasFavorites ? (shareFavoriteCounts[key] || 0) : 0;
+      const commentCount = key && hasComments ? (shareCommentCounts[key] || 0) : 0;
+      const extras = {};
+      if (favCount > 0) extras.viewerFavoriteCount = favCount;
+      if (commentCount > 0) extras.viewerCommentCount = commentCount;
+      return Object.keys(extras).length > 0 ? { ...img, ...extras } : img;
     });
   };
 
-  const displayedImages = attachFavoriteCounts([...galleryImages, ...shareUploadImages]);
+  const displayedImages = attachShareCounts([...galleryImages, ...shareUploadImages]);
 
   // Extract mapping array for backward compatibility
   const displayedToOriginalIndex = displayedImages.map(img => img._originalIndex);
@@ -2641,7 +2765,7 @@ export default function PhotographyPoseGuide() {
           onSelectGallery={handleGallerySelect}
           onStartBulkSelect={handleStartGalleryBulkSelect}
           onShowBulkEdit={() => setShowGalleryBulkEditModal(true)}
-          shareStats={shareStats}
+          shareStats={mergedShareStats}
         />
       )}
 
@@ -2677,6 +2801,10 @@ export default function PhotographyPoseGuide() {
           }}
           onImageClick={handleImageClick}
           onToggleFavorite={(index) => handleToggleFavorite(category.id, index)}
+          onCommentClick={sharedGalleryId ? (index) => {
+            setAutoOpenComments(true);
+            handleOpenImage(index);
+          } : undefined}
           onEditImage={(index) => setEditingImage({ categoryId: category.id, imageIndex: index })}
           onDeleteImage={(index) => {
             handleDeleteImage(category.id, index);
@@ -2717,6 +2845,35 @@ export default function PhotographyPoseGuide() {
               const originalIndex = currentImage._originalIndex;
               handleUpdateImage(catId, originalIndex, updates);
             }}
+            sharedGalleryId={sharedGalleryId}
+            ownerDisplayName={
+              session?.user?.user_metadata?.firstName && session?.user?.user_metadata?.lastName
+                ? `${session.user.user_metadata.firstName} ${session.user.user_metadata.lastName}`
+                : (session?.user?.email || 'Owner')
+            }
+            autoOpenComments={autoOpenComments}
+            onResetAutoOpenComments={() => setAutoOpenComments(false)}
+            onLoadComments={sharedGalleryId ? getCommentsForImage : undefined}
+            onDeleteComment={sharedGalleryId ? async (commentId, imageKey) => {
+              const result = await deleteShareComment(commentId);
+              if (result.ok && imageKey) {
+                updateShareCommentCountsAndPersist(prev => ({
+                  ...prev,
+                  [imageKey]: Math.max(0, (prev[imageKey] || 0) - 1),
+                }));
+              }
+              return result;
+            } : undefined}
+            onAddOwnerComment={sharedGalleryId ? async (imageId, text) => {
+              const result = await addOwnerComment(sharedGalleryId, imageId, text);
+              if (result.ok) {
+                updateShareCommentCountsAndPersist(prev => ({
+                  ...prev,
+                  [imageId]: (prev[imageId] || 0) + 1,
+                }));
+              }
+              return result;
+            } : undefined}
           />
         );
       })()}
@@ -2930,7 +3087,13 @@ export default function PhotographyPoseGuide() {
             category={cat}
             userId={session?.user?.id}
             accessToken={session?.access_token}
-            onClose={() => setShowShareConfig(null)}
+            onClose={() => {
+              // Invalidate persisted share data so changes take effect on next gallery open
+              if (cat?.supabaseUid) {
+                updateCategory(cat.id, { shareData: null });
+              }
+              setShowShareConfig(null);
+            }}
           />
         ) : null;
       })()}

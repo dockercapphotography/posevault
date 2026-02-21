@@ -28,6 +28,7 @@ export default function ImageGrid({
   onSetGridColumns,
   onImageClick,
   onToggleFavorite,
+  onCommentClick,
   onEditImage,
   onDeleteImage,
   onStartBulkSelect
@@ -261,6 +262,7 @@ export default function ImageGrid({
                   bulkSelectMode={bulkSelectMode}
                   onImageClick={onImageClick}
                   onToggleFavorite={onToggleFavorite}
+                  onCommentClick={onCommentClick}
                   onEdit={onEditImage}
                   onDelete={onDeleteImage}
                   onStartBulkSelect={onStartBulkSelect}

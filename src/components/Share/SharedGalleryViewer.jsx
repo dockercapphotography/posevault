@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Image as ImageIcon, Images, Clock, Heart, Upload, CheckCircle, Loader2 } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Image as ImageIcon, Images, Clock, Heart, Upload, CheckCircle, Loader2, MessageCircle } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
 
@@ -7,6 +7,8 @@ export default function SharedGalleryViewer({
   token, gallery, images, permissions, viewer,
   favorites = new Set(), favoriteCounts = {}, onToggleFavorite,
   uploads = [], onUpload, uploadState,
+  commentCounts = {}, currentImageComments = [], loadingComments = false,
+  onImageSelect, onAddComment, onDeleteComment,
 }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [gridColumns, setGridColumns] = useState(isMobile ? 2 : 3);
@@ -92,17 +94,67 @@ export default function SharedGalleryViewer({
     setDragOver(false);
   };
 
+  // Handle Android/iOS back button: push a history entry when entering
+  // single image view, and close the view on popstate instead of leaving.
+  const closeImageView = useCallback(() => {
+    setSelectedImage(null);
+  }, []);
+
+  useEffect(() => {
+    if (selectedImage === null) return;
+
+    // Push a history entry so the back button returns to the grid
+    if (window.history.state?.view !== 'shared-single') {
+      window.history.pushState({ view: 'shared-single' }, '');
+    }
+
+    const onPopState = () => {
+      closeImageView();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [selectedImage !== null, closeImageView]);
+
+  const handleImageClick = (index) => {
+    setSelectedImage(index);
+    const image = displayedImages[index];
+    if (image && onImageSelect) {
+      onImageSelect(image.id);
+    }
+  };
+
+  const handleNavigate = (index) => {
+    setSelectedImage(index);
+    const image = displayedImages[index];
+    if (image && onImageSelect) {
+      onImageSelect(image.id);
+    }
+  };
+
+  const handleCloseImageView = () => {
+    // Use history.back() so the popstate handler fires and cleans up properly
+    window.history.back();
+  };
+
   if (selectedImage !== null) {
     return (
       <SharedImageView
         token={token}
         images={displayedImages}
         currentIndex={selectedImage}
-        onClose={() => setSelectedImage(null)}
-        onNavigate={setSelectedImage}
+        onClose={handleCloseImageView}
+        onNavigate={handleNavigate}
         allowFavorites={permissions?.allowFavorites}
         favorites={favorites}
         onToggleFavorite={onToggleFavorite}
+        allowComments={permissions?.allowComments}
+        comments={currentImageComments}
+        commentCounts={commentCounts}
+        onAddComment={onAddComment}
+        onDeleteComment={onDeleteComment}
+        loadingComments={loadingComments}
+        viewerId={viewer?.id}
       />
     );
   }
@@ -335,7 +387,7 @@ export default function SharedGalleryViewer({
             {displayedImages.map((image, index) => (
               <div
                 key={image.id || index}
-                onClick={() => setSelectedImage(index)}
+                onClick={() => handleImageClick(index)}
                 className="relative aspect-[3/4] bg-gray-800 rounded-lg overflow-hidden cursor-pointer group"
               >
                 <img
@@ -395,6 +447,14 @@ export default function SharedGalleryViewer({
                         +{image.tags.length - 2}
                       </span>
                     )}
+                  </div>
+                )}
+
+                {/* Comment count badge */}
+                {permissions?.allowComments && commentCounts[image.id] > 0 && (
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 rounded-full px-1.5 py-0.5 z-10">
+                    <MessageCircle size={10} className="text-purple-300" />
+                    <span className="text-[10px] text-purple-300 font-medium">{commentCounts[image.id]}</span>
                   </div>
                 )}
               </div>
