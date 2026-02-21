@@ -2499,23 +2499,45 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
+  // Helper: persist a partial update into category.shareData.result in IndexedDB.
+  // Uses categoriesRef for the latest data to avoid stale closure issues.
+  const persistShareDataField = (fieldUpdates) => {
+    const latestCat = categoriesRef.current.find(c => c.id === category?.id);
+    if (latestCat?.shareData?.result) {
+      updateCategory(latestCat.id, {
+        shareData: {
+          ...latestCat.shareData,
+          result: { ...latestCat.shareData.result, ...fieldUpdates },
+          timestamp: Date.now()
+        }
+      });
+    }
+  };
+
   // Wrapper: update shareUploads React state AND persist into category.shareData in IndexedDB.
   // Accepts either a new array or a functional updater (prev => next), just like setState.
   const updateShareUploadsAndPersist = (updater) => {
     setShareUploads(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      // Persist the updated uploads into category.shareData so it survives page refresh.
-      // Use categoriesRef for the latest data to avoid stale closure issues.
-      const latestCat = categoriesRef.current.find(c => c.id === category?.id);
-      if (latestCat?.shareData?.result) {
-        updateCategory(latestCat.id, {
-          shareData: {
-            ...latestCat.shareData,
-            result: { ...latestCat.shareData.result, uploads: next },
-            timestamp: Date.now()
-          }
-        });
-      }
+      persistShareDataField({ uploads: next });
+      return next;
+    });
+  };
+
+  // Wrapper: update shareCommentCounts AND persist into category.shareData in IndexedDB.
+  const updateShareCommentCountsAndPersist = (updater) => {
+    setShareCommentCounts(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistShareDataField({ commentCounts: next });
+      return next;
+    });
+  };
+
+  // Wrapper: update shareFavoriteCounts AND persist into category.shareData in IndexedDB.
+  const updateShareFavoriteCountsAndPersist = (updater) => {
+    setShareFavoriteCounts(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistShareDataField({ favoriteCounts: next });
       return next;
     });
   };
@@ -2828,7 +2850,7 @@ export default function PhotographyPoseGuide() {
             onDeleteComment={sharedGalleryId ? async (commentId, imageKey) => {
               const result = await deleteShareComment(commentId);
               if (result.ok && imageKey) {
-                setShareCommentCounts(prev => ({
+                updateShareCommentCountsAndPersist(prev => ({
                   ...prev,
                   [imageKey]: Math.max(0, (prev[imageKey] || 0) - 1),
                 }));
@@ -2838,7 +2860,7 @@ export default function PhotographyPoseGuide() {
             onAddOwnerComment={sharedGalleryId ? async (imageId, text) => {
               const result = await addOwnerComment(sharedGalleryId, imageId, text);
               if (result.ok) {
-                setShareCommentCounts(prev => ({
+                updateShareCommentCountsAndPersist(prev => ({
                   ...prev,
                   [imageId]: (prev[imageId] || 0) + 1,
                 }));
