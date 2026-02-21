@@ -117,22 +117,6 @@ export default function PhotographyPoseGuide() {
   const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
   const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
   const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
-  // Persistent share data cache — survives page refreshes via localStorage,
-  // with the ref providing fast synchronous access during the session.
-  const SHARE_CACHE_KEY = 'posevault_share_cache';
-  const shareDataCacheRef = useRef(() => {
-    try {
-      const raw = localStorage.getItem(SHARE_CACHE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  });
-  // Lazily initialise from the factory on first access
-  if (typeof shareDataCacheRef.current === 'function') {
-    shareDataCacheRef.current = shareDataCacheRef.current();
-  }
-  const persistShareCache = () => {
-    try { localStorage.setItem(SHARE_CACHE_KEY, JSON.stringify(shareDataCacheRef.current)); } catch {}
-  };
 
   // Tutorial state
   const {
@@ -414,7 +398,21 @@ export default function PhotographyPoseGuide() {
     syncFromCloud({ silent: true });
   }, [session?.user?.id, categoriesLoading]);
 
-  // Fetch share upload stats for all galleries after sync and when returning to categories view
+  // Derive share stats from persisted category.shareData (instant on load from IndexedDB).
+  // Then refresh from Supabase in the background after sync completes.
+  const persistedShareStats = {};
+  for (const cat of categories) {
+    if (cat.shareData?.result?.uploads?.length > 0) {
+      const uploads = cat.shareData.result.uploads;
+      persistedShareStats[cat.supabaseUid] = {
+        uploadCount: uploads.length,
+        favoriteCount: uploads.filter(u => u.is_favorite).length
+      };
+    }
+  }
+  // Merge: persisted stats as baseline, Supabase-fetched stats override when available
+  const mergedShareStats = { ...persistedShareStats, ...shareStats };
+
   useEffect(() => {
     if (!hasSyncedOnce || !session?.user?.id) return;
     if (viewMode !== 'categories') return;
@@ -1810,7 +1808,7 @@ export default function PhotographyPoseGuide() {
       const img = displayedImages.find(i => i._originalIndex === imageIndex);
       if (!img) return;
       const newFav = !img.isFavorite;
-      setShareUploads(prev => prev.map(u =>
+      updateShareUploadsAndPersist(prev => prev.map(u =>
         u.id === img.shareUploadId ? { ...u, is_favorite: newFav } : u
       ));
       updateShareUpload(img.shareUploadId, { is_favorite: newFav });
@@ -1833,8 +1831,8 @@ export default function PhotographyPoseGuide() {
       if (updates.tags !== undefined) uploadUpdates.tags = updates.tags;
       if (updates.isFavorite !== undefined) uploadUpdates.is_favorite = updates.isFavorite;
       updateShareUpload(img.shareUploadId, uploadUpdates);
-      // Update local state
-      setShareUploads(prev => prev.map(u =>
+      // Update local state + persist to IndexedDB
+      updateShareUploadsAndPersist(prev => prev.map(u =>
         u.id === img.shareUploadId
           ? {
               ...u,
@@ -1856,7 +1854,7 @@ export default function PhotographyPoseGuide() {
       const img = displayedImages.find(i => i._originalIndex === imgIndex);
       if (!img) return;
       rejectUpload(img.shareUploadId, img.r2Key, session?.access_token, session?.user?.id);
-      setShareUploads(prev => prev.filter(u => u.id !== img.shareUploadId));
+      updateShareUploadsAndPersist(prev => prev.filter(u => u.id !== img.shareUploadId));
       return;
     }
     deleteImageWithSync(catId, imgIndex);
@@ -2133,9 +2131,9 @@ export default function PhotographyPoseGuide() {
       bulkUpdateImages(currentCategory.id, regularIndices, bulkUpdates);
     }
 
-    // Update share uploads locally
+    // Update share uploads locally + persist to IndexedDB
     if (shareUploadIndices.length > 0) {
-      setShareUploads(prev => prev.map((upload, i) => {
+      updateShareUploadsAndPersist(prev => prev.map((upload, i) => {
         const negIndex = -(i + 1);
         if (!shareUploadIndices.includes(negIndex)) return upload;
 
@@ -2290,12 +2288,12 @@ export default function PhotographyPoseGuide() {
         .catch(err => console.error('Bulk delete share upload error:', err));
     }
 
-    // Remove share uploads from local state
+    // Remove share uploads from local state + persist to IndexedDB
     if (shareUploadIndices.length > 0) {
       const deletedUploadIds = shareUploadIndices
         .map(negIndex => displayedImages.find(i => i._originalIndex === negIndex)?.shareUploadId)
         .filter(Boolean);
-      setShareUploads(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
+      updateShareUploadsAndPersist(prev => prev.filter(u => !deletedUploadIds.includes(u.id)));
     }
 
     // Delete regular images locally
@@ -2479,9 +2477,31 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
+  // Wrapper: update shareUploads React state AND persist into category.shareData in IndexedDB.
+  // Accepts either a new array or a functional updater (prev => next), just like setState.
+  const updateShareUploadsAndPersist = (updater) => {
+    setShareUploads(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      // Persist the updated uploads into category.shareData so it survives page refresh.
+      // Use categoriesRef for the latest data to avoid stale closure issues.
+      const latestCat = categoriesRef.current.find(c => c.id === category?.id);
+      if (latestCat?.shareData?.result) {
+        updateCategory(latestCat.id, {
+          shareData: {
+            ...latestCat.shareData,
+            result: { ...latestCat.shareData.result, uploads: next },
+            timestamp: Date.now()
+          }
+        });
+      }
+      return next;
+    });
+  };
+
   // Load share uploads and viewer favorite/comment counts when viewing a gallery.
-  // Uses an in-memory cache so re-entering a gallery is instant; a background
-  // refresh keeps the data fresh without blocking the UI.
+  // Share data is persisted inside category.shareData (saved to IndexedDB via
+  // useCategories), so it survives page refreshes — no network call needed on reload.
+  // A background refresh keeps the data fresh (60 s TTL).
   const SHARE_CACHE_TTL = 60_000; // 60 s — within TTL skip the background refresh entirely
   useEffect(() => {
     if (!category?.supabaseUid) {
@@ -2494,9 +2514,9 @@ export default function PhotographyPoseGuide() {
     }
 
     const uid = category.supabaseUid;
-    const cached = shareDataCacheRef.current[uid];
+    const persisted = category.shareData;
 
-    // Apply cached data immediately so the UI doesn't flash empty
+    // Apply persisted/fetched data to React state
     function applyResult(result) {
       if (!result.ok) return;
       setShareUploads(result.uploads || []);
@@ -2506,20 +2526,23 @@ export default function PhotographyPoseGuide() {
       setSharedGalleryId(result.sharedGalleryId || null);
     }
 
-    if (cached) {
-      applyResult(cached.result);
-      // If cached data is still fresh, skip the network call entirely
-      if (Date.now() - cached.timestamp < SHARE_CACHE_TTL) return;
+    // If we have persisted share data from IndexedDB, apply it immediately
+    if (persisted?.result) {
+      applyResult(persisted.result);
+      // If the persisted data is still fresh, skip the network call entirely
+      if (Date.now() - (persisted.timestamp || 0) < SHARE_CACHE_TTL) return;
     }
 
-    // Fetch fresh data (in the background if we had a cache hit)
+    // Fetch fresh data from Supabase (in the background if we had persisted data)
     let cancelled = false;
     async function loadShareData() {
       const result = await getApprovedUploadsForGallery(uid);
       if (cancelled) return;
       if (result.ok) {
-        shareDataCacheRef.current[uid] = { result, timestamp: Date.now() };
-        persistShareCache();
+        // Persist into category.shareData → triggers IndexedDB save via useCategories
+        updateCategory(category.id, {
+          shareData: { result, timestamp: Date.now() }
+        });
         applyResult(result);
       }
     }
@@ -2691,7 +2714,7 @@ export default function PhotographyPoseGuide() {
           onSelectGallery={handleGallerySelect}
           onStartBulkSelect={handleStartGalleryBulkSelect}
           onShowBulkEdit={() => setShowGalleryBulkEditModal(true)}
-          shareStats={shareStats}
+          shareStats={mergedShareStats}
         />
       )}
 
@@ -3014,10 +3037,9 @@ export default function PhotographyPoseGuide() {
             userId={session?.user?.id}
             accessToken={session?.access_token}
             onClose={() => {
-              // Invalidate share data cache for this gallery so changes take effect
+              // Invalidate persisted share data so changes take effect on next gallery open
               if (cat?.supabaseUid) {
-                delete shareDataCacheRef.current[cat.supabaseUid];
-                persistShareCache();
+                updateCategory(cat.id, { shareData: null });
               }
               setShowShareConfig(null);
             }}
