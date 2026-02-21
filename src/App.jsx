@@ -117,6 +117,7 @@ export default function PhotographyPoseGuide() {
   const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
   const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
   const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
+  const shareDataCacheRef = useRef({}); // in-memory cache: { [galleryUid]: { result, timestamp } }
 
   // Tutorial state
   const {
@@ -2463,7 +2464,10 @@ export default function PhotographyPoseGuide() {
   // Get all gallery tags
   const allGalleryTags = getAllGalleryTags(categories);
 
-  // Load share uploads and viewer favorite counts when viewing a gallery
+  // Load share uploads and viewer favorite/comment counts when viewing a gallery.
+  // Uses an in-memory cache so re-entering a gallery is instant; a background
+  // refresh keeps the data fresh without blocking the UI.
+  const SHARE_CACHE_TTL = 60_000; // 60 s — within TTL skip the background refresh entirely
   useEffect(() => {
     if (!category?.supabaseUid) {
       setShareUploads([]);
@@ -2474,16 +2478,33 @@ export default function PhotographyPoseGuide() {
       return;
     }
 
+    const uid = category.supabaseUid;
+    const cached = shareDataCacheRef.current[uid];
+
+    // Apply cached data immediately so the UI doesn't flash empty
+    function applyResult(result) {
+      if (!result.ok) return;
+      setShareUploads(result.uploads || []);
+      setShareToken(result.shareToken || null);
+      setShareFavoriteCounts(result.favoriteCounts || {});
+      setShareCommentCounts(result.commentCounts || {});
+      setSharedGalleryId(result.sharedGalleryId || null);
+    }
+
+    if (cached) {
+      applyResult(cached.result);
+      // If cached data is still fresh, skip the network call entirely
+      if (Date.now() - cached.timestamp < SHARE_CACHE_TTL) return;
+    }
+
+    // Fetch fresh data (in the background if we had a cache hit)
     let cancelled = false;
     async function loadShareData() {
-      const result = await getApprovedUploadsForGallery(category.supabaseUid);
+      const result = await getApprovedUploadsForGallery(uid);
       if (cancelled) return;
       if (result.ok) {
-        setShareUploads(result.uploads || []);
-        setShareToken(result.shareToken || null);
-        setShareFavoriteCounts(result.favoriteCounts || {});
-        setShareCommentCounts(result.commentCounts || {});
-        setSharedGalleryId(result.sharedGalleryId || null);
+        shareDataCacheRef.current[uid] = { result, timestamp: Date.now() };
+        applyResult(result);
       }
     }
 
@@ -2976,7 +2997,11 @@ export default function PhotographyPoseGuide() {
             category={cat}
             userId={session?.user?.id}
             accessToken={session?.access_token}
-            onClose={() => setShowShareConfig(null)}
+            onClose={() => {
+              // Invalidate share data cache for this gallery so changes take effect
+              if (cat?.supabaseUid) delete shareDataCacheRef.current[cat.supabaseUid];
+              setShowShareConfig(null);
+            }}
           />
         ) : null;
       })()}
