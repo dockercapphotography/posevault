@@ -2743,7 +2743,16 @@ export default function PhotographyPoseGuide() {
             autoOpenComments={autoOpenComments}
             onResetAutoOpenComments={() => setAutoOpenComments(false)}
             onLoadComments={sharedGalleryId ? getCommentsForImage : undefined}
-            onDeleteComment={sharedGalleryId ? deleteShareComment : undefined}
+            onDeleteComment={sharedGalleryId ? async (commentId, imageKey) => {
+              const result = await deleteShareComment(commentId);
+              if (result.ok && imageKey) {
+                setShareCommentCounts(prev => ({
+                  ...prev,
+                  [imageKey]: Math.max(0, (prev[imageKey] || 0) - 1),
+                }));
+              }
+              return result;
+            } : undefined}
             onAddOwnerComment={sharedGalleryId ? async (imageId, text) => {
               const result = await addOwnerComment(sharedGalleryId, imageId, text);
               if (result.ok) {

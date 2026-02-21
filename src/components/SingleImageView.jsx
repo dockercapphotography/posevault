@@ -160,7 +160,8 @@ export default function SingleImageView({
 
   const handleOwnerDeleteComment = async (commentId) => {
     if (!onDeleteComment) return;
-    const result = await onDeleteComment(commentId);
+    const imageKey = getImageCommentKey(currentImage);
+    const result = await onDeleteComment(commentId, imageKey);
     if (result.ok) {
       setImageComments(prev => prev.filter(c => c.id !== commentId));
     }
