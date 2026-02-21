@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Grid3x3, ChevronDown, Tag, X, Filter, Camera, Image as ImageIcon, Images, Clock, Heart, Upload, CheckCircle, Loader2, MessageCircle } from 'lucide-react';
 import SharedImageView from './SharedImageView';
 import { getShareImageUrl } from '../../utils/shareApi';
@@ -94,6 +94,28 @@ export default function SharedGalleryViewer({
     setDragOver(false);
   };
 
+  // Handle Android/iOS back button: push a history entry when entering
+  // single image view, and close the view on popstate instead of leaving.
+  const closeImageView = useCallback(() => {
+    setSelectedImage(null);
+  }, []);
+
+  useEffect(() => {
+    if (selectedImage === null) return;
+
+    // Push a history entry so the back button returns to the grid
+    if (window.history.state?.view !== 'shared-single') {
+      window.history.pushState({ view: 'shared-single' }, '');
+    }
+
+    const onPopState = () => {
+      closeImageView();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [selectedImage !== null, closeImageView]);
+
   const handleImageClick = (index) => {
     setSelectedImage(index);
     const image = displayedImages[index];
@@ -110,13 +132,18 @@ export default function SharedGalleryViewer({
     }
   };
 
+  const handleCloseImageView = () => {
+    // Use history.back() so the popstate handler fires and cleans up properly
+    window.history.back();
+  };
+
   if (selectedImage !== null) {
     return (
       <SharedImageView
         token={token}
         images={displayedImages}
         currentIndex={selectedImage}
-        onClose={() => setSelectedImage(null)}
+        onClose={handleCloseImageView}
         onNavigate={handleNavigate}
         allowFavorites={permissions?.allowFavorites}
         favorites={favorites}
