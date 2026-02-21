@@ -543,8 +543,18 @@ export default function PhotographyPoseGuide() {
     if (!silent) {
       setCloudSyncProgress('Saving to local storage...');
     }
-    replaceAllCategories(localCategories);
-    console.log(`Cloud sync complete: ${localCategories.length} categories, ${loadedImages} images`);
+    // Preserve any shareData that was written during the async pull
+    const latest = categoriesRef.current;
+    const mergedLocal = localCategories.map(cat => {
+      if (!cat.supabaseUid) return cat;
+      const latestCat = latest.find(c => c.supabaseUid === cat.supabaseUid);
+      if (latestCat?.shareData) {
+        return { ...cat, shareData: latestCat.shareData };
+      }
+      return cat;
+    });
+    replaceAllCategories(mergedLocal);
+    console.log(`Cloud sync complete: ${mergedLocal.length} categories, ${loadedImages} images`);
   };
 
   // Incremental merge — used when local data exists (page refresh / returning to app)
@@ -739,7 +749,19 @@ export default function PhotographyPoseGuide() {
     });
 
     if (changed) {
-      replaceAllCategories(finalCategories);
+      // Preserve local-only fields (e.g. shareData) that may have been written
+      // into categories while the async sync was running. The sync snapshot
+      // (`local`) was taken at the start and is now stale for these fields.
+      const latest = categoriesRef.current;
+      const mergedFinal = finalCategories.map(cat => {
+        if (!cat.supabaseUid) return cat;
+        const latestCat = latest.find(c => c.supabaseUid === cat.supabaseUid);
+        if (latestCat?.shareData) {
+          return { ...cat, shareData: latestCat.shareData };
+        }
+        return cat;
+      });
+      replaceAllCategories(mergedFinal);
       console.log('Incremental cloud sync: local data updated');
     } else {
       console.log('Incremental cloud sync: already up to date');
