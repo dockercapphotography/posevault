@@ -91,10 +91,33 @@ Deno.serve(async (req: Request) => {
     favorites.forEach((f: any) => {
       favCounts[f.image_id] = (favCounts[f.image_id] || 0) + 1;
     });
-    const mostFavorited = Object.entries(favCounts)
+    const mostFavoritedRaw = Object.entries(favCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([imageId, count]) => ({ imageId, count }));
+      .slice(0, 5);
+
+    // Look up r2_key for each favorited image so the dashboard can show thumbnails
+    let imageR2Keys: Record<string, string> = {};
+    const favImageIds = mostFavoritedRaw.map(([id]) => id);
+    if (favImageIds.length > 0) {
+      const numericIds = favImageIds.map(Number).filter((n) => !isNaN(n));
+      if (numericIds.length > 0) {
+        const { data: imgData } = await supabase
+          .from("images")
+          .select("uid, r2_key")
+          .in("uid", numericIds);
+        if (imgData) {
+          imgData.forEach((img: any) => {
+            imageR2Keys[String(img.uid)] = img.r2_key;
+          });
+        }
+      }
+    }
+
+    const mostFavorited = mostFavoritedRaw.map(([imageId, count]) => ({
+      imageId,
+      count,
+      r2Key: imageR2Keys[imageId] || null,
+    }));
 
     // Pending / approved uploads
     const pendingUploads = uploads.filter((u: any) => !u.approved).length;

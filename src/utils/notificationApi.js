@@ -345,10 +345,32 @@ export async function getActivitySummary(sharedGalleryId) {
     favorites.forEach(f => {
       favCounts[f.image_id] = (favCounts[f.image_id] || 0) + 1;
     });
-    const mostFavorited = Object.entries(favCounts)
+    const mostFavoritedRaw = Object.entries(favCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([imageId, count]) => ({ imageId, count }));
+      .slice(0, 5);
+
+    // Look up r2_key for each favorited image so the dashboard can display thumbnails
+    let imageR2Keys = {};
+    const favImageIds = mostFavoritedRaw.map(([id]) => id);
+    if (favImageIds.length > 0) {
+      // image_id is stored as TEXT but images.uid is integer — cast for the query
+      const numericIds = favImageIds.map(Number).filter(n => !isNaN(n));
+      if (numericIds.length > 0) {
+        const { data: imgData } = await supabase
+          .from('images')
+          .select('uid, r2_key')
+          .in('uid', numericIds);
+        if (imgData) {
+          imgData.forEach(img => { imageR2Keys[String(img.uid)] = img.r2_key; });
+        }
+      }
+    }
+
+    const mostFavorited = mostFavoritedRaw.map(([imageId, count]) => ({
+      imageId,
+      count,
+      r2Key: imageR2Keys[imageId] || null,
+    }));
 
     // Pending uploads
     const pendingUploads = uploads.filter(u => !u.approved).length;

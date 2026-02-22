@@ -89,13 +89,13 @@ export default function ActivitySummaryDashboard({ shareConfig, token, onClose }
                   Most Favorited
                 </h3>
                 <div className="space-y-2">
-                  {summary.mostFavorited.map(({ imageId, count }, i) => (
+                  {summary.mostFavorited.map(({ imageId, count, r2Key }, i) => (
                     <div key={imageId} className="flex items-center gap-3">
                       <span className="text-xs text-gray-500 w-4 text-right">{i + 1}.</span>
-                      {token ? (
+                      {token && r2Key ? (
                         <div className="w-10 h-10 rounded bg-gray-600 overflow-hidden shrink-0">
                           <img
-                            src={getShareImageUrl(token, `image-${imageId}`)}
+                            src={getShareImageUrl(token, r2Key)}
                             alt=""
                             className="w-full h-full object-cover"
                             onError={(e) => { e.target.style.display = 'none'; }}
