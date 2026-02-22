@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox, MessageCircle } from 'lucide-react';
+import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox, MessageCircle, BarChart3 } from 'lucide-react';
+import ActivitySummaryDashboard from '../Notifications/ActivitySummaryDashboard';
 import {
   createShareLink,
   getShareConfig,
@@ -40,6 +41,9 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
   // Upload approval queue
   const [showApprovalQueue, setShowApprovalQueue] = useState(false);
   const [pendingUploadCount, setPendingUploadCount] = useState(0);
+
+  // Activity dashboard
+  const [showActivityDashboard, setShowActivityDashboard] = useState(false);
 
   // Prevent body scroll
   useEffect(() => {
@@ -633,6 +637,16 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
               </button>
             )}
 
+            {/* Activity Dashboard Button */}
+            <button
+              onClick={() => setShowActivityDashboard(true)}
+              className="w-full flex items-center gap-2 px-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-sm transition-colors cursor-pointer"
+            >
+              <BarChart3 size={16} className="text-blue-400" />
+              <span>Activity Dashboard</span>
+              <span className="text-xs text-gray-400 ml-auto">Views, favorites, comments</span>
+            </button>
+
             {/* Advanced Actions */}
             <div className="border-t border-gray-700 pt-4 space-y-2">
               <button
@@ -694,6 +708,15 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
             // Refresh pending count
             if (shareConfig?.id) loadPendingCount(shareConfig.id);
           }}
+        />
+      )}
+
+      {/* Activity Summary Dashboard Modal */}
+      {showActivityDashboard && shareConfig && (
+        <ActivitySummaryDashboard
+          shareConfig={shareConfig}
+          token={shareConfig.share_token}
+          onClose={() => setShowActivityDashboard(false)}
         />
       )}
     </div>

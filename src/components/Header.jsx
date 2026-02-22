@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronLeft, Plus, Upload, CloudSync, CloudCheck } from 'lucide-react';
 import UserMenu from './UserMenu';
 import TruncatedName from './TruncatedName';
+import NotificationBell from './Notifications/NotificationBell';
 
 export default function Header({
   viewMode,
@@ -18,7 +19,16 @@ export default function Header({
   isUploading = false,
   isSaving = false,
   isSyncing = false,
-  isSynced = false
+  isSynced = false,
+  // Notification props
+  unreadNotificationCount = 0,
+  notifications = [],
+  onRefreshNotifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onDeleteNotification,
+  onClearReadNotifications,
+  onOpenNotificationSettings,
 }) {
   return (
     <div className="sticky top-0 z-30 bg-gray-800 border-b border-gray-700 p-3 md:p-4">
@@ -105,12 +115,23 @@ export default function Header({
               )}
             </button>
           )}
-          <UserMenu 
-            onLogout={onLogout} 
+          <NotificationBell
+            userId={userId}
+            unreadCount={unreadNotificationCount}
+            notifications={notifications}
+            onRefresh={onRefreshNotifications}
+            onMarkRead={onMarkNotificationRead}
+            onMarkAllRead={onMarkAllNotificationsRead}
+            onDelete={onDeleteNotification}
+            onClearRead={onClearReadNotifications}
+            onOpenSettings={onOpenNotificationSettings}
+          />
+          <UserMenu
+            onLogout={onLogout}
             onOpenSettings={onOpenSettings}
             userId={userId}
-            isUploading={isUploading} 
-            isSaving={isSaving} 
+            isUploading={isUploading}
+            isSaving={isSaving}
           />
         </div>
       </div>

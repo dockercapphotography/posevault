@@ -22,6 +22,7 @@ import {
   getCommentCounts,
   deleteShareComment,
 } from '../utils/shareApi';
+import { createNotification } from '../utils/notificationApi';
 
 function dataURLtoBlob(dataURL) {
   const arr = dataURL.split(',');
@@ -155,6 +156,15 @@ export default function SharedGalleryPage({ token }) {
 
     // Log first visit
     logShareAccess(shareInfo.id, result.data.id, 'view_gallery');
+
+    // Notify gallery owner of new viewer
+    createNotification({
+      sharedGalleryId: shareInfo.id,
+      ownerId: shareInfo.ownerId,
+      type: 'view',
+      message: `${displayName} viewed your shared gallery`,
+      viewerId: result.data.id,
+    });
   }
 
   // Load favorites when viewer is ready
@@ -285,6 +295,16 @@ export default function SharedGalleryPage({ token }) {
       }));
       // Log the action
       logShareAccess(shareInfo.id, viewer.id, 'comment', imageId);
+
+      // Notify gallery owner of new comment
+      createNotification({
+        sharedGalleryId: shareInfo.id,
+        ownerId: shareInfo.ownerId,
+        type: 'comment',
+        message: `${viewer.display_name} commented on an image`,
+        viewerId: viewer.id,
+        imageId: String(imageId),
+      });
     }
   }
 
@@ -336,6 +356,18 @@ export default function SharedGalleryPage({ token }) {
     } else {
       // Log the action
       logShareAccess(shareInfo.id, viewer.id, result.isFavorite ? 'favorite' : 'unfavorite', imageId);
+
+      // Notify on favorite (not unfavorite)
+      if (result.isFavorite) {
+        createNotification({
+          sharedGalleryId: shareInfo.id,
+          ownerId: shareInfo.ownerId,
+          type: 'favorite',
+          message: `${viewer.display_name} favorited an image`,
+          viewerId: viewer.id,
+          imageId: String(imageId),
+        });
+      }
     }
   }
 
@@ -429,6 +461,20 @@ export default function SharedGalleryPage({ token }) {
 
     if (lastApproved) {
       loadUploads();
+    }
+
+    // Notify gallery owner of upload
+    if (succeeded > 0) {
+      const uploadMsg = succeeded === 1
+        ? `${viewer.display_name} uploaded an image`
+        : `${viewer.display_name} uploaded ${succeeded} images`;
+      createNotification({
+        sharedGalleryId: shareInfo.id,
+        ownerId: shareInfo.ownerId,
+        type: 'upload_pending',
+        message: needsApproval ? `${uploadMsg} (pending approval)` : uploadMsg,
+        viewerId: viewer.id,
+      });
     }
   }, [viewer, shareInfo, token]);
 

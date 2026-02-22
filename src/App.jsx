@@ -22,6 +22,8 @@ import PDFOptionsModal from './components/Modals/PDFOptionsModal';
 import MobileUploadModal from './components/Modals/MobileUploadModal';
 import UserSettingsModal from './components/UserSettingsModal';
 import ShareConfigModal from './components/Share/ShareConfigModal';
+import NotificationPreferences from './components/Notifications/NotificationPreferences';
+import ActivitySummaryDashboard from './components/Notifications/ActivitySummaryDashboard';
 
 // Hooks & Utils
 import { useAuth } from './hooks/useAuth';
@@ -40,6 +42,7 @@ import { convertToWebP, convertMultipleToWebP } from './utils/imageOptimizer';
 import { uploadToR2, fetchFromR2, getR2Url, deleteFromR2 } from './utils/r2Upload';
 import { hashPassword } from './utils/crypto';
 import { getApprovedUploadsForGallery, getShareImageUrl, updateShareUpload, rejectUpload, getShareStatsForOwner, getCommentsForImage, deleteShareComment, addOwnerComment } from './utils/shareApi';
+import { getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead, deleteNotification, clearReadNotifications } from './utils/notificationApi';
 import Joyride, { ACTIONS, EVENTS, STATUS } from '@list-labs/react-joyride';
 import { useTutorial } from './hooks/useTutorial';
 import { useImageTutorial } from './hooks/useImageTutorial';
@@ -117,6 +120,12 @@ export default function PhotographyPoseGuide() {
   const [shareCommentCounts, setShareCommentCounts] = useState({}); // viewer comment counts keyed by image id
   const [sharedGalleryId, setSharedGalleryId] = useState(null); // current gallery's shared_gallery_id
   const [autoOpenComments, setAutoOpenComments] = useState(false); // open comments panel automatically in SingleImageView
+
+  // Notification state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [showNotificationPrefs, setShowNotificationPrefs] = useState(false);
+  const [showActivityDashboard, setShowActivityDashboard] = useState(null); // stores shareConfig when open
 
   // Tutorial state
   const {
@@ -420,6 +429,60 @@ export default function PhotographyPoseGuide() {
       if (result.ok) setShareStats(result.stats);
     });
   }, [hasSyncedOnce, session?.user?.id, viewMode]);
+
+  // Load notifications and poll for updates
+  const notificationPollRef = useRef(null);
+
+  const refreshNotifications = async () => {
+    if (!session?.user?.id) return;
+    const [countResult, listResult] = await Promise.all([
+      getUnreadCount(session.user.id),
+      getNotifications(session.user.id, { limit: 50 }),
+    ]);
+    if (countResult.ok) setUnreadNotificationCount(countResult.count);
+    if (listResult.ok) setNotifications(listResult.notifications);
+  };
+
+  useEffect(() => {
+    if (!session?.user?.id || !hasSyncedOnce) return;
+
+    // Initial load
+    refreshNotifications();
+
+    // Poll every 30 seconds
+    notificationPollRef.current = setInterval(refreshNotifications, 30000);
+
+    return () => {
+      if (notificationPollRef.current) clearInterval(notificationPollRef.current);
+    };
+  }, [session?.user?.id, hasSyncedOnce]);
+
+  const handleMarkNotificationRead = async (notificationId) => {
+    // Optimistic update
+    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+    setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+    await markNotificationRead(notificationId);
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadNotificationCount(0);
+    await markAllNotificationsRead(session.user.id);
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    const notification = notifications.find(n => n.id === notificationId);
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    if (notification && !notification.is_read) {
+      setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+    }
+    await deleteNotification(notificationId);
+  };
+
+  const handleClearReadNotifications = async () => {
+    setNotifications(prev => prev.filter(n => !n.is_read));
+    await clearReadNotifications(session.user.id);
+  };
 
   // First-time setup: wait for sample gallery to be in state, then complete setup and start tutorial
   useEffect(() => {
@@ -2726,6 +2789,14 @@ export default function PhotographyPoseGuide() {
         isSaving={isSaving}
         isSyncing={isCloudSyncing}
         isSynced={hasSyncedOnce && !isCloudSyncing}
+        unreadNotificationCount={unreadNotificationCount}
+        notifications={notifications}
+        onRefreshNotifications={refreshNotifications}
+        onMarkNotificationRead={handleMarkNotificationRead}
+        onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onClearReadNotifications={handleClearReadNotifications}
+        onOpenNotificationSettings={() => setShowNotificationPrefs(true)}
       />
 
       {viewMode === 'categories' && (
@@ -3097,6 +3168,14 @@ export default function PhotographyPoseGuide() {
           />
         ) : null;
       })()}
+
+      {/* Notification Preferences Modal */}
+      {showNotificationPrefs && (
+        <NotificationPreferences
+          userId={session?.user?.id}
+          onClose={() => setShowNotificationPrefs(false)}
+        />
+      )}
 
       {/* Tutorial Overlay */}
       {!tutorialLoading && (
