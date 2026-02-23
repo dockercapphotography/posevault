@@ -144,8 +144,8 @@ export default function SharedGalleryPage({ token }) {
     await loadGalleryAndViewer(shareInfo);
   }
 
-  async function handleNameSubmit(displayName) {
-    const result = await getOrCreateViewer(shareInfo.id, displayName);
+  async function handleNameSubmit(displayName, email = null) {
+    const result = await getOrCreateViewer(shareInfo.id, displayName, email);
     if (!result.ok) {
       setError('Failed to create your session. Please try again.');
       return;
@@ -511,6 +511,7 @@ export default function SharedGalleryPage({ token }) {
     return (
       <NameEntryGate
         galleryName={galleryData?.gallery?.name}
+        requireEmail={shareInfo?.requireEmail}
         onSubmit={handleNameSubmit}
       />
     );

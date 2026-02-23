@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox, MessageCircle, BarChart3, Calendar } from 'lucide-react';
+import { X, Share2, Link, Copy, Check, Lock, Clock, RefreshCw, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Heart, Upload, ShieldCheck, Inbox, MessageCircle, BarChart3, Calendar, Mail } from 'lucide-react';
 import ActivitySummaryDashboard from '../Notifications/ActivitySummaryDashboard';
 import {
   createShareLink,
@@ -618,6 +618,32 @@ export default function ShareConfigModal({ category, userId, accessToken, onClos
                 {/* Viewer Permissions */}
                 <div className="bg-gray-700/50 rounded-lg p-4 space-y-3">
                   <p className="font-medium text-sm mb-1">Viewer Permissions</p>
+
+                  {/* Require Email */}
+                  <button
+                    onClick={() => handleTogglePermission('require_email')}
+                    className="w-full flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <Mail size={14} className="text-cyan-400" />
+                        <p className="text-sm">Require Email</p>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5 ml-6">
+                        {shareConfig.require_email
+                          ? 'Viewers must provide their email to access the gallery'
+                          : 'Viewers only need to enter their name'}
+                      </p>
+                    </div>
+                    {shareConfig.require_email ? (
+                      <ToggleRight size={28} className="text-green-400 shrink-0" />
+                    ) : (
+                      <ToggleLeft size={28} className="text-gray-500 shrink-0" />
+                    )}
+                  </button>
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-600 my-1"></div>
 
                   {/* Allow Favorites */}
                   <button

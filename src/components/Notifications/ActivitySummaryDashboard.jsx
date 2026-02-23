@@ -124,7 +124,12 @@ export default function ActivitySummaryDashboard({ shareConfig, token, onClose, 
                   {summary.viewers.map(v => (
                     <div key={v.id} className="flex items-center justify-between bg-gray-600/50 rounded-lg px-3 py-2">
                       <div>
-                        <p className="text-sm font-medium">{v.displayName}</p>
+                        <p className="text-sm font-medium">
+                          {v.displayName}
+                          {v.email && (
+                            <span className="text-gray-400 font-normal"> &lt;{v.email}&gt;</span>
+                          )}
+                        </p>
                         <p className="text-[11px] text-gray-400">Joined {formatTimeAgo(v.joinedAt)}</p>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-400">

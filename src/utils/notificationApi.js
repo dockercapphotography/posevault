@@ -304,7 +304,7 @@ export async function getActivitySummary(sharedGalleryId) {
     const [viewersResult, favoritesResult, uploadsResult, commentsResult, accessLogResult] = await Promise.all([
       supabase
         .from('share_viewers')
-        .select('id, display_name, created_at')
+        .select('id, display_name, email, created_at')
         .eq('shared_gallery_id', sharedGalleryId),
       supabase
         .from('share_favorites')
@@ -392,6 +392,7 @@ export async function getActivitySummary(sharedGalleryId) {
       return {
         id: v.id,
         displayName: v.display_name,
+        email: v.email || null,
         joinedAt: v.created_at,
         favoriteCount: viewerFavs,
         uploadCount: viewerUploads,
