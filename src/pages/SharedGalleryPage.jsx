@@ -325,13 +325,15 @@ export default function SharedGalleryPage({ token }) {
   async function handleToggleFavorite(imageId) {
     if (!viewer || !shareInfo?.allowFavorites) return;
 
+    const key = String(imageId);
+
     // Optimistic update
     setFavorites(prev => {
       const next = new Set(prev);
-      if (next.has(imageId)) {
-        next.delete(imageId);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(imageId);
+        next.add(key);
       }
       return next;
     });
@@ -339,11 +341,11 @@ export default function SharedGalleryPage({ token }) {
     // Optimistic count update
     if (shareInfo.favoritesVisibleToOthers) {
       setFavoriteCounts(prev => {
-        const wasFavorited = favorites.has(imageId);
-        const current = prev[imageId] || 0;
+        const wasFavorited = favorites.has(key);
+        const current = prev[key] || 0;
         return {
           ...prev,
-          [imageId]: wasFavorited ? Math.max(0, current - 1) : current + 1,
+          [key]: wasFavorited ? Math.max(0, current - 1) : current + 1,
         };
       });
     }

@@ -732,7 +732,7 @@ export async function getViewerFavorites(sharedGalleryId, viewerId) {
     return { ok: false, error: error.message };
   }
 
-  const imageIds = new Set(data.map(f => f.image_id));
+  const imageIds = new Set(data.map(f => String(f.image_id)));
   return { ok: true, favorites: imageIds };
 }
 
@@ -753,7 +753,8 @@ export async function getAllFavoriteCounts(sharedGalleryId) {
 
   const counts = {};
   data.forEach(f => {
-    counts[f.image_id] = (counts[f.image_id] || 0) + 1;
+    const key = String(f.image_id);
+    counts[key] = (counts[key] || 0) + 1;
   });
   return { ok: true, counts };
 }

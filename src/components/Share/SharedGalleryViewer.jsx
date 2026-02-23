@@ -424,11 +424,11 @@ export default function SharedGalleryViewer({
                   >
                     <Heart
                       size={20}
-                      className={favorites.has(image.id) ? 'fill-red-500 text-red-500' : 'text-white'}
+                      className={favorites.has(String(image.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
                     />
-                    {permissions.favoritesVisibleToOthers && favoriteCounts[image.id] > 0 && (
+                    {permissions.favoritesVisibleToOthers && favoriteCounts[String(image.id)] > 0 && (
                       <span className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                        {favoriteCounts[image.id]}
+                        {favoriteCounts[String(image.id)]}
                       </span>
                     )}
                   </button>
