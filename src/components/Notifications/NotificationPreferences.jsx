@@ -140,10 +140,6 @@ export default function NotificationPreferences({ userId, onClose }) {
             {saving && (
               <p className="text-xs text-gray-500 text-center">Saving...</p>
             )}
-
-            <p className="text-xs text-gray-500 text-center mt-2">
-              These are your global defaults. Per-gallery overrides can be set from the Activity Dashboard.
-            </p>
           </div>
         )}
       </div>
