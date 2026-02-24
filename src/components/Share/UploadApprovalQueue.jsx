@@ -130,27 +130,29 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
                   Pending Approval ({pendingUploads.length})
                 </h3>
                 {pendingUploads.length > 1 && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 sm:gap-3">
                     <button
                       onClick={toggleSelectAll}
                       className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
                     >
                       {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-                      {allSelected ? 'Deselect All' : 'Select All'}
+                      <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
                     </button>
                     <button
                       onClick={handleBulkApprove}
                       className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
                     >
                       <Check size={12} />
-                      {hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}
+                      <span className="hidden sm:inline">{hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}</span>
+                      {hasSelection && <span className="sm:hidden">{selectedIds.size}</span>}
                     </button>
                     <button
                       onClick={handleBulkReject}
                       className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
                     >
                       <Trash2 size={12} />
-                      {hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}
+                      <span className="hidden sm:inline">{hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}</span>
+                      {hasSelection && <span className="sm:hidden">{selectedIds.size}</span>}
                     </button>
                   </div>
                 )}
@@ -289,7 +291,7 @@ function UploadCard({ upload, shareToken, isPending, selected, onToggleSelect, a
               ) : (
                 <Check size={12} className="shrink-0" />
               )}
-              <span className="truncate">Approve</span>
+              <span className="hidden sm:inline truncate">Approve</span>
             </button>
           )}
           {onReject && (
@@ -303,7 +305,7 @@ function UploadCard({ upload, shareToken, isPending, selected, onToggleSelect, a
               ) : (
                 <Trash2 size={12} className="shrink-0" />
               )}
-              <span className="truncate">{isPending ? 'Reject' : 'Remove'}</span>
+              <span className="hidden sm:inline truncate">{isPending ? 'Reject' : 'Remove'}</span>
             </button>
           )}
         </div>
