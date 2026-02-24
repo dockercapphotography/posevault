@@ -18,6 +18,7 @@ export default function SharedGalleryViewer({
   const [showMobileUploadModal, setShowMobileUploadModal] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -80,18 +81,27 @@ export default function SharedGalleryViewer({
 
   const handleDrop = (e) => {
     e.preventDefault();
+    dragCounterRef.current = 0;
     setDragOver(false);
     handleFileSelect(e.dataTransfer.files);
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    setDragOver(true);
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
-    setDragOver(true);
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
-    setDragOver(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setDragOver(false);
+    }
   };
 
   // Handle Android/iOS back button: push a history entry when entering
@@ -166,6 +176,7 @@ export default function SharedGalleryViewer({
     <div
       className="min-h-screen bg-gray-900 text-white"
       onDrop={uploadsAllowed ? handleDrop : undefined}
+      onDragEnter={uploadsAllowed ? handleDragEnter : undefined}
       onDragOver={uploadsAllowed ? handleDragOver : undefined}
       onDragLeave={uploadsAllowed ? handleDragLeave : undefined}
     >
