@@ -21,19 +21,19 @@ export async function getUserStorageInfo(userId) {
       return {
         ok: true,
         currentStorage: 0,
-        maxStorage: 1 * 1024 * 1024 * 1024, // Default 1GB in bytes
+        maxStorage: 500 * 1024 * 1024, // Default 500MB in bytes
         usedMB: 0,
-        maxMB: 1024,
-        availableMB: 1024,
+        maxMB: 500,
+        availableMB: 500,
         usedDisplay: '0.00MB',
-        maxDisplay: '1.00GB',
-        availableDisplay: '1.00GB',
+        maxDisplay: '500MB',
+        availableDisplay: '500MB',
         percentUsed: 0
       };
     }
 
     const currentStorage = data.current_storage || 0;
-    const maxStorage = data.maximum_storage || (1 * 1024 * 1024 * 1024); // 1GB default
+    const maxStorage = data.maximum_storage || (500 * 1024 * 1024); // 500MB default
 
     // Calculate MB - use decimals for small values
     const usedMB = currentStorage / (1024 * 1024);

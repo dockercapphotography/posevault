@@ -104,7 +104,7 @@ CREATE TABLE user_storage (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   user_id UUID NOT NULL REFERENCES auth.users(id) UNIQUE,
   current_storage BIGINT DEFAULT 0,
-  maximum_storage BIGINT DEFAULT 1073741824  -- 1 GB
+  maximum_storage BIGINT DEFAULT 524288000  -- 500 MB
 );
 ```
 
@@ -182,7 +182,7 @@ CREATE OR REPLACE FUNCTION create_user_storage()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO user_storage (user_id, current_storage, maximum_storage)
-  VALUES (NEW.id, 0, 1073741824);  -- 1 GB default
+  VALUES (NEW.id, 0, 524288000);  -- 500 MB default
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
