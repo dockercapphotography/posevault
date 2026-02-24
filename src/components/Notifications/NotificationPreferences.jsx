@@ -20,8 +20,6 @@ export default function NotificationPreferences({ userId, onClose }) {
     notify_on_expiry: true,
     quiet_mode: false,
   });
-  const [saving, setSaving] = useState(false);
-
   // Prevent body scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -45,18 +43,14 @@ export default function NotificationPreferences({ userId, onClose }) {
     const newValue = !globalPrefs[field];
     setGlobalPrefs(prev => ({ ...prev, [field]: newValue }));
 
-    setSaving(true);
     await upsertNotificationPreferences(userId, null, { [field]: newValue });
-    setSaving(false);
   }
 
   async function handleToggleQuietMode() {
     const newValue = !globalPrefs.quiet_mode;
     setGlobalPrefs(prev => ({ ...prev, quiet_mode: newValue }));
 
-    setSaving(true);
     await upsertNotificationPreferences(userId, null, { quiet_mode: newValue });
-    setSaving(false);
   }
 
   return (
@@ -137,9 +131,6 @@ export default function NotificationPreferences({ userId, onClose }) {
               ))}
             </div>
 
-            {saving && (
-              <p className="text-xs text-gray-500 text-center">Saving...</p>
-            )}
           </div>
         )}
       </div>
