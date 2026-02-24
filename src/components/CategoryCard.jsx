@@ -27,6 +27,7 @@ export default function CategoryCard({
   const settingsButtonRef = useRef(null);
   const fileInputRef = useRef(null);
   const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
 
   // Filter out cover images from gallery counts
   const galleryImages = category.images.filter(img => !img.isCover);
@@ -38,17 +39,37 @@ export default function CategoryCard({
       || window.innerWidth < 768;
   };
 
-  // Long press handler for bulk select mode
-  const handleTouchStart = () => {
+  // Long press handlers for mobile bulk select mode
+  const handleTouchStart = (e) => {
     if (bulkSelectMode) return;
+
+    longPressTriggeredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      e.preventDefault();
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
       if (onStartBulkSelect) {
         onStartBulkSelect(category.id);
       }
     }, 500);
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (longPressTriggeredRef.current) {
+      e.preventDefault();
+      longPressTriggeredRef.current = false;
+    }
+  };
+
+  const handleTouchMove = () => {
+    // Cancel long press if user moves finger (scrolling)
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -73,6 +94,15 @@ export default function CategoryCard({
       fileInputRef.current?.click();
     }
   };
+
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -114,6 +144,7 @@ export default function CategoryCard({
       }`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchEnd}
     >
       {/* Selection checkbox indicator */}
