@@ -162,12 +162,28 @@ export default function ActivitySummaryDashboard({ shareConfig, token, onClose, 
               </h3>
               <div className="space-y-2">
                 {summary.recentComments.map(c => (
-                  <div key={c.id} className="bg-gray-600/50 rounded-lg px-3 py-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-blue-300">{c.viewerName}</span>
-                      <span className="text-[11px] text-gray-500">{formatTimeAgo(c.createdAt)}</span>
+                  <div key={c.id} className="bg-gray-600/50 rounded-lg px-3 py-2 flex gap-3">
+                    {token && c.r2Key ? (
+                      <div className="w-10 h-10 rounded bg-gray-600 overflow-hidden shrink-0">
+                        <img
+                          src={getShareImageUrl(token, c.r2Key)}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center shrink-0">
+                        <Image size={14} className="text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-blue-300">{c.viewerName}</span>
+                        <span className="text-[11px] text-gray-500">{formatTimeAgo(c.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-gray-300 line-clamp-2">{c.text}</p>
                     </div>
-                    <p className="text-sm text-gray-300 line-clamp-2">{c.text}</p>
                   </div>
                 ))}
               </div>

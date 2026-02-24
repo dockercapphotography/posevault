@@ -380,22 +380,56 @@ export async function getActivitySummary(sharedGalleryId) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    // Look up r2_key for each favorited image so the dashboard can display thumbnails
-    let imageR2Keys = {};
+    // Collect all image IDs from favorites and comments to resolve URLs
     const favImageIds = mostFavoritedRaw.map(([id]) => id);
-    if (favImageIds.length > 0) {
-      // image_id is stored as TEXT but images.uid is integer — cast for the query
-      const numericIds = favImageIds.map(Number).filter(n => !isNaN(n));
-      if (numericIds.length > 0) {
-        const { data: imgData } = await supabase
+    const commentImageIds = comments.map(c => c.image_id);
+    const allImageIds = [...new Set([...favImageIds, ...commentImageIds])];
+
+    // Separate into gallery images (numeric) and uploaded images (upload-{uuid})
+    const numericIds = [];
+    const uploadUuids = [];
+    allImageIds.forEach(id => {
+      if (typeof id === 'string' && id.startsWith('upload-')) {
+        uploadUuids.push(id.replace('upload-', ''));
+      } else {
+        const num = Number(id);
+        if (!isNaN(num)) numericIds.push(num);
+      }
+    });
+
+    // Look up r2_key for gallery images and image_url for uploaded images in parallel
+    let imageR2Keys = {};
+    const lookups = [];
+
+    if (numericIds.length > 0) {
+      lookups.push(
+        supabase
           .from('images')
           .select('uid, r2_key')
-          .in('uid', numericIds);
-        if (imgData) {
-          imgData.forEach(img => { imageR2Keys[String(img.uid)] = img.r2_key; });
-        }
-      }
+          .in('uid', numericIds)
+          .then(({ data: imgData }) => {
+            if (imgData) {
+              imgData.forEach(img => { imageR2Keys[String(img.uid)] = img.r2_key; });
+            }
+          })
+      );
     }
+
+    if (uploadUuids.length > 0) {
+      lookups.push(
+        supabase
+          .from('share_uploads')
+          .select('id, image_url')
+          .in('id', uploadUuids)
+          .then(({ data: uploadData }) => {
+            if (uploadData) {
+              uploadData.forEach(u => { imageR2Keys[`upload-${u.id}`] = u.image_url; });
+            }
+          })
+      );
+    }
+
+    await Promise.all(lookups);
 
     const mostFavorited = mostFavoritedRaw.map(([imageId, count]) => ({
       imageId,
@@ -414,6 +448,7 @@ export async function getActivitySummary(sharedGalleryId) {
       viewerName: c.share_viewers?.display_name || 'Unknown',
       text: c.comment_text,
       createdAt: c.created_at,
+      r2Key: imageR2Keys[c.image_id] || null,
     }));
 
     // Viewer list with activity
