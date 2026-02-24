@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
 import { getPendingUploads, approveUpload, rejectUpload, getShareUploads } from '../../utils/shareApi';
 import { getShareImageUrl } from '../../utils/shareApi';
@@ -18,9 +18,41 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
     return () => { document.body.style.overflow = 'unset'; };
   }, [embedded]);
 
+  const pollRef = useRef(null);
+
+  const loadUploads = useCallback(async (silent = false) => {
+    if (!shareConfig?.id) return;
+    if (!silent) setLoading(true);
+
+    const [pendingResult, approvedResult] = await Promise.all([
+      getPendingUploads(shareConfig.id),
+      getShareUploads(shareConfig.id, true),
+    ]);
+
+    if (pendingResult.ok) setPendingUploads(pendingResult.uploads);
+    if (approvedResult.ok) setApprovedUploads(approvedResult.uploads);
+
+    if (!silent) setLoading(false);
+  }, [shareConfig?.id]);
+
+  // Initial load + poll every 15s + refresh on tab re-focus
   useEffect(() => {
     loadUploads();
-  }, [shareConfig?.id]);
+
+    pollRef.current = setInterval(() => loadUploads(true), 15000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadUploads(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [loadUploads]);
 
   // Clean up selections when pending list changes (remove stale IDs)
   useEffect(() => {
@@ -31,21 +63,6 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
       return prev;
     });
   }, [pendingUploads]);
-
-  async function loadUploads() {
-    if (!shareConfig?.id) return;
-    setLoading(true);
-
-    const [pendingResult, approvedResult] = await Promise.all([
-      getPendingUploads(shareConfig.id),
-      getShareUploads(shareConfig.id, true),
-    ]);
-
-    if (pendingResult.ok) setPendingUploads(pendingResult.uploads);
-    if (approvedResult.ok) setApprovedUploads(approvedResult.uploads);
-
-    setLoading(false);
-  }
 
   async function handleApprove(upload) {
     setActionLoading(prev => ({ ...prev, [upload.id]: 'approving' }));

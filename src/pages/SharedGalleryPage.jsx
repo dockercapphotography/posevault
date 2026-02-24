@@ -228,10 +228,17 @@ export default function SharedGalleryPage({ token }) {
 
     pollIntervalRef.current = setInterval(pollData, 30000);
 
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+    // Also refresh immediately when user returns to the tab (important on mobile)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        pollData();
       }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(pollIntervalRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [stage, shareInfo?.id, viewer?.id]);
 
