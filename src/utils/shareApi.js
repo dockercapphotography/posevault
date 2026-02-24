@@ -181,6 +181,7 @@ export async function validateShareToken(token) {
       maxUploadsPerViewer: data.max_uploads_per_viewer,
       maxUploadSizeMb: data.max_upload_size_mb,
       allowComments: data.allow_comments,
+      requireEmail: data.require_email,
       expiresAt: data.expires_at || null,
     },
   };
@@ -249,7 +250,7 @@ export async function fetchSharedGalleryData(token, galleryId, ownerId) {
 /**
  * Create or retrieve a viewer session
  */
-export async function getOrCreateViewer(sharedGalleryId, displayName) {
+export async function getOrCreateViewer(sharedGalleryId, displayName, email = null) {
   // Check for existing session in localStorage
   const storageKey = `share_session_${sharedGalleryId}`;
   const existingSessionId = localStorage.getItem(storageKey);
@@ -281,6 +282,7 @@ export async function getOrCreateViewer(sharedGalleryId, displayName) {
       shared_gallery_id: sharedGalleryId,
       session_id: sessionId,
       display_name: displayName,
+      ...(email ? { email } : {}),
     })
     .select()
     .single();
@@ -730,7 +732,7 @@ export async function getViewerFavorites(sharedGalleryId, viewerId) {
     return { ok: false, error: error.message };
   }
 
-  const imageIds = new Set(data.map(f => f.image_id));
+  const imageIds = new Set(data.map(f => String(f.image_id)));
   return { ok: true, favorites: imageIds };
 }
 
@@ -751,7 +753,8 @@ export async function getAllFavoriteCounts(sharedGalleryId) {
 
   const counts = {};
   data.forEach(f => {
-    counts[f.image_id] = (counts[f.image_id] || 0) + 1;
+    const key = String(f.image_id);
+    counts[key] = (counts[key] || 0) + 1;
   });
   return { ok: true, counts };
 }

@@ -103,7 +103,7 @@ export default function SharedImageView({
             >
               <Heart
                 size={24}
-                className={currentImage && favorites.has(currentImage.id) ? 'fill-red-500 text-red-500' : 'text-white'}
+                className={currentImage && favorites.has(String(currentImage.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
               />
             </button>
           ) : (

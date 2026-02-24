@@ -3,7 +3,7 @@ import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDow
 import { getPendingUploads, approveUpload, rejectUpload, getShareUploads } from '../../utils/shareApi';
 import { getShareImageUrl } from '../../utils/shareApi';
 
-export default function UploadApprovalQueue({ shareConfig, token: shareToken, accessToken, ownerId, onClose }) {
+export default function UploadApprovalQueue({ shareConfig, token: shareToken, accessToken, ownerId, onClose, embedded = false }) {
   const [pendingUploads, setPendingUploads] = useState([]);
   const [approvedUploads, setApprovedUploads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,11 +11,12 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
   const [showApproved, setShowApproved] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
-  // Prevent body scroll
+  // Prevent body scroll (only when standalone modal)
   useEffect(() => {
+    if (embedded) return;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
     loadUploads();
@@ -106,6 +107,107 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
   const hasSelection = selectedIds.size > 0;
   const allSelected = pendingUploads.length > 0 && selectedIds.size === pendingUploads.length;
 
+  const content = (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400"></div>
+        </div>
+      ) : totalUploads === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <Upload size={48} className="mx-auto mb-4 opacity-50" />
+          <p>No uploads yet</p>
+          <p className="text-xs mt-1">Viewer uploads will appear here</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Pending Uploads */}
+          {pendingUploads.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
+                  <AlertCircle size={14} />
+                  Pending Approval ({pendingUploads.length})
+                </h3>
+                {pendingUploads.length > 1 && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
+                    >
+                      {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+                      {allSelected ? 'Deselect All' : 'Select All'}
+                    </button>
+                    <button
+                      onClick={handleBulkApprove}
+                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
+                    >
+                      <Check size={12} />
+                      {hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}
+                    </button>
+                    <button
+                      onClick={handleBulkReject}
+                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
+                    >
+                      <Trash2 size={12} />
+                      {hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {pendingUploads.map(upload => (
+                  <UploadCard
+                    key={upload.id}
+                    upload={upload}
+                    shareToken={shareToken}
+                    isPending
+                    selected={selectedIds.has(upload.id)}
+                    onToggleSelect={() => toggleSelect(upload.id)}
+                    actionLoading={actionLoading[upload.id]}
+                    onApprove={() => handleApprove(upload)}
+                    onReject={() => handleReject(upload)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Approved Uploads */}
+          {approvedUploads.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowApproved(!showApproved)}
+                className="flex items-center gap-2 text-sm font-semibold text-green-400 cursor-pointer mb-3"
+              >
+                <Check size={14} />
+                Approved ({approvedUploads.length})
+                {showApproved ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              {showApproved && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {approvedUploads.map(upload => (
+                    <UploadCard
+                      key={upload.id}
+                      upload={upload}
+                      shareToken={shareToken}
+                      actionLoading={actionLoading[upload.id]}
+                      onReject={() => handleReject(upload)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) return content;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-700">
@@ -123,100 +225,7 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
           </button>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400"></div>
-          </div>
-        ) : totalUploads === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Upload size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No uploads yet</p>
-            <p className="text-xs mt-1">Viewer uploads will appear here</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Pending Uploads */}
-            {pendingUploads.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
-                    <AlertCircle size={14} />
-                    Pending Approval ({pendingUploads.length})
-                  </h3>
-                  {pendingUploads.length > 1 && (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={toggleSelectAll}
-                        className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
-                      >
-                        {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-                        {allSelected ? 'Deselect All' : 'Select All'}
-                      </button>
-                      <button
-                        onClick={handleBulkApprove}
-                        className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
-                      >
-                        <Check size={12} />
-                        {hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}
-                      </button>
-                      <button
-                        onClick={handleBulkReject}
-                        className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
-                      >
-                        <Trash2 size={12} />
-                        {hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {pendingUploads.map(upload => (
-                    <UploadCard
-                      key={upload.id}
-                      upload={upload}
-                      shareToken={shareToken}
-                      isPending
-                      selected={selectedIds.has(upload.id)}
-                      onToggleSelect={() => toggleSelect(upload.id)}
-                      actionLoading={actionLoading[upload.id]}
-                      onApprove={() => handleApprove(upload)}
-                      onReject={() => handleReject(upload)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Approved Uploads */}
-            {approvedUploads.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowApproved(!showApproved)}
-                  className="flex items-center gap-2 text-sm font-semibold text-green-400 cursor-pointer mb-3"
-                >
-                  <Check size={14} />
-                  Approved ({approvedUploads.length})
-                  {showApproved ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-
-                {showApproved && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {approvedUploads.map(upload => (
-                      <UploadCard
-                        key={upload.id}
-                        upload={upload}
-                        shareToken={shareToken}
-                        actionLoading={actionLoading[upload.id]}
-                        onReject={() => handleReject(upload)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {content}
       </div>
     </div>
   );

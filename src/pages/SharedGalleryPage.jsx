@@ -22,6 +22,7 @@ import {
   getCommentCounts,
   deleteShareComment,
 } from '../utils/shareApi';
+import { createNotification } from '../utils/notificationApi';
 
 function dataURLtoBlob(dataURL) {
   const arr = dataURL.split(',');
@@ -143,8 +144,8 @@ export default function SharedGalleryPage({ token }) {
     await loadGalleryAndViewer(shareInfo);
   }
 
-  async function handleNameSubmit(displayName) {
-    const result = await getOrCreateViewer(shareInfo.id, displayName);
+  async function handleNameSubmit(displayName, email = null) {
+    const result = await getOrCreateViewer(shareInfo.id, displayName, email);
     if (!result.ok) {
       setError('Failed to create your session. Please try again.');
       return;
@@ -155,6 +156,15 @@ export default function SharedGalleryPage({ token }) {
 
     // Log first visit
     logShareAccess(shareInfo.id, result.data.id, 'view_gallery');
+
+    // Notify gallery owner of new viewer
+    createNotification({
+      sharedGalleryId: shareInfo.id,
+      ownerId: shareInfo.ownerId,
+      type: 'view',
+      message: `${displayName} viewed your shared gallery`,
+      viewerId: result.data.id,
+    });
   }
 
   // Load favorites when viewer is ready
@@ -285,6 +295,16 @@ export default function SharedGalleryPage({ token }) {
       }));
       // Log the action
       logShareAccess(shareInfo.id, viewer.id, 'comment', imageId);
+
+      // Notify gallery owner of new comment
+      createNotification({
+        sharedGalleryId: shareInfo.id,
+        ownerId: shareInfo.ownerId,
+        type: 'comment',
+        message: `${viewer.display_name} commented on an image`,
+        viewerId: viewer.id,
+        imageId: String(imageId),
+      });
     }
   }
 
@@ -305,13 +325,15 @@ export default function SharedGalleryPage({ token }) {
   async function handleToggleFavorite(imageId) {
     if (!viewer || !shareInfo?.allowFavorites) return;
 
+    const key = String(imageId);
+
     // Optimistic update
     setFavorites(prev => {
       const next = new Set(prev);
-      if (next.has(imageId)) {
-        next.delete(imageId);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(imageId);
+        next.add(key);
       }
       return next;
     });
@@ -319,11 +341,11 @@ export default function SharedGalleryPage({ token }) {
     // Optimistic count update
     if (shareInfo.favoritesVisibleToOthers) {
       setFavoriteCounts(prev => {
-        const wasFavorited = favorites.has(imageId);
-        const current = prev[imageId] || 0;
+        const wasFavorited = favorites.has(key);
+        const current = prev[key] || 0;
         return {
           ...prev,
-          [imageId]: wasFavorited ? Math.max(0, current - 1) : current + 1,
+          [key]: wasFavorited ? Math.max(0, current - 1) : current + 1,
         };
       });
     }
@@ -336,6 +358,18 @@ export default function SharedGalleryPage({ token }) {
     } else {
       // Log the action
       logShareAccess(shareInfo.id, viewer.id, result.isFavorite ? 'favorite' : 'unfavorite', imageId);
+
+      // Notify on favorite (not unfavorite)
+      if (result.isFavorite) {
+        createNotification({
+          sharedGalleryId: shareInfo.id,
+          ownerId: shareInfo.ownerId,
+          type: 'favorite',
+          message: `${viewer.display_name} favorited an image`,
+          viewerId: viewer.id,
+          imageId: String(imageId),
+        });
+      }
     }
   }
 
@@ -430,6 +464,20 @@ export default function SharedGalleryPage({ token }) {
     if (lastApproved) {
       loadUploads();
     }
+
+    // Notify gallery owner of upload
+    if (succeeded > 0) {
+      const uploadMsg = succeeded === 1
+        ? `${viewer.display_name} uploaded an image`
+        : `${viewer.display_name} uploaded ${succeeded} images`;
+      createNotification({
+        sharedGalleryId: shareInfo.id,
+        ownerId: shareInfo.ownerId,
+        type: 'upload_pending',
+        message: needsApproval ? `${uploadMsg} (pending approval)` : uploadMsg,
+        viewerId: viewer.id,
+      });
+    }
   }, [viewer, shareInfo, token]);
 
   // Error states
@@ -465,6 +513,7 @@ export default function SharedGalleryPage({ token }) {
     return (
       <NameEntryGate
         galleryName={galleryData?.gallery?.name}
+        requireEmail={shareInfo?.requireEmail}
         onSubmit={handleNameSubmit}
       />
     );
