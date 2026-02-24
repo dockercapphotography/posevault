@@ -3159,9 +3159,10 @@ export default function PhotographyPoseGuide() {
             userId={session?.user?.id}
             accessToken={session?.access_token}
             onClose={() => {
-              // Invalidate persisted share data so changes take effect on next gallery open
-              if (cat?.supabaseUid) {
-                updateCategory(cat.id, { shareData: null });
+              // Mark persisted share data as stale so next gallery visit triggers a
+              // background refresh, but keep the cached data for instant display.
+              if (cat?.supabaseUid && cat.shareData) {
+                updateCategory(cat.id, { shareData: { ...cat.shareData, timestamp: 0 } });
               }
               setShowShareConfig(null);
             }}
