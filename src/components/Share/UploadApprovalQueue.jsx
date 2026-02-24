@@ -130,29 +130,29 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
                   Pending Approval ({pendingUploads.length})
                 </h3>
                 {pendingUploads.length > 1 && (
-                  <div className="flex items-center gap-1.5 sm:gap-3">
+                  <div className="flex items-center gap-1 sm:gap-3">
                     <button
                       onClick={toggleSelectAll}
-                      className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-gray-700 sm:bg-transparent"
                     >
-                      {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+                      {allSelected ? <CheckSquare size={16} className="sm:w-3 sm:h-3" /> : <Square size={16} className="sm:w-3 sm:h-3" />}
                       <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
                     </button>
                     <button
                       onClick={handleBulkApprove}
-                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-green-600/20 sm:bg-transparent"
                     >
-                      <Check size={12} />
+                      <Check size={16} className="sm:w-3 sm:h-3" />
                       <span className="hidden sm:inline">{hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}</span>
-                      {hasSelection && <span className="sm:hidden">{selectedIds.size}</span>}
+                      {hasSelection && <span className="sm:hidden text-[11px]">{selectedIds.size}</span>}
                     </button>
                     <button
                       onClick={handleBulkReject}
-                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-red-600/20 sm:bg-transparent"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={16} className="sm:w-3 sm:h-3" />
                       <span className="hidden sm:inline">{hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}</span>
-                      {hasSelection && <span className="sm:hidden">{selectedIds.size}</span>}
+                      {hasSelection && <span className="sm:hidden text-[11px]">{selectedIds.size}</span>}
                     </button>
                   </div>
                 )}
