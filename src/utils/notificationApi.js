@@ -260,28 +260,59 @@ export async function getEffectivePreferences(userId, sharedGalleryId) {
 
 /**
  * Update or create notification preferences.
+ * Uses manual select-then-update/insert because PostgreSQL UNIQUE constraints
+ * treat NULLs as distinct, so upsert with onConflict fails when
+ * shared_gallery_id is NULL (global preferences).
  * @param {string} userId
  * @param {string|null} sharedGalleryId - null for global prefs
  * @param {object} updates - Preference fields to update
  * @returns {Promise<{ok: boolean, data?: object, error?: string}>}
  */
 export async function upsertNotificationPreferences(userId, sharedGalleryId, updates) {
+  // Check if a row already exists for this user + gallery combination
+  let query = supabase
+    .from('notification_preferences')
+    .select('id')
+    .eq('user_id', userId);
+
+  if (sharedGalleryId === null) {
+    query = query.is('shared_gallery_id', null);
+  } else {
+    query = query.eq('shared_gallery_id', sharedGalleryId);
+  }
+
+  const { data: existing } = await query.maybeSingle();
+
+  if (existing) {
+    // Update the existing row
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to update notification preferences:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, data };
+  }
+
+  // Insert a new row
   const { data, error } = await supabase
     .from('notification_preferences')
-    .upsert(
-      {
-        user_id: userId,
-        shared_gallery_id: sharedGalleryId,
-        ...updates,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,shared_gallery_id' }
-    )
+    .insert({
+      user_id: userId,
+      shared_gallery_id: sharedGalleryId,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
     .select()
     .single();
 
   if (error) {
-    console.error('Failed to update notification preferences:', error);
+    console.error('Failed to insert notification preferences:', error);
     return { ok: false, error: error.message };
   }
 
