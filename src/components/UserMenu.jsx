@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, LogOut, WifiOff, Wifi, Download, Settings } from 'lucide-react';
+import { Menu, LogOut, WifiOff, Wifi, Download, Settings, Shield } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useAdmin } from '../hooks/useAdmin';
 import StorageMeter from './StorageMeter';
 
 /**
@@ -15,6 +16,7 @@ export default function UserMenu({ onLogout, onOpenSettings, userId, isUploading
   const [isInstalled, setIsInstalled] = useState(false);
   const menuRef = useRef(null);
   const isOnline = useOnlineStatus();
+  const { isAdmin } = useAdmin(userId);
 
   // Handle PWA install prompt
   useEffect(() => {
@@ -187,6 +189,20 @@ export default function UserMenu({ onLogout, onOpenSettings, userId, isUploading
                   <Download size={16} />
                   <span className="font-medium">PoseVault Installed</span>
                 </div>
+              </div>
+            )}
+
+            {/* Admin Panel Link (admin only) */}
+            {isAdmin && (
+              <div className="p-2 border-b border-gray-700">
+                <a
+                  href="/admin"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Shield size={16} className="text-purple-400" />
+                  <span className="text-purple-300">Admin Panel</span>
+                </a>
               </div>
             )}
 

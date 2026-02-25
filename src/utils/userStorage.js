@@ -7,13 +7,25 @@ export async function getUserStorageInfo(userId) {
   try {
     const { data, error } = await supabase
       .from('user_storage')
-      .select('current_storage, maximum_storage')
+      .select('current_storage, maximum_storage, storage_tier')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (error) {
       console.error('Error fetching user storage:', error);
       return { ok: false, error: error.message };
+    }
+
+    // Fetch tier name if we have a tier ID
+    let tierName = 'Free';
+    const tierId = data?.storage_tier || 1;
+    const { data: tierData } = await supabase
+      .from('storage_tiers')
+      .select('name')
+      .eq('id', tierId)
+      .maybeSingle();
+    if (tierData?.name) {
+      tierName = tierData.name;
     }
 
     if (!data) {
@@ -28,7 +40,9 @@ export async function getUserStorageInfo(userId) {
         usedDisplay: '0.00MB',
         maxDisplay: '500MB',
         availableDisplay: '500MB',
-        percentUsed: 0
+        percentUsed: 0,
+        tierName,
+        tierId,
       };
     }
 
@@ -70,7 +84,9 @@ export async function getUserStorageInfo(userId) {
       usedDisplay: formatStorage(usedMB),
       maxDisplay: formatStorage(maxMB),
       availableDisplay: formatStorage(availableMB),
-      percentUsed: Math.min(percentUsed, 100)
+      percentUsed: Math.min(percentUsed, 100),
+      tierName,
+      tierId,
     };
   } catch (err) {
     console.error('User storage fetch exception:', err);
