@@ -7,6 +7,8 @@
 
 -- 1. SECURITY DEFINER function to join user_storage with auth.users
 --    (auth.users is not accessible from the client without service role)
+DROP FUNCTION IF EXISTS get_admin_user_list();
+
 CREATE OR REPLACE FUNCTION get_admin_user_list()
 RETURNS TABLE (
   uid BIGINT,
@@ -27,21 +29,21 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    us.uid,
-    us.user_id,
-    us.current_storage,
-    us.maximum_storage,
-    us.storage_tier,
-    us.is_admin,
-    us.created_at,
+    us.uid::BIGINT,
+    us.user_id::UUID,
+    us.current_storage::BIGINT,
+    us.maximum_storage::BIGINT,
+    us.storage_tier::INT,
+    us.is_admin::BOOLEAN,
+    us.created_at::TIMESTAMPTZ,
     COALESCE(
       TRIM(
         COALESCE(au.raw_user_meta_data->>'firstName', '') || ' ' ||
         COALESCE(au.raw_user_meta_data->>'lastName', '')
       ),
       ''
-    ) AS display_name,
-    COALESCE(au.email, '') AS email
+    )::TEXT AS display_name,
+    COALESCE(au.email, '')::TEXT AS email
   FROM user_storage us
   LEFT JOIN auth.users au ON au.id = us.user_id
   ORDER BY us.created_at DESC;
