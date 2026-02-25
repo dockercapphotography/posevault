@@ -46,7 +46,12 @@ BEGIN
   LEFT JOIN auth.users au ON au.id = us.user_id
   ORDER BY us.created_at DESC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+SET search_path = public;
+
+-- Grant execute to authenticated role (required for Supabase projects where
+-- default public execute privilege has been revoked)
+GRANT EXECUTE ON FUNCTION get_admin_user_list() TO authenticated;
 
 -- 2. Allow admins to manage storage tiers (insert, update, delete)
 CREATE POLICY "Admins can insert storage tiers"

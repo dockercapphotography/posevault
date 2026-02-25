@@ -62,6 +62,7 @@ export default function AdminPage() {
     if (!rpcError && rpcData) {
       setUsers(rpcData);
     } else {
+      console.error('get_admin_user_list RPC failed:', rpcError?.message || rpcError);
       // Fallback to direct query (no display names)
       const { data, error } = await supabase
         .from('user_storage')
