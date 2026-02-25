@@ -46,7 +46,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from('storage_tiers')
       .select('*')
-      .order('sort_order');
+      .order('storage_bytes');
 
     if (!error && data) {
       setTiers(data);
@@ -198,7 +198,6 @@ export default function AdminPage() {
     if (!newTierName.trim() || !storageBytes) return;
 
     setSavingTier(true);
-    const maxOrder = tiers.reduce((max, t) => Math.max(max, t.sort_order || 0), 0);
 
     const { error } = await supabase
       .from('storage_tiers')
@@ -206,7 +205,6 @@ export default function AdminPage() {
         name: newTierName.trim(),
         storage_bytes: storageBytes,
         description: newTierDescription.trim(),
-        sort_order: maxOrder + 1,
         is_default: false,
       });
 
