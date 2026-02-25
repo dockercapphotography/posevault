@@ -43,10 +43,26 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
     const info = await getUserStorageInfo(userId);
     
     if (info.ok) {
-      console.log('Storage Info:', info);
       setStorageInfo(info);
     } else {
       console.error('Failed to load storage info:', info.error);
+      // Show fallback defaults so the UI doesn't stay stuck in loading state
+      if (!storageInfo) {
+        setStorageInfo({
+          ok: false,
+          currentStorage: 0,
+          maxStorage: 500 * 1024 * 1024,
+          usedMB: 0,
+          maxMB: 500,
+          availableMB: 500,
+          usedDisplay: '--',
+          maxDisplay: '--',
+          availableDisplay: '--',
+          percentUsed: 0,
+          tierName: '',
+          tierId: 1,
+        });
+      }
     }
     
     setIsLoading(false);

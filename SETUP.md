@@ -191,25 +191,22 @@ CREATE POLICY "Users can manage own storage"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- Helper function to check admin status (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(
+    (SELECT is_admin FROM user_storage WHERE user_id = auth.uid()),
+    false
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 CREATE POLICY "Admins can read all user storage"
   ON user_storage FOR SELECT
-  USING (
-    auth.uid() = user_id
-    OR EXISTS (
-      SELECT 1 FROM user_storage us
-      WHERE us.user_id = auth.uid() AND us.is_admin = true
-    )
-  );
+  USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "Admins can update all user storage"
   ON user_storage FOR UPDATE
-  USING (
-    auth.uid() = user_id
-    OR EXISTS (
-      SELECT 1 FROM user_storage us
-      WHERE us.user_id = auth.uid() AND us.is_admin = true
-    )
-  );
+  USING (auth.uid() = user_id OR is_admin());
 
 -- Storage tiers (readable by everyone)
 ALTER TABLE storage_tiers ENABLE ROW LEVEL SECURITY;

@@ -25,7 +25,10 @@ export function useAdmin(userId) {
           .maybeSingle();
 
         if (error) {
-          console.error('Admin check error:', error);
+          // RLS recursion or other policy errors return 500 — fail silently
+          if (!error.message?.includes('infinite recursion')) {
+            console.error('Admin check error:', error);
+          }
           setIsAdmin(false);
         } else {
           setIsAdmin(data?.is_admin === true);
