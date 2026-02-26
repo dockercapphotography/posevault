@@ -173,11 +173,6 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
         <div className="flex items-center gap-2">
           <HardDrive size={20} className={colorClass} />
           <h3 className="font-semibold">Storage Usage</h3>
-          {storageInfo.tierName && (
-            <span className="text-xs font-medium text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-full">
-              {storageInfo.tierName}
-            </span>
-          )}
         </div>
         <span className={`text-sm font-medium ${colorClass}`}>
           {percentUsed.toFixed(1)}%
@@ -202,6 +197,13 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
         </div>
 
         {/* Storage details */}
+        {storageInfo.tierName && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Storage Tier:</span>
+            <span className="text-white font-medium">{storageInfo.tierName}</span>
+          </div>
+        )}
+
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Used:</span>
           <span className="text-white font-medium">{storageInfo.usedDisplay}</span>
