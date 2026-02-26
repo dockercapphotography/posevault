@@ -120,7 +120,24 @@ export const tutorialSteps = [
     placement: 'bottom',
   },
   
-  // Step 7: Complete
+  // Step 7: Notifications
+  {
+    target: '.tutorial-notification-bell',
+    content: (
+      <div>
+        <h3 className="text-lg font-bold mb-2">Notifications</h3>
+        <p className="text-gray-300 mb-3">
+          Tap the bell icon to view your notifications. You'll be alerted about activity such as completed syncs, shared galleries, and other important updates.
+        </p>
+        <p className="text-sm text-gray-400">
+          Tip: A red badge will appear when you have unread notifications.
+        </p>
+      </div>
+    ),
+    placement: 'bottom-end',
+  },
+
+  // Step 8: Complete
   {
     target: 'body',
     content: (
