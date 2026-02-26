@@ -37,7 +37,7 @@ export default function NotificationBell({ userId, unreadCount, notifications, o
           setIsOpen(!isOpen);
           if (!isOpen && onRefresh) onRefresh();
         }}
-        className="relative p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+        className="tutorial-notification-bell relative p-2 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
         title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
       >
         <Bell size={18} className="md:w-5 md:h-5" />

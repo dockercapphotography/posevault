@@ -79,7 +79,7 @@ export const tutorialSteps = [
       <div>
         <h3 className="text-lg font-bold mb-2">Gallery Settings</h3>
         <p className="text-gray-300">
-          Access gallery settings to add/change a cover photo, add notes, download your poses, mark galleries as private, or delete entire galleries and their contents.
+          Access gallery settings to add/change a cover photo, add notes, download your poses, mark galleries as private, share galleries with clients, or delete entire galleries and their contents.
         </p>
       </div>
     ),
@@ -120,7 +120,24 @@ export const tutorialSteps = [
     placement: 'bottom',
   },
   
-  // Step 7: Complete
+  // Step 7: Notifications
+  {
+    target: '.tutorial-notification-bell',
+    content: (
+      <div>
+        <h3 className="text-lg font-bold mb-2">Notifications</h3>
+        <p className="text-gray-300 mb-3">
+          Tap the bell icon to view your notifications. You’ll receive alerts about key gallery activity, including poses being marked as favorites, new users accessing shared galleries, comments on poses, pending gallery uploads, and expired shared gallery links. You can adjust which types of notifications you recieve or enable Do Not Disturb at any time.
+        </p>
+        <p className="text-sm text-gray-400">
+          Tip: A red badge will appear when you have unread notifications.
+        </p>
+      </div>
+    ),
+    placement: 'bottom-end',
+  },
+
+  // Step 8: Complete
   {
     target: 'body',
     content: (
