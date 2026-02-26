@@ -228,10 +228,17 @@ export default function SharedGalleryPage({ token }) {
 
     pollIntervalRef.current = setInterval(pollData, 30000);
 
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+    // Also refresh immediately when user returns to the tab (important on mobile)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        pollData();
       }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(pollIntervalRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [stage, shareInfo?.id, viewer?.id]);
 
@@ -401,6 +408,16 @@ export default function SharedGalleryPage({ token }) {
 
     for (let i = 0; i < filesToUpload.length; i++) {
       const file = filesToUpload[i];
+
+      // Enforce file size limit on the ORIGINAL file before compression
+      const maxSizeMb = shareInfo.maxUploadSizeMb || 10;
+      const maxSizeBytes = maxSizeMb * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        setUploadState({ status: 'error', message: `File exceeds ${maxSizeMb}MB limit` });
+        setTimeout(() => setUploadState(null), 5000);
+        return;
+      }
+
       setUploadState({
         status: 'uploading',
         message: total > 1
@@ -428,7 +445,7 @@ export default function SharedGalleryPage({ token }) {
         shareInfo.id,
         viewer.id,
         optimizedFile,
-        shareInfo.maxUploadSizeMb || 10,
+        maxSizeMb,
       );
 
       if (!result.ok) {

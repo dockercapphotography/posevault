@@ -7,7 +7,7 @@ export async function getUserStorageInfo(userId) {
   try {
     const { data, error } = await supabase
       .from('user_storage')
-      .select('current_storage, maximum_storage')
+      .select('current_storage, maximum_storage, storage_tier')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -16,24 +16,38 @@ export async function getUserStorageInfo(userId) {
       return { ok: false, error: error.message };
     }
 
+    // Fetch tier name if we have a tier ID
+    let tierName = 'Free';
+    const tierId = data?.storage_tier || 1;
+    const { data: tierData } = await supabase
+      .from('storage_tiers')
+      .select('name')
+      .eq('id', tierId)
+      .maybeSingle();
+    if (tierData?.name) {
+      tierName = tierData.name;
+    }
+
     if (!data) {
       // No storage record exists yet - return defaults
       return {
         ok: true,
         currentStorage: 0,
-        maxStorage: 1 * 1024 * 1024 * 1024, // Default 1GB in bytes
+        maxStorage: 500 * 1024 * 1024, // Default 500MB in bytes
         usedMB: 0,
-        maxMB: 1024,
-        availableMB: 1024,
+        maxMB: 500,
+        availableMB: 500,
         usedDisplay: '0.00MB',
-        maxDisplay: '1.00GB',
-        availableDisplay: '1.00GB',
-        percentUsed: 0
+        maxDisplay: '500MB',
+        availableDisplay: '500MB',
+        percentUsed: 0,
+        tierName,
+        tierId,
       };
     }
 
     const currentStorage = data.current_storage || 0;
-    const maxStorage = data.maximum_storage || (1 * 1024 * 1024 * 1024); // 1GB default
+    const maxStorage = data.maximum_storage || (500 * 1024 * 1024); // 500MB default
 
     // Calculate MB - use decimals for small values
     const usedMB = currentStorage / (1024 * 1024);
@@ -70,7 +84,9 @@ export async function getUserStorageInfo(userId) {
       usedDisplay: formatStorage(usedMB),
       maxDisplay: formatStorage(maxMB),
       availableDisplay: formatStorage(availableMB),
-      percentUsed: Math.min(percentUsed, 100)
+      percentUsed: Math.min(percentUsed, 100),
+      tierName,
+      tierId,
     };
   } catch (err) {
     console.error('User storage fetch exception:', err);

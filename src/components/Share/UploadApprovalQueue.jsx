@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Trash2, Upload, User, Clock, Loader2, AlertCircle, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
 import { getPendingUploads, approveUpload, rejectUpload, getShareUploads } from '../../utils/shareApi';
 import { getShareImageUrl } from '../../utils/shareApi';
@@ -18,9 +18,41 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
     return () => { document.body.style.overflow = 'unset'; };
   }, [embedded]);
 
+  const pollRef = useRef(null);
+
+  const loadUploads = useCallback(async (silent = false) => {
+    if (!shareConfig?.id) return;
+    if (!silent) setLoading(true);
+
+    const [pendingResult, approvedResult] = await Promise.all([
+      getPendingUploads(shareConfig.id),
+      getShareUploads(shareConfig.id, true),
+    ]);
+
+    if (pendingResult.ok) setPendingUploads(pendingResult.uploads);
+    if (approvedResult.ok) setApprovedUploads(approvedResult.uploads);
+
+    if (!silent) setLoading(false);
+  }, [shareConfig?.id]);
+
+  // Initial load + poll every 15s + refresh on tab re-focus
   useEffect(() => {
     loadUploads();
-  }, [shareConfig?.id]);
+
+    pollRef.current = setInterval(() => loadUploads(true), 15000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadUploads(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [loadUploads]);
 
   // Clean up selections when pending list changes (remove stale IDs)
   useEffect(() => {
@@ -31,21 +63,6 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
       return prev;
     });
   }, [pendingUploads]);
-
-  async function loadUploads() {
-    if (!shareConfig?.id) return;
-    setLoading(true);
-
-    const [pendingResult, approvedResult] = await Promise.all([
-      getPendingUploads(shareConfig.id),
-      getShareUploads(shareConfig.id, true),
-    ]);
-
-    if (pendingResult.ok) setPendingUploads(pendingResult.uploads);
-    if (approvedResult.ok) setApprovedUploads(approvedResult.uploads);
-
-    setLoading(false);
-  }
 
   async function handleApprove(upload) {
     setActionLoading(prev => ({ ...prev, [upload.id]: 'approving' }));
@@ -130,27 +147,29 @@ export default function UploadApprovalQueue({ shareConfig, token: shareToken, ac
                   Pending Approval ({pendingUploads.length})
                 </h3>
                 {pendingUploads.length > 1 && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 sm:gap-3">
                     <button
                       onClick={toggleSelectAll}
-                      className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-gray-700 sm:bg-transparent"
                     >
-                      {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-                      {allSelected ? 'Deselect All' : 'Select All'}
+                      {allSelected ? <CheckSquare size={16} className="sm:w-3 sm:h-3" /> : <Square size={16} className="sm:w-3 sm:h-3" />}
+                      <span className="hidden sm:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
                     </button>
                     <button
                       onClick={handleBulkApprove}
-                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-green-400 hover:text-green-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-green-600/20 sm:bg-transparent"
                     >
-                      <Check size={12} />
-                      {hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}
+                      <Check size={16} className="sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">{hasSelection ? `Approve (${selectedIds.size})` : 'Approve All'}</span>
+                      {hasSelection && <span className="sm:hidden text-[11px]">{selectedIds.size}</span>}
                     </button>
                     <button
                       onClick={handleBulkReject}
-                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1"
+                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1 p-2 sm:p-0 rounded-lg sm:rounded-none bg-red-600/20 sm:bg-transparent"
                     >
-                      <Trash2 size={12} />
-                      {hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}
+                      <Trash2 size={16} className="sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">{hasSelection ? `Reject (${selectedIds.size})` : 'Reject All'}</span>
+                      {hasSelection && <span className="sm:hidden text-[11px]">{selectedIds.size}</span>}
                     </button>
                   </div>
                 )}
@@ -289,7 +308,7 @@ function UploadCard({ upload, shareToken, isPending, selected, onToggleSelect, a
               ) : (
                 <Check size={12} className="shrink-0" />
               )}
-              <span className="truncate">Approve</span>
+              <span className="hidden sm:inline truncate">Approve</span>
             </button>
           )}
           {onReject && (
@@ -303,7 +322,7 @@ function UploadCard({ upload, shareToken, isPending, selected, onToggleSelect, a
               ) : (
                 <Trash2 size={12} className="shrink-0" />
               )}
-              <span className="truncate">{isPending ? 'Reject' : 'Remove'}</span>
+              <span className="hidden sm:inline truncate">{isPending ? 'Reject' : 'Remove'}</span>
             </button>
           )}
         </div>

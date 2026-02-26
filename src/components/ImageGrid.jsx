@@ -36,22 +36,32 @@ export default function ImageGrid({
   const gridColsClass = getGridColsClass(gridColumns);
   const fileInputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const handleDrop = (e) => {
     e.preventDefault();
+    dragCounterRef.current = 0;
     setDragOver(false);
     if (!e.dataTransfer.files?.length) return;
     onUploadImages({ target: { files: e.dataTransfer.files } }, category.id);
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    setDragOver(true);
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
-    setDragOver(true);
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
-    setDragOver(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setDragOver(false);
+    }
   };
 
   // Detect mobile device
@@ -76,6 +86,7 @@ export default function ImageGrid({
       <div
         className="p-6 max-w-6xl mx-auto relative"
         onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
@@ -127,6 +138,7 @@ export default function ImageGrid({
     <div
       className="p-6 max-w-6xl mx-auto relative"
       onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >

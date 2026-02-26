@@ -522,14 +522,26 @@ export async function updateUserStorage(userId, bytesAdded) {
         return { ok: false, error: error.message };
       }
     } else {
-      // Create new record (default 1GB max)
+      // Create new record — look up the default tier for storage limit
+      let defaultMaxStorage = 500 * 1024 * 1024; // 500MB fallback
+      let defaultTierId = 1;
+      const { data: tierData } = await supabase
+        .from('storage_tiers')
+        .select('id, storage_bytes')
+        .eq('is_default', true)
+        .maybeSingle();
+      if (tierData) {
+        defaultMaxStorage = tierData.storage_bytes;
+        defaultTierId = tierData.id;
+      }
+
       const { error } = await supabase
         .from('user_storage')
         .insert({
           user_id: userId,
           current_storage: bytesAdded,
-          maximum_storage: 1 * 1024 * 1024 * 1024, // 1GB default
-          storage_tier: 0,
+          maximum_storage: defaultMaxStorage,
+          storage_tier: defaultTierId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -566,7 +578,7 @@ export async function getUserStorage(userId) {
     return {
       ok: true,
       currentStorage: data?.current_storage || 0,
-      maximumStorage: data?.maximum_storage || 1 * 1024 * 1024 * 1024,
+      maximumStorage: data?.maximum_storage || 500 * 1024 * 1024,
       storageTier: data?.storage_tier || 0,
     };
   } catch (err) {

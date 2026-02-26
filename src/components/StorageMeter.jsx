@@ -43,10 +43,26 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
     const info = await getUserStorageInfo(userId);
     
     if (info.ok) {
-      console.log('Storage Info:', info);
       setStorageInfo(info);
     } else {
       console.error('Failed to load storage info:', info.error);
+      // Show fallback defaults so the UI doesn't stay stuck in loading state
+      if (!storageInfo) {
+        setStorageInfo({
+          ok: false,
+          currentStorage: 0,
+          maxStorage: 500 * 1024 * 1024,
+          usedMB: 0,
+          maxMB: 500,
+          availableMB: 500,
+          usedDisplay: '--',
+          maxDisplay: '--',
+          availableDisplay: '--',
+          percentUsed: 0,
+          tierName: '',
+          tierId: 1,
+        });
+      }
     }
     
     setIsLoading(false);
@@ -113,7 +129,14 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
         {/* Tooltip */}
         <div className={`absolute top-full right-0 mt-2 z-50 w-64 ${showTooltip ? 'block' : 'hidden group-hover:block'}`}>
           <div className="bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700">
-            <div className="text-xs text-gray-400 mb-2">Storage Usage</div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-400">Storage Usage</span>
+              {storageInfo.tierName && (
+                <span className="text-xs font-medium text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
+                  {storageInfo.tierName}
+                </span>
+              )}
+            </div>
             <div className="flex justify-between text-sm mb-2">
               <span className="text-white">
                 {storageInfo.usedDisplay} / {storageInfo.maxDisplay}
@@ -150,6 +173,11 @@ export default function StorageMeter({ compact = false, pauseRefresh = false, us
         <div className="flex items-center gap-2">
           <HardDrive size={20} className={colorClass} />
           <h3 className="font-semibold">Storage Usage</h3>
+          {storageInfo.tierName && (
+            <span className="text-xs font-medium text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-full">
+              {storageInfo.tierName}
+            </span>
+          )}
         </div>
         <span className={`text-sm font-medium ${colorClass}`}>
           {percentUsed.toFixed(1)}%

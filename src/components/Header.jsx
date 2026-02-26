@@ -42,11 +42,11 @@ export default function Header({
               <ChevronLeft size={20} className="md:w-6 md:h-6" />
             </button>
           )}
-          <div className="text-lg md:text-2xl font-bold truncate">
+          <div className="text-lg md:text-2xl font-bold truncate h-8 md:h-12 flex items-center">
             {viewMode === 'categories' ? (
-              <img 
-                src="/posevault-logo-white.svg" 
-                alt="PoseVault" 
+              <img
+                src="/posevault-logo-white.svg"
+                alt="PoseVault"
                 className="h-8 md:h-12 w-auto"
               />
             ) : (

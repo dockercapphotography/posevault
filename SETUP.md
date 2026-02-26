@@ -97,6 +97,23 @@ CREATE TABLE user_settings (
   UNIQUE(key, user_id)
 );
 
+-- Storage tiers (defines available plans)
+CREATE TABLE storage_tiers (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR NOT NULL UNIQUE,
+  storage_bytes BIGINT NOT NULL,
+  description TEXT DEFAULT '',
+  sort_order INT DEFAULT 0,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed default tiers
+INSERT INTO storage_tiers (name, storage_bytes, description, sort_order, is_default) VALUES
+  ('Free',   524288000,    '500 MB — for getting started',          0, true),
+  ('Pro',    2147483648,   '2 GB — for active photographers',       1, false),
+  ('Studio', 10737418240,  '10 GB — for professional studios',      2, false);
+
 -- User storage tracking
 CREATE TABLE user_storage (
   uid BIGSERIAL PRIMARY KEY,
@@ -104,7 +121,9 @@ CREATE TABLE user_storage (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   user_id UUID NOT NULL REFERENCES auth.users(id) UNIQUE,
   current_storage BIGINT DEFAULT 0,
-  maximum_storage BIGINT DEFAULT 1073741824  -- 1 GB
+  maximum_storage BIGINT DEFAULT 524288000,  -- 500 MB
+  storage_tier INT DEFAULT 1 REFERENCES storage_tiers(id),
+  is_admin BOOLEAN DEFAULT FALSE
 );
 ```
 
@@ -166,11 +185,35 @@ CREATE POLICY "Users can manage own settings"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- User storage policy
+-- User storage policies (self + admin access)
 CREATE POLICY "Users can manage own storage"
   ON user_storage FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Helper function to check admin status (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(
+    (SELECT is_admin FROM user_storage WHERE user_id = auth.uid()),
+    false
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE POLICY "Admins can read all user storage"
+  ON user_storage FOR SELECT
+  USING (auth.uid() = user_id OR is_admin());
+
+CREATE POLICY "Admins can update all user storage"
+  ON user_storage FOR UPDATE
+  USING (auth.uid() = user_id OR is_admin());
+
+-- Storage tiers (readable by everyone)
+ALTER TABLE storage_tiers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read storage tiers"
+  ON storage_tiers FOR SELECT
+  USING (true);
 ```
 
 ### Auto-Create Storage Record on Sign Up
@@ -180,9 +223,22 @@ Create a trigger so each new user automatically gets a storage record:
 ```sql
 CREATE OR REPLACE FUNCTION create_user_storage()
 RETURNS TRIGGER AS $$
+DECLARE
+  default_tier_id INT;
+  default_bytes BIGINT;
 BEGIN
-  INSERT INTO user_storage (user_id, current_storage, maximum_storage)
-  VALUES (NEW.id, 0, 1073741824);  -- 1 GB default
+  SELECT id, storage_bytes INTO default_tier_id, default_bytes
+    FROM storage_tiers
+    WHERE is_default = true
+    LIMIT 1;
+
+  IF default_tier_id IS NULL THEN
+    default_tier_id := 1;
+    default_bytes := 524288000;
+  END IF;
+
+  INSERT INTO user_storage (user_id, current_storage, maximum_storage, storage_tier)
+  VALUES (NEW.id, 0, default_bytes, default_tier_id);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
