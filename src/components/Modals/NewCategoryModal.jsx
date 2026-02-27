@@ -13,6 +13,7 @@ export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }
   const [privatePassword, setPrivatePassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [coverDragOver, setCoverDragOver] = useState(false);
   const coverInputRef = useRef(null);
 
   // Prevent body scroll when modal is open
@@ -44,6 +45,27 @@ export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCoverDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    handleCoverUpload({ target: { files: e.dataTransfer.files } });
+  };
+
+  const handleCoverDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(true);
+  };
+
+  const handleCoverDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(false);
   };
 
   const handleSubmit = () => {
@@ -120,12 +142,22 @@ export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }
             className="hidden"
           />
           {coverPreview ? (
-            <div className="relative">
+            <div
+              className="relative"
+              onDrop={handleCoverDrop}
+              onDragOver={handleCoverDragOver}
+              onDragLeave={handleCoverDragLeave}
+            >
               <img
                 src={coverPreview}
                 alt="Cover preview"
                 className="w-full h-32 object-cover rounded-lg"
               />
+              {coverDragOver && (
+                <div className="absolute inset-0 bg-purple-600/30 border-2 border-purple-400 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">Drop to replace</span>
+                </div>
+              )}
               <div className="absolute bottom-2 right-2 flex gap-2">
                 <button
                   onClick={() => coverInputRef.current?.click()}
@@ -147,10 +179,17 @@ export default function NewCategoryModal({ onClose, onAdd, allGalleryTags = [] }
           ) : (
             <button
               onClick={() => coverInputRef.current?.click()}
-              className="w-full h-24 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:border-purple-500 transition-colors cursor-pointer"
+              onDrop={handleCoverDrop}
+              onDragOver={handleCoverDragOver}
+              onDragLeave={handleCoverDragLeave}
+              className={`w-full h-24 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+                coverDragOver
+                  ? 'border-purple-400 bg-purple-600/20 text-white'
+                  : 'border-gray-600 text-gray-400 hover:text-white hover:border-purple-500'
+              }`}
             >
               <ImagePlus size={20} />
-              <span className="text-sm">Upload Cover Photo</span>
+              <span className="text-sm">{coverDragOver ? 'Drop image here' : 'Upload Cover Photo'}</span>
             </button>
           )}
         </div>

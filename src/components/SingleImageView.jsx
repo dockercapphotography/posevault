@@ -183,7 +183,8 @@ export default function SingleImageView({
     <div className="fixed inset-0 bg-black z-50">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
+        <div className="bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between min-h-[68px]">
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -219,22 +220,42 @@ export default function SingleImageView({
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              const idx = activeIndex;
-              onToggleFavorite(idx);
-            }}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-          >
-            <Heart
-              size={24}
-              className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
-            />
-          </button>
+          <div className="flex items-center gap-1">
+            {sharedGalleryId && (
+              <button
+                onClick={handleToggleComments}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer relative"
+              >
+                <MessageCircle
+                  size={24}
+                  className={showComments ? 'text-blue-400' : 'text-white'}
+                />
+                {currentImage?.viewerCommentCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 bg-blue-500 text-white text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5">
+                    {currentImage.viewerCommentCount}
+                  </span>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const idx = activeIndex;
+                onToggleFavorite(idx);
+              }}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <Heart
+                size={24}
+                className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
+              />
+            </button>
+          </div>
+          </div>
         </div>
 
         {/* Swiper Container */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <div className="max-w-7xl mx-auto relative h-full">
           <Swiper
             modules={[Navigation, Keyboard]}
             initialSlide={currentIndex}
@@ -294,12 +315,13 @@ export default function SingleImageView({
           >
             <ChevronRight size={24} />
           </button>
+          </div>
         </div>
 
         {/* Footer */}
         {currentImage && (
           <div className="bg-gray-900 p-3">
-            <div className="max-w-4xl mx-auto h-[32px]">
+            <div className="max-w-7xl mx-auto h-[32px]">
               <div className="flex items-center justify-between gap-4 h-full">
                 {/* Tags - max 3 - clickable */}
                 <div 
@@ -326,7 +348,7 @@ export default function SingleImageView({
                   )}
                 </div>
 
-                {/* Date, Comments, and Notes indicators */}
+                {/* Date and Notes indicators */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={14} />
@@ -341,19 +363,6 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
-                  {sharedGalleryId && (
-                    <button
-                      onClick={handleToggleComments}
-                      className="hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <MessageCircle size={14} className={showComments ? 'text-blue-400' : 'text-gray-400'} />
-                      {currentImage.viewerCommentCount > 0 && (
-                        <span className="text-[10px] text-blue-300 font-medium">
-                          {currentImage.viewerCommentCount}
-                        </span>
-                      )}
-                    </button>
-                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}

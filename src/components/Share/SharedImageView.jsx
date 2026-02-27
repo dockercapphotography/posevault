@@ -78,7 +78,8 @@ export default function SharedImageView({
     <div className="fixed inset-0 bg-black z-50 text-white">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
+        <div className="bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between min-h-[68px]">
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -95,24 +96,43 @@ export default function SharedImageView({
             </p>
           </div>
 
-          {/* Favorite button or spacer */}
-          {allowFavorites && onToggleFavorite ? (
-            <button
-              onClick={() => onToggleFavorite(currentImage?.id)}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <Heart
-                size={24}
-                className={currentImage && favorites.has(String(currentImage.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
-              />
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
+          <div className="flex items-center gap-1">
+            {allowComments && (
+              <button
+                onClick={() => setShowComments(!showComments)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer relative"
+              >
+                <MessageCircle
+                  size={24}
+                  className={showComments ? 'text-purple-400' : 'text-white'}
+                />
+                {(commentCounts[currentImage?.id] || 0) > 0 && (
+                  <span className="absolute top-0.5 right-0.5 bg-purple-500 text-white text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5">
+                    {commentCounts[currentImage.id]}
+                  </span>
+                )}
+              </button>
+            )}
+            {allowFavorites && onToggleFavorite ? (
+              <button
+                onClick={() => onToggleFavorite(currentImage?.id)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <Heart
+                  size={24}
+                  className={currentImage && favorites.has(String(currentImage.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
+                />
+              </button>
+            ) : (
+              !allowComments && <div className="w-10" />
+            )}
+          </div>
+          </div>
         </div>
 
         {/* Swiper Container */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <div className="max-w-7xl mx-auto relative h-full">
           <Swiper
             modules={[Navigation, Keyboard]}
             initialSlide={currentIndex}
@@ -172,12 +192,13 @@ export default function SharedImageView({
           >
             <ChevronRight size={24} />
           </button>
+          </div>
         </div>
 
         {/* Footer */}
         {currentImage && (
           <div className="bg-gray-900 p-3">
-            <div className="max-w-4xl mx-auto h-[32px]">
+            <div className="max-w-7xl mx-auto h-[32px]">
               <div className="flex items-center justify-between gap-4 h-full">
                 {/* Tags - max 3 - clickable */}
                 <div
@@ -204,21 +225,8 @@ export default function SharedImageView({
                   )}
                 </div>
 
-                {/* Notes + Comments indicators */}
+                {/* Notes indicator */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
-                  {allowComments && (
-                    <button
-                      onClick={() => setShowComments(!showComments)}
-                      className="hover:text-purple-300 transition-colors cursor-pointer relative flex items-center gap-1"
-                    >
-                      <MessageCircle size={14} className={showComments ? 'text-purple-400' : 'text-gray-400'} />
-                      {(commentCounts[currentImage?.id] || 0) > 0 && (
-                        <span className="text-[10px] text-purple-300 font-medium">
-                          {commentCounts[currentImage.id]}
-                        </span>
-                      )}
-                    </button>
-                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}
