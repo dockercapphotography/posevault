@@ -165,6 +165,20 @@ CREATE POLICY "Owners can delete comments on their galleries"
     )
   );
 
+-- 3e. share_comments: Owners can add comments on their galleries (from 006)
+DROP POLICY IF EXISTS "Owners can add comments on their galleries" ON share_comments;
+CREATE POLICY "Owners can add comments on their galleries"
+  ON share_comments
+  FOR INSERT
+  WITH CHECK (
+    owner_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM shared_galleries sg
+      WHERE sg.id = shared_gallery_id
+      AND sg.owner_id = auth.uid()
+    )
+  );
+
 
 -- ============================================
 -- 4. MISSING INDEXES ON FOREIGN KEY COLUMNS
