@@ -183,7 +183,8 @@ export default function SingleImageView({
     <div className="fixed inset-0 bg-black z-50">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="bg-gray-900 px-4 py-3 flex items-center justify-between min-h-[68px]">
+        <div className="bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between min-h-[68px]">
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -231,10 +232,12 @@ export default function SingleImageView({
               className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
             />
           </button>
+          </div>
         </div>
 
         {/* Swiper Container */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <div className="max-w-7xl mx-auto relative h-full">
           <Swiper
             modules={[Navigation, Keyboard]}
             initialSlide={currentIndex}
@@ -294,12 +297,13 @@ export default function SingleImageView({
           >
             <ChevronRight size={24} />
           </button>
+          </div>
         </div>
 
         {/* Footer */}
         {currentImage && (
           <div className="bg-gray-900 p-3">
-            <div className="max-w-4xl mx-auto h-[32px]">
+            <div className="max-w-7xl mx-auto h-[32px]">
               <div className="flex items-center justify-between gap-4 h-full">
                 {/* Tags - max 3 - clickable */}
                 <div 
