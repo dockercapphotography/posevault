@@ -96,20 +96,37 @@ export default function SharedImageView({
             </p>
           </div>
 
-          {/* Favorite button or spacer */}
-          {allowFavorites && onToggleFavorite ? (
-            <button
-              onClick={() => onToggleFavorite(currentImage?.id)}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <Heart
-                size={24}
-                className={currentImage && favorites.has(String(currentImage.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
-              />
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
+          <div className="flex items-center gap-1">
+            {allowComments && (
+              <button
+                onClick={() => setShowComments(!showComments)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer relative"
+              >
+                <MessageCircle
+                  size={24}
+                  className={showComments ? 'text-purple-400' : 'text-white'}
+                />
+                {(commentCounts[currentImage?.id] || 0) > 0 && (
+                  <span className="absolute top-0.5 right-0.5 bg-purple-500 text-white text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5">
+                    {commentCounts[currentImage.id]}
+                  </span>
+                )}
+              </button>
+            )}
+            {allowFavorites && onToggleFavorite ? (
+              <button
+                onClick={() => onToggleFavorite(currentImage?.id)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <Heart
+                  size={24}
+                  className={currentImage && favorites.has(String(currentImage.id)) ? 'fill-red-500 text-red-500' : 'text-white'}
+                />
+              </button>
+            ) : (
+              !allowComments && <div className="w-10" />
+            )}
+          </div>
           </div>
         </div>
 
@@ -208,21 +225,8 @@ export default function SharedImageView({
                   )}
                 </div>
 
-                {/* Notes + Comments indicators */}
+                {/* Notes indicator */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
-                  {allowComments && (
-                    <button
-                      onClick={() => setShowComments(!showComments)}
-                      className="hover:text-purple-300 transition-colors cursor-pointer relative flex items-center gap-1"
-                    >
-                      <MessageCircle size={14} className={showComments ? 'text-purple-400' : 'text-gray-400'} />
-                      {(commentCounts[currentImage?.id] || 0) > 0 && (
-                        <span className="text-[10px] text-purple-300 font-medium">
-                          {commentCounts[currentImage.id]}
-                        </span>
-                      )}
-                    </button>
-                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}

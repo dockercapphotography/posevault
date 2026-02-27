@@ -220,18 +220,36 @@ export default function SingleImageView({
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              const idx = activeIndex;
-              onToggleFavorite(idx);
-            }}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-          >
-            <Heart
-              size={24}
-              className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
-            />
-          </button>
+          <div className="flex items-center gap-1">
+            {sharedGalleryId && (
+              <button
+                onClick={handleToggleComments}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer relative"
+              >
+                <MessageCircle
+                  size={24}
+                  className={showComments ? 'text-blue-400' : 'text-white'}
+                />
+                {currentImage?.viewerCommentCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 bg-blue-500 text-white text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5">
+                    {currentImage.viewerCommentCount}
+                  </span>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const idx = activeIndex;
+                onToggleFavorite(idx);
+              }}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <Heart
+                size={24}
+                className={currentImage?.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}
+              />
+            </button>
+          </div>
           </div>
         </div>
 
@@ -330,7 +348,7 @@ export default function SingleImageView({
                   )}
                 </div>
 
-                {/* Date, Comments, and Notes indicators */}
+                {/* Date and Notes indicators */}
                 <div className="flex items-center gap-2 text-gray-400 text-xs whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={14} />
@@ -345,19 +363,6 @@ export default function SingleImageView({
                         : 'N/A'}
                     </span>
                   </div>
-                  {sharedGalleryId && (
-                    <button
-                      onClick={handleToggleComments}
-                      className="hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <MessageCircle size={14} className={showComments ? 'text-blue-400' : 'text-gray-400'} />
-                      {currentImage.viewerCommentCount > 0 && (
-                        <span className="text-[10px] text-blue-300 font-medium">
-                          {currentImage.viewerCommentCount}
-                        </span>
-                      )}
-                    </button>
-                  )}
                   {currentImage.notes && (
                     <button
                       onClick={() => setShowNotesModal(true)}
