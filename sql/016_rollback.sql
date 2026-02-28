@@ -352,4 +352,11 @@ DROP INDEX IF EXISTS idx_image_tags_image_uid;
 DROP INDEX IF EXISTS idx_image_tags_user_id;
 DROP INDEX IF EXISTS idx_tags_user_id;
 
+-- =============================================
+-- SECTION 15: Drop query performance indexes added by 016
+-- =============================================
+
+DROP INDEX IF EXISTS idx_images_created_at;
+DROP INDEX IF EXISTS idx_share_uploads_uploaded_at;
+
 COMMIT;

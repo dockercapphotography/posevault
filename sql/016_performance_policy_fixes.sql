@@ -398,4 +398,20 @@ CREATE INDEX IF NOT EXISTS idx_image_tags_user_id
 CREATE INDEX IF NOT EXISTS idx_tags_user_id
   ON tags(user_id);
 
+-- =============================================
+-- SECTION 15: Query performance indexes
+-- Suggested by Supabase index_advisor for the two
+-- highest-call-count application queries.
+-- =============================================
+
+-- Cover-image subquery: ORDER BY created_at DESC LIMIT 1
+-- (29,869 calls, ~7% of total DB time)
+CREATE INDEX IF NOT EXISTS idx_images_created_at
+  ON images(created_at);
+
+-- Share uploads listing: ORDER BY uploaded_at DESC
+-- (15,156 calls, ~1.5% of total DB time)
+CREATE INDEX IF NOT EXISTS idx_share_uploads_uploaded_at
+  ON share_uploads(uploaded_at);
+
 COMMIT;
