@@ -298,25 +298,37 @@ CREATE POLICY "Viewers and owners can add comments"
     )
   );
 
--- Merge 2 DELETE policies into 1 (also converts IN→EXISTS)
+-- Helper function to check if the current user/session can delete a comment.
+-- Encapsulates auth.uid() and auth.jwt() so they don't appear in the
+-- policy expression (the linter can't handle them inside subqueries).
+-- Same SECURITY DEFINER pattern as is_admin().
+CREATE OR REPLACE FUNCTION can_delete_share_comment(
+  p_shared_gallery_id UUID,
+  p_viewer_id UUID
+) RETURNS BOOLEAN AS $$
+  SELECT
+    -- Owner path: current user owns the gallery
+    EXISTS (
+      SELECT 1 FROM shared_galleries sg
+      WHERE sg.id = p_shared_gallery_id
+      AND sg.owner_id = (select auth.uid())
+    )
+    OR
+    -- Viewer path: current session matches the comment's viewer
+    EXISTS (
+      SELECT 1 FROM share_viewers sv
+      WHERE sv.id = p_viewer_id
+      AND sv.session_id = (select auth.jwt() ->> 'sub')
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- Merge 2 DELETE policies into 1
 DROP POLICY IF EXISTS "Owners can delete comments on their galleries" ON share_comments;
 DROP POLICY IF EXISTS "Viewers can delete own comments" ON share_comments;
 
 CREATE POLICY "Owners and viewers can delete comments"
   ON share_comments FOR DELETE
-  USING (
-    -- Owner path: current user owns the gallery this comment belongs to
-    (select auth.uid()) IN (
-      SELECT sg.owner_id FROM shared_galleries sg
-      WHERE sg.id = shared_gallery_id
-    )
-    OR
-    -- Viewer path: current session matches the comment's viewer
-    (select auth.jwt() ->> 'sub') IN (
-      SELECT sv.session_id FROM share_viewers sv
-      WHERE sv.id = viewer_id
-    )
-  );
+  USING (can_delete_share_comment(shared_gallery_id, viewer_id));
 
 -- =============================================
 -- SECTION 12: share_uploads — InitPlan fix on UPDATE and DELETE

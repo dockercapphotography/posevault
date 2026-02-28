@@ -279,6 +279,7 @@ CREATE POLICY "Owners can add comments on their galleries"
   );
 
 DROP POLICY IF EXISTS "Owners and viewers can delete comments" ON share_comments;
+DROP FUNCTION IF EXISTS can_delete_share_comment(UUID, UUID);
 
 CREATE POLICY "Owners can delete comments on their galleries"
   ON share_comments FOR DELETE
