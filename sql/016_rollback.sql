@@ -340,4 +340,15 @@ CREATE POLICY "Owners can read access logs"
     )
   );
 
+-- =============================================
+-- SECTION 14: Drop FK indexes added by 016
+-- =============================================
+
+DROP INDEX IF EXISTS idx_categories_cover_image_uid;
+DROP INDEX IF EXISTS idx_category_tags_category_uid;
+DROP INDEX IF EXISTS idx_category_tags_user_id;
+DROP INDEX IF EXISTS idx_image_tags_image_uid;
+DROP INDEX IF EXISTS idx_image_tags_user_id;
+DROP INDEX IF EXISTS idx_tags_user_id;
+
 COMMIT;

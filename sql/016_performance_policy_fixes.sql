@@ -361,4 +361,29 @@ CREATE POLICY "Owners can read access logs"
     )
   );
 
+-- =============================================
+-- SECTION 14: Missing FK indexes
+-- These FK columns have no covering index, which impacts
+-- JOIN performance and cascade DELETE operations.
+-- =============================================
+
+CREATE INDEX IF NOT EXISTS idx_categories_cover_image_uid
+  ON categories(cover_image_uid)
+  WHERE cover_image_uid IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_category_tags_category_uid
+  ON category_tags(category_uid);
+
+CREATE INDEX IF NOT EXISTS idx_category_tags_user_id
+  ON category_tags(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_image_tags_image_uid
+  ON image_tags(image_uid);
+
+CREATE INDEX IF NOT EXISTS idx_image_tags_user_id
+  ON image_tags(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_tags_user_id
+  ON tags(user_id);
+
 COMMIT;
