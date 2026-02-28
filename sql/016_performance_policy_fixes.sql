@@ -306,17 +306,15 @@ CREATE POLICY "Owners and viewers can delete comments"
   ON share_comments FOR DELETE
   USING (
     -- Owner path: can delete any comment on their gallery
-    EXISTS (
-      SELECT 1 FROM shared_galleries sg
-      WHERE sg.id = shared_gallery_id
-      AND sg.owner_id = (select auth.uid())
+    shared_gallery_id IN (
+      SELECT sg.id FROM shared_galleries sg
+      WHERE sg.owner_id = (select auth.uid())
     )
     OR
     -- Viewer path: can delete own comments (matched by session)
-    EXISTS (
-      SELECT 1 FROM share_viewers sv
-      WHERE sv.id = viewer_id
-      AND sv.session_id = (select current_setting('request.jwt.claims', true)::json->>'sub')
+    viewer_id IN (
+      SELECT sv.id FROM share_viewers sv
+      WHERE sv.session_id = (select current_setting('request.jwt.claims', true)::json->>'sub')
     )
   );
 
