@@ -344,18 +344,22 @@ export async function syncImageTags(imageUid, tags, userId) {
       console.error('image_tags SELECT error:', selectError);
     }
 
-    // Separately fetch tag names for current image_tags entries
-    const currentTagEntries = [];
-    for (const it of (currentTags || [])) {
-      const { data: tagData } = await supabase
+    // Batch-fetch tag names for all current image_tags (avoids N+1 queries)
+    const tagUids = (currentTags || []).map(it => it.tag_uid);
+    const tagNameLookup = {};
+    if (tagUids.length > 0) {
+      const { data: tagRows } = await supabase
         .from('tags')
-        .select('name')
-        .eq('uid', it.tag_uid)
-        .single();
-      if (tagData) {
-        currentTagEntries.push({ ...it, tagName: tagData.name });
+        .select('uid, name')
+        .in('uid', tagUids);
+      if (tagRows) {
+        tagRows.forEach(t => { tagNameLookup[t.uid] = t.name; });
       }
     }
+
+    const currentTagEntries = (currentTags || [])
+      .filter(it => tagNameLookup[it.tag_uid])
+      .map(it => ({ ...it, tagName: tagNameLookup[it.tag_uid] }));
 
     const currentTagNames = currentTagEntries.map(t => t.tagName);
     const newTagNames = tags.map(t => t.toLowerCase().trim());
@@ -428,18 +432,22 @@ export async function syncCategoryTags(categoryUid, tags, userId) {
       console.error('category_tags SELECT error:', selectError);
     }
 
-    // Separately fetch tag names for current entries
-    const currentTagEntries = [];
-    for (const ct of (currentTags || [])) {
-      const { data: tagData } = await supabase
+    // Batch-fetch tag names for all current category_tags (avoids N+1 queries)
+    const catTagUids = (currentTags || []).map(ct => ct.tag_uid);
+    const catTagNameLookup = {};
+    if (catTagUids.length > 0) {
+      const { data: tagRows } = await supabase
         .from('tags')
-        .select('name')
-        .eq('uid', ct.tag_uid)
-        .single();
-      if (tagData) {
-        currentTagEntries.push({ ...ct, tagName: tagData.name });
+        .select('uid, name')
+        .in('uid', catTagUids);
+      if (tagRows) {
+        tagRows.forEach(t => { catTagNameLookup[t.uid] = t.name; });
       }
     }
+
+    const currentTagEntries = (currentTags || [])
+      .filter(ct => catTagNameLookup[ct.tag_uid])
+      .map(ct => ({ ...ct, tagName: catTagNameLookup[ct.tag_uid] }));
 
     const currentTagNames = currentTagEntries.map(t => t.tagName);
     const newTagNames = tags.map(t => t.toLowerCase().trim());
@@ -932,26 +940,26 @@ export async function runCleanup(userId, accessToken, deleteR2File) {
       .eq('user_id', userId);
 
     if (userTags && userTags.length > 0) {
-      for (const tag of userTags) {
-        const { data: itRefs } = await supabase
-          .from('image_tags')
-          .select('uid')
-          .eq('tag_uid', tag.uid)
-          .limit(1);
+      // Batch-fetch all referenced tag_uids in 2 queries (avoids N+1)
+      const allTagUids = userTags.map(t => t.uid);
+      const referencedTagUids = new Set();
 
-        const { data: ctRefs } = await supabase
-          .from('category_tags')
-          .select('uid')
-          .eq('tag_uid', tag.uid)
-          .limit(1);
+      const [itResult, ctResult] = await Promise.all([
+        supabase.from('image_tags').select('tag_uid').in('tag_uid', allTagUids),
+        supabase.from('category_tags').select('tag_uid').in('tag_uid', allTagUids),
+      ]);
 
-        if ((!itRefs || itRefs.length === 0) && (!ctRefs || ctRefs.length === 0)) {
-          await supabase
-            .from('tags')
-            .delete()
-            .eq('uid', tag.uid)
-            .eq('user_id', userId);
-        }
+      (itResult.data || []).forEach(r => referencedTagUids.add(r.tag_uid));
+      (ctResult.data || []).forEach(r => referencedTagUids.add(r.tag_uid));
+
+      // Delete only the orphaned tags
+      const orphanedTags = allTagUids.filter(uid => !referencedTagUids.has(uid));
+      for (const tagUid of orphanedTags) {
+        await supabase
+          .from('tags')
+          .delete()
+          .eq('uid', tagUid)
+          .eq('user_id', userId);
       }
     }
 
