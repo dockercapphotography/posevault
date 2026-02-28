@@ -312,7 +312,7 @@ CREATE POLICY "Owners and viewers can delete comments"
     )
     OR
     -- Viewer path: current session matches the comment's viewer
-    (select current_setting('request.jwt.claims', true)::json->>'sub') IN (
+    (select auth.jwt() ->> 'sub') IN (
       SELECT sv.session_id FROM share_viewers sv
       WHERE sv.id = viewer_id
     )
