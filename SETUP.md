@@ -249,6 +249,331 @@ CREATE TRIGGER on_auth_user_created
   EXECUTE FUNCTION create_user_storage();
 ```
 
+### Gallery Sharing Tables
+
+These tables power the gallery sharing system (share links, guest interactions, comments, uploads):
+
+```sql
+-- Shared galleries
+CREATE TABLE shared_galleries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  gallery_id BIGINT NOT NULL REFERENCES categories(uid) ON DELETE CASCADE,
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  share_token TEXT NOT NULL UNIQUE,
+  password_hash TEXT,
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  allow_favorites BOOLEAN NOT NULL DEFAULT true,
+  allow_uploads BOOLEAN NOT NULL DEFAULT false,
+  allow_comments BOOLEAN NOT NULL DEFAULT false,
+  require_upload_approval BOOLEAN NOT NULL DEFAULT true,
+  favorites_visible_to_others BOOLEAN NOT NULL DEFAULT true,
+  max_uploads_per_viewer INTEGER,
+  max_upload_size_mb INTEGER NOT NULL DEFAULT 10,
+  lock_gallery_contents BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_shared_galleries_token ON shared_galleries(share_token);
+CREATE INDEX idx_shared_galleries_owner ON shared_galleries(owner_id);
+CREATE INDEX idx_shared_galleries_gallery ON shared_galleries(gallery_id);
+
+-- Share viewers (guest sessions)
+CREATE TABLE share_viewers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_share_viewers_gallery ON share_viewers(shared_gallery_id);
+CREATE INDEX idx_share_viewers_session ON share_viewers(session_id);
+
+-- Share access log
+CREATE TABLE share_access_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  viewer_id UUID REFERENCES share_viewers(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  image_id BIGINT,
+  accessed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_share_access_log_gallery ON share_access_log(shared_gallery_id);
+CREATE INDEX idx_share_access_log_viewer ON share_access_log(viewer_id);
+
+-- Share favorites
+CREATE TABLE share_favorites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  image_id TEXT NOT NULL,
+  viewer_id UUID NOT NULL REFERENCES share_viewers(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(shared_gallery_id, image_id, viewer_id)
+);
+
+CREATE INDEX idx_share_favorites_gallery ON share_favorites(shared_gallery_id);
+CREATE INDEX idx_share_favorites_viewer ON share_favorites(viewer_id);
+
+-- Share uploads (guest-submitted images)
+CREATE TABLE share_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  original_filename TEXT,
+  viewer_id UUID NOT NULL REFERENCES share_viewers(id) ON DELETE CASCADE,
+  approved BOOLEAN NOT NULL DEFAULT false,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  file_size BIGINT DEFAULT 0,
+  is_favorite BOOLEAN NOT NULL DEFAULT false,
+  display_name TEXT,
+  notes TEXT NOT NULL DEFAULT '',
+  tags TEXT[] NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX idx_share_uploads_gallery ON share_uploads(shared_gallery_id);
+CREATE INDEX idx_share_uploads_viewer ON share_uploads(viewer_id);
+CREATE INDEX idx_share_uploads_pending ON share_uploads(shared_gallery_id, approved) WHERE approved = false;
+
+-- Share comments
+CREATE TABLE share_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  image_id TEXT NOT NULL,
+  viewer_id UUID REFERENCES share_viewers(id) ON DELETE CASCADE,
+  owner_id UUID REFERENCES auth.users(id),
+  comment_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT comment_author_check CHECK (viewer_id IS NOT NULL OR owner_id IS NOT NULL)
+);
+
+CREATE INDEX idx_share_comments_gallery ON share_comments(shared_gallery_id);
+CREATE INDEX idx_share_comments_image ON share_comments(shared_gallery_id, image_id);
+CREATE INDEX idx_share_comments_viewer ON share_comments(viewer_id);
+```
+
+### Sharing RLS Policies
+
+```sql
+-- Enable RLS
+ALTER TABLE shared_galleries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE share_viewers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE share_access_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE share_favorites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE share_uploads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE share_comments ENABLE ROW LEVEL SECURITY;
+
+-- shared_galleries: owners manage their own, anyone can read active shares
+CREATE POLICY "Owners can manage their shares"
+  ON shared_galleries FOR ALL
+  USING (owner_id = auth.uid())
+  WITH CHECK (owner_id = auth.uid());
+
+CREATE POLICY "Anyone can read active shares by token"
+  ON shared_galleries FOR SELECT
+  USING (is_active = true);
+
+-- share_viewers: anyone can create and read sessions
+CREATE POLICY "Anyone can create a viewer session"
+  ON share_viewers FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can read viewer sessions"
+  ON share_viewers FOR SELECT USING (true);
+
+-- share_access_log: anyone can insert, owners can read
+CREATE POLICY "Anyone can log share access"
+  ON share_access_log FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Owners can read access logs"
+  ON share_access_log FOR SELECT
+  USING (shared_gallery_id IN (
+    SELECT id FROM shared_galleries WHERE owner_id = auth.uid()
+  ));
+
+-- share_favorites: anyone can add/remove/read
+CREATE POLICY "Viewers can add favorites"
+  ON share_favorites FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Viewers can remove their own favorites"
+  ON share_favorites FOR DELETE USING (true);
+
+CREATE POLICY "Anyone can read favorites"
+  ON share_favorites FOR SELECT USING (true);
+
+-- share_uploads: viewers can upload, owners can manage
+CREATE POLICY "Viewers can upload images"
+  ON share_uploads FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can read uploads"
+  ON share_uploads FOR SELECT USING (true);
+
+CREATE POLICY "Owners can update uploads"
+  ON share_uploads FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM shared_galleries sg
+    WHERE sg.id = share_uploads.shared_gallery_id AND sg.owner_id = auth.uid()
+  ));
+
+CREATE POLICY "Owners can delete uploads"
+  ON share_uploads FOR DELETE
+  USING (EXISTS (
+    SELECT 1 FROM shared_galleries sg
+    WHERE sg.id = share_uploads.shared_gallery_id AND sg.owner_id = auth.uid()
+  ));
+
+-- share_comments: viewers and owners can add, owners can moderate
+CREATE POLICY "Viewers can add comments"
+  ON share_comments FOR INSERT
+  WITH CHECK (shared_gallery_id IN (
+    SELECT id FROM shared_galleries WHERE allow_comments = true AND is_active = true
+  ));
+
+CREATE POLICY "Owners can add comments on their galleries"
+  ON share_comments FOR INSERT
+  WITH CHECK (owner_id = auth.uid() AND shared_gallery_id IN (
+    SELECT id FROM shared_galleries WHERE owner_id = auth.uid()
+  ));
+
+CREATE POLICY "Anyone can read comments"
+  ON share_comments FOR SELECT
+  USING (shared_gallery_id IN (
+    SELECT id FROM shared_galleries WHERE is_active = true
+  ));
+
+CREATE POLICY "Owners can delete comments on their galleries"
+  ON share_comments FOR DELETE
+  USING (shared_gallery_id IN (
+    SELECT id FROM shared_galleries WHERE owner_id = auth.uid()
+  ));
+```
+
+### Notification Tables
+
+```sql
+-- Notifications
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  shared_gallery_id UUID NOT NULL REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('view', 'favorite', 'upload_pending', 'comment', 'share_expired')),
+  message TEXT NOT NULL,
+  viewer_id UUID REFERENCES share_viewers(id) ON DELETE SET NULL,
+  image_id TEXT,
+  is_read BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = false;
+CREATE INDEX idx_notifications_gallery ON notifications(shared_gallery_id);
+CREATE INDEX idx_notifications_created ON notifications(user_id, created_at DESC);
+
+-- Notification preferences
+CREATE TABLE notification_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  shared_gallery_id UUID REFERENCES shared_galleries(id) ON DELETE CASCADE,
+  notify_on_view BOOLEAN NOT NULL DEFAULT false,
+  notify_on_favorite BOOLEAN NOT NULL DEFAULT true,
+  notify_on_upload BOOLEAN NOT NULL DEFAULT true,
+  notify_on_comment BOOLEAN NOT NULL DEFAULT true,
+  notify_on_expiry BOOLEAN NOT NULL DEFAULT true,
+  quiet_mode BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, shared_gallery_id)
+);
+
+CREATE INDEX idx_notification_prefs_user ON notification_preferences(user_id);
+
+-- RLS
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own notifications"
+  ON notifications FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notifications"
+  ON notifications FOR UPDATE
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own notifications"
+  ON notifications FOR DELETE USING (user_id = auth.uid());
+
+CREATE POLICY "Anyone can create notifications"
+  ON notifications FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can manage own notification preferences"
+  ON notification_preferences FOR ALL
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Anyone can read notification preferences"
+  ON notification_preferences FOR SELECT USING (true);
+```
+
+### Admin Panel Setup
+
+The admin panel requires an RPC function to fetch user data and RLS policies for tier management:
+
+```sql
+-- RPC function to fetch user list (joins user_storage with auth.users)
+CREATE OR REPLACE FUNCTION get_admin_user_list()
+RETURNS TABLE (
+  uid BIGINT,
+  user_id UUID,
+  current_storage BIGINT,
+  maximum_storage BIGINT,
+  storage_tier INT,
+  is_admin BOOLEAN,
+  created_at TIMESTAMPTZ,
+  display_name TEXT,
+  email TEXT
+) AS $$
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'Access denied: admin only';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    us.uid::BIGINT, us.user_id::UUID,
+    us.current_storage::BIGINT, us.maximum_storage::BIGINT,
+    us.storage_tier::INT, us.is_admin::BOOLEAN, us.created_at::TIMESTAMPTZ,
+    COALESCE(TRIM(
+      COALESCE(au.raw_user_meta_data->>'firstName', '') || ' ' ||
+      COALESCE(au.raw_user_meta_data->>'lastName', '')
+    ), '')::TEXT AS display_name,
+    COALESCE(au.email, '')::TEXT AS email
+  FROM user_storage us
+  LEFT JOIN auth.users au ON au.id = us.user_id
+  ORDER BY us.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION get_admin_user_list() TO authenticated;
+
+-- Allow admins to manage storage tiers
+CREATE POLICY "Admins can insert storage tiers"
+  ON storage_tiers FOR INSERT WITH CHECK (is_admin());
+
+CREATE POLICY "Admins can update storage tiers"
+  ON storage_tiers FOR UPDATE USING (is_admin());
+
+CREATE POLICY "Admins can delete storage tiers"
+  ON storage_tiers FOR DELETE USING (is_admin());
+```
+
+After running the admin setup, promote yourself to admin:
+
+```sql
+UPDATE user_storage SET is_admin = true WHERE user_id = 'YOUR-USER-UUID-HERE';
+```
+
+> **Note:** All of the SQL above is also available as incremental migration files in the `sql/` directory, numbered `001` through `016`. You can run them in order if you prefer a step-by-step approach.
+
 ## 3. Cloudflare R2 Setup
 
 ### Create a Bucket
@@ -279,13 +604,28 @@ npx wrangler deploy
 
 Note the deployed worker URL (e.g. `https://r2-worker.your-subdomain.workers.dev`).
 
-### Supabase Edge Function for Account Deletion
+### Supabase Edge Functions
 
-When a user deletes their account, a Supabase Edge Function handles bulk R2 file cleanup in the background. Create this in the Supabase Dashboard under Edge Functions:
+PoseVault uses several Supabase Edge Functions. The sharing and notification functions are included in the `supabase/functions/` directory and can be deployed with the Supabase CLI:
 
-**Function name:** `delete-user-r2-files`
+```bash
+supabase functions deploy cleanup-expired-shares
+supabase functions deploy create-notification
+supabase functions deploy get-share-activity-summary
+supabase functions deploy validate-share-access
+```
 
-The function needs these secrets set in its configuration:
+Additionally, create a `delete-user-r2-files` Edge Function in the Supabase Dashboard for account deletion. This handles bulk R2 file cleanup when a user deletes their account.
+
+| Function | Purpose |
+|----------|---------|
+| `delete-user-r2-files` | Bulk R2 file cleanup on account deletion |
+| `cleanup-expired-shares` | Automatic cleanup of expired share links |
+| `create-notification` | Create notifications for share activity |
+| `get-share-activity-summary` | Aggregate activity stats for shared galleries |
+| `validate-share-access` | Validate share tokens and password access |
+
+The `delete-user-r2-files` function needs these secrets:
 
 | Secret | Description |
 |--------|-------------|
@@ -353,6 +693,15 @@ This was a known issue with IndexedDB persistence. Ensure you have the latest `u
 
 **Account deletion fails**
 Check that the `delete-user-r2-files` Edge Function is deployed and its secrets are configured. Look at the Edge Function logs in Supabase for errors.
+
+**Shared gallery link returns "not found"**
+Verify the `shared_galleries` table exists and RLS policies are in place. Anonymous users need the `"Anyone can read active shares by token"` SELECT policy. Check that the share hasn't expired (`expires_at`) or been deactivated (`is_active = false`).
+
+**Notifications not appearing**
+Ensure the `notifications` and `notification_preferences` tables are created with RLS policies. Check that the `create-notification` Edge Function is deployed. Verify the user hasn't enabled quiet mode in their notification preferences.
+
+**Admin panel shows "Access denied"**
+The admin panel requires `is_admin = true` in the `user_storage` table. Set it manually: `UPDATE user_storage SET is_admin = true WHERE user_id = 'YOUR-UUID';`. Also ensure the `get_admin_user_list()` RPC function is created and granted to the `authenticated` role.
 
 ---
 
