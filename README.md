@@ -10,7 +10,7 @@ Built as a Progressive Web App (PWA) — install it on your phone or tablet for 
 
 ### Gallery Management
 - Create unlimited galleries to organize poses by category (couples, family, maternity, etc.)
-- Custom cover photos for each gallery
+- Custom cover photos for each gallery with repositioning support
 - Gallery-level tags and notes
 - Favorite galleries for quick access
 - Private galleries with optional password protection
@@ -20,8 +20,26 @@ Built as a Progressive Web App (PWA) — install it on your phone or tablet for 
 - Upload images with automatic WebP conversion and optimization
 - Per-image pose names, tags, and notes
 - Favorite individual poses
-- Full-screen image viewer with swipe navigation and full-screen zoom
+- Full-screen image viewer with swipe navigation
+- Fullscreen pinch-to-zoom viewer with double-tap zoom
 - Bulk select, edit, tag, and delete operations
+
+### Gallery Sharing
+- Generate shareable links for any gallery
+- Optional password protection and expiration dates
+- Guest name entry gate for visitor identification
+- Guests can favorite images within shared galleries
+- Guest uploads with configurable approval workflow
+- Image comments from both guests and gallery owners
+- Per-share controls: favorites visibility, upload limits, content locking
+- Activity tracking and access logs
+
+### Notifications
+- In-app notification bell with unread count
+- Real-time notification feed for share activity (views, favorites, uploads, comments)
+- Per-gallery notification preferences (toggle by event type)
+- Activity summary dashboard
+- Quiet mode to mute all notifications
 
 ### Tagging and Filtering
 - Tag-based organization at both gallery and image levels
@@ -50,10 +68,18 @@ Built as a Progressive Web App (PWA) — install it on your phone or tablet for 
 - Mobile-responsive design with touch gesture support
 - Install as PWA on iOS, Android, and desktop
 
+### Admin Panel
+- Dedicated `/admin` route for admin users
+- User management with search (view all registered users)
+- Storage tier management — create, edit, and delete tiers (Free, Pro, Studio)
+- Per-user storage allocation and tier assignment
+- Admin role toggle for other users
+
 ### Account Management
 - Email/password authentication via Supabase Auth
 - Update name, email, and password in-app
 - Full account deletion with R2 image cleanup via Edge Function
+- Storage tier system (Free 500 MB, Pro 2 GB, Studio 10 GB)
 
 ## Tech Stack
 
@@ -67,6 +93,7 @@ Built as a Progressive Web App (PWA) — install it on your phone or tablet for 
 | PDF Generation | jsPDF |
 | ZIP Downloads | JSZip |
 | Image Viewer | Swiper |
+| Fullscreen Zoom | react-zoom-pan-pinch |
 | Tutorials | react-joyride |
 | Icons | Lucide React |
 
@@ -83,9 +110,26 @@ posevault/
 │   └── docker-cap-logo.svg
 ├── r2-worker/
 │   └── src/index.js             # Cloudflare Worker for R2 upload/fetch/delete
+├── sql/                         # Incremental database migrations
+│   ├── 001_shared_galleries.sql
+│   ├── 002_share_favorites.sql
+│   ├── 003_share_uploads.sql
+│   ├── 004_share_upload_metadata.sql
+│   ├── 005_share_comments.sql
+│   ├── 006_owner_comments.sql
+│   ├── 007_notifications.sql
+│   ├── 010_storage_tiers.sql
+│   ├── 012_admin_panel_enhancements.sql
+│   └── ...                      # Security and performance fixes
+├── supabase/
+│   └── functions/               # Supabase Edge Functions
+│       ├── cleanup-expired-shares/
+│       ├── create-notification/
+│       ├── get-share-activity-summary/
+│       └── validate-share-access/
 ├── src/
 │   ├── App.jsx                  # Main application orchestrator
-│   ├── main.jsx                 # React entry point
+│   ├── main.jsx                 # React entry point (routes: /, /share/:token, /admin)
 │   ├── supabaseClient.js        # Supabase client initialization
 │   ├── components/
 │   │   ├── LoginScreen.jsx      # Auth UI (login, register, password reset)
@@ -95,32 +139,51 @@ posevault/
 │   │   ├── ImageCard.jsx        # Individual image thumbnail
 │   │   ├── ImageGrid.jsx        # Image grid with filter/sort/bulk ops
 │   │   ├── SingleImageView.jsx  # Full-screen image viewer with swipe
+│   │   ├── FullscreenViewer.jsx # Pinch-to-zoom fullscreen image viewer
+│   │   ├── TruncatedName.jsx    # Truncated text with tooltip
 │   │   ├── UserMenu.jsx         # User dropdown menu
 │   │   ├── UserSettingsModal.jsx # Account settings, grid prefs, delete account
 │   │   ├── StorageMeter.jsx     # Visual storage usage bar
 │   │   ├── StorageLimitModal.jsx # Storage limit warning
 │   │   ├── OfflineIndicator.jsx # Offline status banner
-│   │   └── Modals/
-│   │       ├── NewCategoryModal.jsx
-│   │       ├── CategorySettingsModal.jsx
-│   │       ├── CategorySettingsDropdown.jsx
-│   │       ├── DeleteConfirmModal.jsx
-│   │       ├── ImageEditModal.jsx
-│   │       ├── FilterModal.jsx
-│   │       ├── BulkEditModal.jsx
-│   │       ├── GalleryFilterModal.jsx
-│   │       ├── GalleryBulkEditModal.jsx
-│   │       ├── UploadProgressModal.jsx
-│   │       ├── PrivateGalleryWarning.jsx
-│   │       ├── PDFOptionsModal.jsx
-│   │       ├── MobileUploadModal.jsx
-│   │       └── TagFilterModal.jsx
+│   │   ├── Modals/
+│   │   │   ├── NewCategoryModal.jsx
+│   │   │   ├── CategorySettingsModal.jsx
+│   │   │   ├── CategorySettingsDropdown.jsx
+│   │   │   ├── DeleteConfirmModal.jsx
+│   │   │   ├── ImageEditModal.jsx
+│   │   │   ├── FilterModal.jsx
+│   │   │   ├── BulkEditModal.jsx
+│   │   │   ├── GalleryFilterModal.jsx
+│   │   │   ├── GalleryBulkEditModal.jsx
+│   │   │   ├── UploadProgressModal.jsx
+│   │   │   ├── PrivateGalleryWarning.jsx
+│   │   │   ├── PDFOptionsModal.jsx
+│   │   │   ├── MobileUploadModal.jsx
+│   │   │   └── TagFilterModal.jsx
+│   │   ├── Share/
+│   │   │   ├── ShareConfigModal.jsx    # Share link creation and settings
+│   │   │   ├── SharedGalleryViewer.jsx # Shared gallery view for guests
+│   │   │   ├── SharedImageView.jsx     # Full-screen viewer for shared images
+│   │   │   ├── SharePasswordGate.jsx   # Password entry for protected shares
+│   │   │   ├── NameEntryGate.jsx       # Guest name entry screen
+│   │   │   ├── CommentSection.jsx      # Image comments (guest + owner)
+│   │   │   └── UploadApprovalQueue.jsx # Approve/reject guest uploads
+│   │   └── Notifications/
+│   │       ├── NotificationBell.jsx          # Header bell icon with unread count
+│   │       ├── NotificationFeed.jsx          # Notification list dropdown
+│   │       ├── NotificationPreferences.jsx   # Per-gallery notification settings
+│   │       └── ActivitySummaryDashboard.jsx  # Share activity overview
 │   ├── hooks/
 │   │   ├── useAuth.js           # Authentication state management
+│   │   ├── useAdmin.js          # Admin role detection
 │   │   ├── useCategories.js     # Category/image CRUD with IndexedDB persistence
 │   │   ├── useTutorial.js       # Main tutorial state
 │   │   ├── useImageTutorial.js  # Image gallery tutorial state
 │   │   └── useOnlineStatus.js   # Network connectivity detection
+│   ├── pages/
+│   │   ├── AdminPage.jsx        # Admin panel (user management, tier management)
+│   │   └── SharedGalleryPage.jsx # Public shared gallery view
 │   └── utils/
 │       ├── storage.js           # IndexedDB storage adapter
 │       ├── helpers.js           # Pure functions (filtering, sorting, tag utils)
@@ -134,6 +197,8 @@ posevault/
 │       ├── zipDownloader.js     # ZIP gallery export
 │       ├── crypto.js            # Password hashing for private galleries
 │       ├── storageEstimate.js   # Browser storage estimation
+│       ├── shareApi.js          # Gallery sharing CRUD, guest actions, comments
+│       ├── notificationApi.js   # Notification creation, fetching, preferences
 │       ├── tutorialSteps.jsx    # Main tutorial step definitions
 │       └── imageTutorialSteps.jsx # Image tutorial step definitions
 ├── .env.example                 # Environment variable template

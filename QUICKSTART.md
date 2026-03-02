@@ -49,8 +49,12 @@ Static output goes to `dist/`, ready to deploy anywhere (Cloudflare Pages, Verce
 | **Image Storage** | Cloudflare R2 via Worker proxy |
 | **PWA** | Installable on mobile and desktop, offline-capable |
 | **Onboarding** | Sample gallery + interactive tutorial for new users |
+| **Gallery Sharing** | Shareable links with guest favorites, uploads, and comments |
+| **Notifications** | In-app notification feed for share activity |
+| **Admin Panel** | User management, storage tier management at `/admin` |
 
 ## Need More?
 
-- **Full setup from scratch** (database tables, R2, Edge Functions) → [SETUP.md](SETUP.md)
+- **Full setup from scratch** (database tables, sharing, notifications, R2, Edge Functions) → [SETUP.md](SETUP.md)
 - **Feature overview and project structure** → [README.md](README.md)
+- **SQL migrations** for incremental schema updates → `sql/` directory
