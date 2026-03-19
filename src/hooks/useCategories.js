@@ -10,16 +10,22 @@ export const useCategories = (currentUser) => {
   const pendingSaveRef = useRef(null);
   const latestCategoriesRef = useRef(categories);
 
+  // Wrap setCategories to synchronously update the ref BEFORE React renders.
+  // This prevents forceSave from reading stale data when called immediately
+  // after a state update (e.g. at the end of background uploads).
+  const setCategoriesSync = (updater) => {
+    setCategories(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      latestCategoriesRef.current = next;
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (currentUser) {
       loadFromStorage();
     }
   }, [currentUser]);
-
-  // Keep ref up to date with latest categories
-  useEffect(() => {
-    latestCategoriesRef.current = categories;
-  }, [categories]);
 
   // Debounced save - prevents multiple rapid saves during uploads
   useEffect(() => {
@@ -61,13 +67,13 @@ export const useCategories = (currentUser) => {
             notes: img.notes || ''
           }))
         }));
-        setCategories(migratedCategories);
+        setCategoriesSync(migratedCategories);
       } else {
-        setCategories([]);
+        setCategoriesSync([]);
       }
     } catch (error) {
       console.log('No saved data found, starting with empty categories');
-      setCategories([]);
+      setCategoriesSync([]);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +112,7 @@ export const useCategories = (currentUser) => {
   };
 
   const addCategory = (name, privateSettings = {}) => {
-    setCategories(prev => {
+    setCategoriesSync(prev => {
       const newId = Math.max(...prev.map(c => c.id), 0) + 1;
       return [...prev, {
         id: newId,
@@ -123,29 +129,29 @@ export const useCategories = (currentUser) => {
   };
 
   const updateCategory = (categoryId, updates) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, ...updates } : cat
     ));
   };
 
   const deleteCategory = (categoryId) => {
-    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+    setCategoriesSync(prev => prev.filter(cat => cat.id !== categoryId));
   };
 
   const toggleCategoryFavorite = (categoryId) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, isFavorite: !cat.isFavorite } : cat
     ));
   };
 
   const addImages = (categoryId, newImages) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId ? { ...cat, images: [...cat.images, ...newImages] } : cat
     ));
   };
 
   const updateImage = (categoryId, imageIndex, updates) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -157,8 +163,23 @@ export const useCategories = (currentUser) => {
     ));
   };
 
+  // Update image by localId — safe for concurrent background operations
+  // where array indices may shift due to deletions.
+  const updateImageByLocalId = (categoryId, localId, updates) => {
+    setCategoriesSync(prev => prev.map(cat =>
+      cat.id === categoryId
+        ? {
+            ...cat,
+            images: cat.images.map(img =>
+              img.localId === localId ? { ...img, ...updates } : img
+            )
+          }
+        : cat
+    ));
+  };
+
   const deleteImage = (categoryId, imageIndex) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => i !== imageIndex) }
         : cat
@@ -166,7 +187,7 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkUpdateImages = (categoryId, imageIndices, updates) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId
         ? {
             ...cat,
@@ -200,7 +221,7 @@ export const useCategories = (currentUser) => {
   };
 
   const bulkDeleteImages = (categoryId, imageIndices) => {
-    setCategories(prev => prev.map(cat =>
+    setCategoriesSync(prev => prev.map(cat =>
       cat.id === categoryId
         ? { ...cat, images: cat.images.filter((_, i) => !imageIndices.includes(i)) }
         : cat
@@ -209,7 +230,7 @@ export const useCategories = (currentUser) => {
 
   // Bulk update categories (for gallery bulk edit)
   const bulkUpdateCategories = (categoryIds, updates) => {
-    setCategories(prev => prev.map(cat => {
+    setCategoriesSync(prev => prev.map(cat => {
       if (!categoryIds.includes(cat.id)) return cat;
 
       let updatedCat = { ...cat };
@@ -240,12 +261,12 @@ export const useCategories = (currentUser) => {
 
   // Bulk delete categories (for gallery bulk edit)
   const bulkDeleteCategories = (categoryIds) => {
-    setCategories(prev => prev.filter(cat => !categoryIds.includes(cat.id)));
+    setCategoriesSync(prev => prev.filter(cat => !categoryIds.includes(cat.id)));
   };
 
   // Replace all categories (used by cloud sync to populate local state)
   const replaceAllCategories = (newCategories) => {
-    setCategories(newCategories);
+    setCategoriesSync(newCategories);
   };
 
   const forceSave = async () => {
@@ -285,6 +306,7 @@ export const useCategories = (currentUser) => {
     toggleCategoryFavorite,
     addImages,
     updateImage,
+    updateImageByLocalId,
     deleteImage,
     bulkUpdateImages,
     bulkDeleteImages,
