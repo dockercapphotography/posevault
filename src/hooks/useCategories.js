@@ -38,11 +38,13 @@ export const useCategories = (currentUser) => {
         clearTimeout(saveTimeoutRef.current);
       }
 
-      // Debounce: wait 500ms after last change before saving
-      // Capture categories in the closure to avoid stale data
-      const categoriesToSave = categories;
+      // Debounce: wait 500ms after last change before saving.
+      // Read from the ref at fire-time (not a stale closure) so that
+      // a timeout scheduled during an intermediate render always saves
+      // the most current data — preventing it from overwriting a later
+      // forceSave with stale state.
       saveTimeoutRef.current = setTimeout(() => {
-        saveToStorage(categoriesToSave);
+        saveToStorage(latestCategoriesRef.current);
       }, 500);
     }
 
@@ -296,6 +298,16 @@ export const useCategories = (currentUser) => {
 
     // Use ref to get the absolute latest categories, even if state hasn't updated yet
     await saveToStorage(latestCategoriesRef.current);
+
+    // Clear any debounced save that was scheduled while we were saving
+    // (the useEffect can fire during our await). The debounced save now reads
+    // from the ref so it wouldn't overwrite with stale data, but clearing it
+    // avoids a redundant write.
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    pendingSaveRef.current = null;
   };
 
   return {
