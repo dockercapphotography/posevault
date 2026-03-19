@@ -13,12 +13,15 @@ export const useCategories = (currentUser) => {
   // Wrap setCategories to synchronously update the ref BEFORE React renders.
   // This prevents forceSave from reading stale data when called immediately
   // after a state update (e.g. at the end of background uploads).
+  //
+  // The key insight: we apply the updater to the REF (synchronous, immediate),
+  // then pass the computed result to setCategories as a plain value.
+  // React may batch/delay setCategories, but the ref is always up-to-date.
   const setCategoriesSync = (updater) => {
-    setCategories(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      latestCategoriesRef.current = next;
-      return next;
-    });
+    const prev = latestCategoriesRef.current;
+    const next = typeof updater === 'function' ? updater(prev) : updater;
+    latestCategoriesRef.current = next;
+    setCategories(next);
   };
 
   useEffect(() => {
