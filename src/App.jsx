@@ -1410,6 +1410,12 @@ export default function PhotographyPoseGuide() {
       // Add all processed images to local storage first (fast)
       addImages(categoryId, images);
 
+      // Persist to IndexedDB immediately so all images survive a page refresh.
+      // The debounced save can't be relied on here because the background upload
+      // workers start updating state immediately, which keeps rescheduling the
+      // debounced timeout — so it never fires during active uploads.
+      await forceSave();
+
       // Show completion state for local storage
       setUploadComplete(true);
 
