@@ -333,6 +333,12 @@ export default function PhotographyPoseGuide() {
 
       const { categories: supabaseCategories, images: supabaseImages, imageTagsLookup } = cloudData;
 
+      // Diagnostic: log image counts from cloud vs local
+      const localImageCount = categoriesRef.current.reduce((sum, c) => sum + (c.images?.length || 0), 0);
+      const localWithUid = categoriesRef.current.reduce((sum, c) => sum + (c.images?.filter(i => i.supabaseUid)?.length || 0), 0);
+      const localWithR2Key = categoriesRef.current.reduce((sum, c) => sum + (c.images?.filter(i => i.r2Key)?.length || 0), 0);
+      console.log(`📊 Sync diagnostic: ${localImageCount} local images (${localWithUid} with supabaseUid, ${localWithR2Key} with r2Key), ${supabaseImages.length} cloud images`);
+
       // Group images by category_uid
       const imagesByCategoryUid = {};
       for (const img of supabaseImages) {
@@ -344,9 +350,11 @@ export default function PhotographyPoseGuide() {
 
       if (!hasLocalData) {
         // ---- FRESH SYNC: No local data, pull everything from cloud ----
+        console.log('📊 Using FULL CLOUD PULL (no local data)');
         await fullCloudPull(supabaseCategories, imagesByCategoryUid, imageTagsLookup, accessToken, silent);
       } else {
         // ---- INCREMENTAL MERGE: Merge cloud changes into existing local data ----
+        console.log('📊 Using INCREMENTAL MERGE (has local data)');
         await mergeCloudIntoLocal(supabaseCategories, supabaseImages, imagesByCategoryUid, imageTagsLookup, accessToken, userId, silent);
       }
 
@@ -809,14 +817,43 @@ export default function PhotographyPoseGuide() {
     }
 
     // ---- 4. Remove locally-synced images that were deleted in cloud ----
+    // IMPORTANT: Only remove images that were truly deleted in cloud (no local data).
+    // Images with valid R2 data (r2Key) whose supabaseUid is missing from cloud
+    // should NOT be deleted — their Supabase record likely failed to create.
+    // Instead, clear their supabaseUid so retryFailedUploads can re-create it.
     const finalCategories = filtered.map(cat => {
       if (!cat.supabaseUid) return cat;
       const originalLen = cat.images.length;
-      const filteredImages = cat.images.filter(img => {
-        if (!img.supabaseUid) return true;
-        return cloudImageUids.has(img.supabaseUid);
-      });
-      if (filteredImages.length !== originalLen) {
+      let imagesModified = false;
+      const filteredImages = [];
+      for (const img of cat.images) {
+        if (!img.supabaseUid) {
+          // Local-only image, always keep
+          filteredImages.push(img);
+          continue;
+        }
+        if (cloudImageUids.has(img.supabaseUid)) {
+          // Exists in cloud, keep as-is
+          filteredImages.push(img);
+          continue;
+        }
+        // supabaseUid not found in cloud — was it truly deleted, or did the record fail to create?
+        if (img.r2Key) {
+          // Image has valid R2 data — don't delete it. Clear its supabaseUid so
+          // retryFailedUploads will re-create the missing Supabase record.
+          console.warn(
+            `Merge: image in "${cat.name}" has r2Key (${img.r2Key}) but supabaseUid ` +
+            `(${img.supabaseUid}) not found in cloud. Clearing UID for retry instead of deleting.`
+          );
+          filteredImages.push({ ...img, supabaseUid: null, r2Status: 'uploaded' });
+          imagesModified = true;
+          continue;
+        }
+        // No r2Key and not in cloud — genuinely deleted, remove it
+        console.log(`Merge: removing image from "${cat.name}" — deleted in cloud (uid: ${img.supabaseUid})`);
+        imagesModified = true;
+      }
+      if (imagesModified || filteredImages.length !== originalLen) {
         changed = true;
         return { ...cat, images: filteredImages };
       }
