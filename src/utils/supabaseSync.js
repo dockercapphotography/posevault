@@ -999,20 +999,41 @@ export async function runCleanup(userId, accessToken, deleteR2File) {
     // Keep the oldest record (lowest uid) for each r2_key and hard-delete the rest.
     let dedupedCount = 0;
     try {
-      const { data: allImages, error: allImgErr } = await supabase
-        .from('images')
-        .select('uid, r2_key, image_size')
-        .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('uid', { ascending: true });
+      // Paginate to avoid Supabase's 1000-row default limit
+      let allImages = [];
+      let dedupFrom = 0;
+      const DEDUP_PAGE = 1000;
+      while (true) {
+        const { data: batch, error: batchErr } = await supabase
+          .from('images')
+          .select('uid, r2_key, image_size')
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .order('uid', { ascending: true })
+          .range(dedupFrom, dedupFrom + DEDUP_PAGE - 1);
 
-      if (!allImgErr && allImages && allImages.length > 0) {
+        if (batchErr) {
+          console.error('Dedup fetch error:', batchErr);
+          break;
+        }
+        if (batch && batch.length > 0) {
+          allImages = allImages.concat(batch);
+        }
+        if (!batch || batch.length < DEDUP_PAGE) break;
+        dedupFrom += DEDUP_PAGE;
+      }
+
+      if (allImages.length > 0) {
         const seenR2Keys = {};
         const duplicateUids = [];
         let dupBytes = 0;
+        let nullR2KeyCount = 0;
 
         for (const img of allImages) {
-          if (!img.r2_key) continue;
+          if (!img.r2_key) {
+            nullR2KeyCount++;
+            continue;
+          }
           if (seenR2Keys[img.r2_key]) {
             // This is a duplicate — mark for deletion
             duplicateUids.push(img.uid);
@@ -1021,6 +1042,9 @@ export async function runCleanup(userId, accessToken, deleteR2File) {
             seenR2Keys[img.r2_key] = img.uid;
           }
         }
+
+        const uniqueR2Keys = Object.keys(seenR2Keys).length;
+        console.log(`Dedup scan: ${allImages.length} total rows, ${uniqueR2Keys} unique r2_keys, ${duplicateUids.length} duplicates, ${nullR2KeyCount} with null r2_key`);
 
         if (duplicateUids.length > 0) {
           console.log(`Dedup: found ${duplicateUids.length} duplicate image rows, removing...`);
