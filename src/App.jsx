@@ -590,10 +590,12 @@ export default function PhotographyPoseGuide() {
       }));
 
       let coverSrc = null;
+      let coverR2Key = null;
       if (cat.cover_image_uid) {
         const coverLocal = localImages.find(li => li.supabaseUid === cat.cover_image_uid);
         if (coverLocal) {
           coverSrc = coverLocal.src;
+          coverR2Key = coverLocal.r2Key || null;
         }
       }
 
@@ -602,6 +604,7 @@ export default function PhotographyPoseGuide() {
         name: cat.name,
         cover: coverSrc,
         coverImageUid: cat.cover_image_uid || null,
+        coverR2Key,
         coverPositionY: cat.cover_position_y ?? 50,
         images: localImages,
         isFavorite: cat.favorite || false,
@@ -677,9 +680,13 @@ export default function PhotographyPoseGuide() {
       }));
 
       let coverSrc = null;
+      let coverR2Key = null;
       if (cloudCat.cover_image_uid) {
         const coverLocal = localImages.find(li => li.supabaseUid === cloudCat.cover_image_uid);
-        if (coverLocal) coverSrc = coverLocal.src;
+        if (coverLocal) {
+          coverSrc = coverLocal.src;
+          coverR2Key = coverLocal.r2Key || null;
+        }
       }
 
       updatedCategories.push({
@@ -687,6 +694,7 @@ export default function PhotographyPoseGuide() {
         name: cloudCat.name,
         cover: coverSrc,
         coverImageUid: cloudCat.cover_image_uid || null,
+        coverR2Key,
         coverPositionY: cloudCat.cover_position_y ?? 50,
         images: localImages,
         isFavorite: cloudCat.favorite || false,
@@ -720,9 +728,19 @@ export default function PhotographyPoseGuide() {
           const coverImg = localCat.images.find(img => img.supabaseUid === cloudCat.cover_image_uid);
           if (coverImg?.src) {
             catUpdates.cover = coverImg.src;
+            catUpdates.coverR2Key = coverImg.r2Key || null;
           }
         } else {
           catUpdates.cover = null;
+          catUpdates.coverR2Key = null;
+        }
+      } else if (cloudCat.cover_image_uid && !localCat.cover) {
+        // Re-resolve cover src when coverImageUid matches but cover is missing
+        // (e.g., R2 fetch failed on previous sync)
+        const coverImg = localCat.images.find(img => img.supabaseUid === cloudCat.cover_image_uid);
+        if (coverImg?.src) {
+          catUpdates.cover = coverImg.src;
+          catUpdates.coverR2Key = coverImg.r2Key || null;
         }
       }
       if ((cloudCat.cover_position_y ?? 50) !== (localCat.coverPositionY ?? 50)) catUpdates.coverPositionY = cloudCat.cover_position_y ?? 50;
