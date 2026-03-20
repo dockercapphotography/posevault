@@ -624,16 +624,30 @@ export async function fetchFullCloudData(userId) {
       return { ok: true, categories: [], images: [], imageTagsLookup: {} };
     }
 
-    // Fetch all images for this user
-    const { data: images, error: imgError } = await supabase
-      .from('images')
-      .select('*')
-      .eq('user_id', userId)
-      .is('deleted_at', null);
+    // Fetch all images for this user (paginated to avoid Supabase's 1000-row default limit)
+    let images = [];
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    while (true) {
+      const { data: batch, error: imgError } = await supabase
+        .from('images')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .range(from, from + PAGE_SIZE - 1);
 
-    if (imgError) {
-      console.error('Cloud pull: images fetch error:', imgError);
-      return { ok: false, error: imgError.message };
+      if (imgError) {
+        console.error('Cloud pull: images fetch error:', imgError);
+        return { ok: false, error: imgError.message };
+      }
+
+      if (batch && batch.length > 0) {
+        images = images.concat(batch);
+      }
+
+      // If we got fewer than PAGE_SIZE rows, we've fetched everything
+      if (!batch || batch.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
 
     // Fetch all tags for this user
