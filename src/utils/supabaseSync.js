@@ -123,6 +123,23 @@ export async function deleteCategory(categoryUid, userId) {
  */
 export async function createImage(imageData, categoryUid, userId) {
   try {
+    // Check if an image with this r2_key already exists (prevents duplicates from retry loops)
+    if (imageData.r2Key) {
+      const { data: existing } = await supabase
+        .from('images')
+        .select('uid')
+        .eq('r2_key', imageData.r2Key)
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        console.log('Image already exists in Supabase for r2Key, returning existing uid:', existing.uid);
+        return { ok: true, uid: existing.uid };
+      }
+    }
+
     const { data, error } = await supabase
       .from('images')
       .insert({
@@ -977,9 +994,68 @@ export async function runCleanup(userId, accessToken, deleteR2File) {
       }
     }
 
-    console.log(`Cleanup complete: ${deletedImages} images, ${deletedCategories} categories, ${freedBytes} bytes freed, ${errors.length} errors`);
+    // ---- Step: Deduplicate images with the same r2_key ----
+    // The retry loop previously created duplicate Supabase rows for the same R2 file.
+    // Keep the oldest record (lowest uid) for each r2_key and hard-delete the rest.
+    let dedupedCount = 0;
+    try {
+      const { data: allImages, error: allImgErr } = await supabase
+        .from('images')
+        .select('uid, r2_key, image_size')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('uid', { ascending: true });
 
-    return { ok: true, deletedImages, deletedCategories, freedBytes, errors };
+      if (!allImgErr && allImages && allImages.length > 0) {
+        const seenR2Keys = {};
+        const duplicateUids = [];
+        let dupBytes = 0;
+
+        for (const img of allImages) {
+          if (!img.r2_key) continue;
+          if (seenR2Keys[img.r2_key]) {
+            // This is a duplicate — mark for deletion
+            duplicateUids.push(img.uid);
+            dupBytes += img.image_size || 0;
+          } else {
+            seenR2Keys[img.r2_key] = img.uid;
+          }
+        }
+
+        if (duplicateUids.length > 0) {
+          console.log(`Dedup: found ${duplicateUids.length} duplicate image rows, removing...`);
+          // Hard-delete in batches of 50
+          for (let i = 0; i < duplicateUids.length; i += 50) {
+            const batch = duplicateUids.slice(i, i + 50);
+            const { error: delErr } = await supabase
+              .from('images')
+              .delete()
+              .in('uid', batch);
+
+            if (delErr) {
+              console.error('Dedup delete error:', delErr);
+              errors.push(`Dedup delete error: ${delErr.message}`);
+            } else {
+              dedupedCount += batch.length;
+            }
+          }
+
+          // Reclaim the storage from duplicates
+          if (dupBytes > 0) {
+            await updateUserStorage(userId, -dupBytes);
+            freedBytes += dupBytes;
+          }
+          console.log(`Dedup: removed ${dedupedCount} duplicate rows, freed ${dupBytes} bytes of storage accounting`);
+        }
+      }
+    } catch (dedupErr) {
+      console.error('Dedup exception:', dedupErr);
+      errors.push(`Dedup exception: ${dedupErr.message}`);
+    }
+
+    console.log(`Cleanup complete: ${deletedImages} images, ${dedupedCount} duplicates, ${deletedCategories} categories, ${freedBytes} bytes freed, ${errors.length} errors`);
+
+    return { ok: true, deletedImages, dedupedCount, deletedCategories, freedBytes, errors };
   } catch (err) {
     console.error('Cleanup exception:', err);
     return { ok: false, deletedImages, deletedCategories, freedBytes, errors: [...errors, err.message] };
